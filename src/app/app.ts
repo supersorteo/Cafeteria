@@ -158,7 +158,7 @@ export class App implements AfterViewInit, OnDestroy {
   private readonly revealObserver?: IntersectionObserver;
   private readonly counterObserver?: IntersectionObserver;
   private readonly counterTimers: number[] = [];
-  private readonly whatsappNumber = '5215512345678';
+  private readonly whatsappNumber = '+59896909509';
 
   constructor() {
     if (typeof IntersectionObserver !== 'undefined') {
