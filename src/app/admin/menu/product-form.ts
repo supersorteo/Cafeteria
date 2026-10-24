@@ -5,6 +5,7 @@ import { isConnectionProblem, toProblem } from '../../core/api-error';
 import { MenuItem } from '../../core/catalog.models';
 import { NoticeService } from '../../core/notice.service';
 import { notBlank } from '../../shared/forms';
+import { Modal } from '../../shared/ui/modal';
 import { ACCEPTED_IMAGE_TYPES, ImageAction, MenuStore, validateImageFile } from './menu.store';
 
 function twoDecimals(control: AbstractControl<number | null>): ValidationErrors | null {
@@ -13,112 +14,103 @@ function twoDecimals(control: AbstractControl<number | null>): ValidationErrors 
 }
 
 @Component({
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, Modal],
   selector: 'app-product-form',
-  host: { '(document:keydown.escape)': 'cancel()' },
   template: `
-    <div class="fixed inset-0 z-40 overflow-y-auto px-4 py-8" style="background:rgba(61,29,46,.55)">
-      <div role="dialog" aria-modal="true" aria-labelledby="item-form-title" class="mx-auto w-full max-w-xl bg-white rounded-3xl p-6 md:p-8 shadow-2xl">
-        <h2 id="item-form-title" class="font-display text-2xl font-black" style="color:var(--plum)">
-          {{ base() ? 'Editar producto' : 'Nuevo producto' }}
-        </h2>
-
-        <form [formGroup]="form" (ngSubmit)="submit()" class="mt-6 space-y-5" novalidate>
+    <app-modal [heading]="base() ? 'Editar producto' : 'Nuevo producto'" size="md" [dismissable]="!saving() && !uploading()" (closed)="cancel()">
+        <form id="product-form" [formGroup]="form" (ngSubmit)="submit()" class="space-y-5" novalidate>
           @if (conflict()) {
-            <div role="alert" class="rounded-2xl p-4 text-sm font-bold" style="background:#FFF1D6;color:var(--plum)">
+            <div role="alert" class="rounded-ui-md p-4 text-sm font-bold bg-warning/15 text-ink">
               Este producto cambió mientras lo editabas, así que tus cambios no se guardaron para no pisar los de la otra persona.
               <button type="button" data-reload (click)="reloadAfterConflict()" class="underline ml-1">Recargar y editar de nuevo</button>
             </div>
           }
 
           <div>
-            <label for="item-category" class="text-xs font-bold uppercase tracking-widest text-teal">Categoría</label>
-            <select id="item-category" formControlName="categoryId" class="field mt-2 w-full px-4 py-3 text-sm font-medium">
+            <label for="item-category" class="text-xs font-bold uppercase tracking-wider text-muted">Categoría</label>
+            <select id="item-category" formControlName="categoryId" class="input mt-2">
               @for (category of store.categories(); track category.id) {
                 <option [value]="category.id">{{ category.name }}</option>
               }
             </select>
-            @if (error('categoryId'); as message) { <p class="mt-1 text-xs font-bold" style="color:#E63946">{{ message }}</p> }
+            @if (error('categoryId'); as message) { <p class="mt-1 text-xs font-bold text-danger">{{ message }}</p> }
           </div>
 
           <div>
-            <label for="item-name" class="text-xs font-bold uppercase tracking-widest text-teal">Nombre</label>
-            <input id="item-name" formControlName="name" maxlength="120" class="field mt-2 w-full px-4 py-3 text-sm font-medium">
-            @if (error('name'); as message) { <p class="mt-1 text-xs font-bold" style="color:#E63946">{{ message }}</p> }
+            <label for="item-name" class="text-xs font-bold uppercase tracking-wider text-muted">Nombre</label>
+            <input id="item-name" formControlName="name" maxlength="120" class="input mt-2">
+            @if (error('name'); as message) { <p class="mt-1 text-xs font-bold text-danger">{{ message }}</p> }
           </div>
 
           <div>
-            <label for="item-description" class="text-xs font-bold uppercase tracking-widest text-teal">Descripción (opcional)</label>
+            <label for="item-description" class="text-xs font-bold uppercase tracking-wider text-muted">Descripción (opcional)</label>
             <textarea id="item-description" formControlName="description" rows="3" maxlength="2000"
-                      class="field mt-2 w-full px-4 py-3 text-sm font-medium resize-none"></textarea>
-            @if (error('description'); as message) { <p class="mt-1 text-xs font-bold" style="color:#E63946">{{ message }}</p> }
+                      class="input mt-2 resize-none"></textarea>
+            @if (error('description'); as message) { <p class="mt-1 text-xs font-bold text-danger">{{ message }}</p> }
           </div>
 
           <div class="grid sm:grid-cols-2 gap-5">
             <div>
-              <label for="item-price" class="text-xs font-bold uppercase tracking-widest text-teal">Precio</label>
+              <label for="item-price" class="text-xs font-bold uppercase tracking-wider text-muted">Precio</label>
               <input id="item-price" type="number" inputmode="decimal" step="0.01" min="0" formControlName="price"
-                     class="field mt-2 w-full px-4 py-3 text-sm font-medium">
-              @if (error('price'); as message) { <p class="mt-1 text-xs font-bold" style="color:#E63946">{{ message }}</p> }
+                     class="input mt-2">
+              @if (error('price'); as message) { <p class="mt-1 text-xs font-bold text-danger">{{ message }}</p> }
             </div>
             <div>
-              <label for="item-tag" class="text-xs font-bold uppercase tracking-widest text-teal">Etiqueta (opcional)</label>
-              <input id="item-tag" formControlName="tag" maxlength="40" placeholder="Ej. Clásico" class="field mt-2 w-full px-4 py-3 text-sm font-medium">
-              @if (error('tag'); as message) { <p class="mt-1 text-xs font-bold" style="color:#E63946">{{ message }}</p> }
+              <label for="item-tag" class="text-xs font-bold uppercase tracking-wider text-muted">Etiqueta (opcional)</label>
+              <input id="item-tag" formControlName="tag" maxlength="40" placeholder="Ej. Clásico" class="input mt-2">
+              @if (error('tag'); as message) { <p class="mt-1 text-xs font-bold text-danger">{{ message }}</p> }
             </div>
           </div>
 
-          <label class="flex items-center gap-3 text-sm font-bold" style="color:var(--plum)">
-            <input type="checkbox" formControlName="active" class="w-5 h-5"> Visible en el sitio (activo)
+          <label class="flex items-center gap-3 text-sm font-bold text-ink">
+            <input type="checkbox" formControlName="active" class="w-5 h-5 accent-[rgb(var(--primary))]"> Visible en el sitio (activo)
           </label>
 
-          <fieldset class="rounded-2xl border-2 p-4" style="border-color:rgba(61,29,46,.12)">
-            <legend class="px-2 text-xs font-bold uppercase tracking-widest text-teal">Imagen</legend>
+          <fieldset class="rounded-ui-lg border border-line p-4">
+            <legend class="px-2 text-xs font-bold uppercase tracking-wider text-muted">Imagen</legend>
             <div class="flex items-center gap-4">
               @if (image().url; as url) {
-                <img [src]="url" alt="Vista previa del producto" class="w-20 h-20 rounded-xl object-cover">
+                <img [src]="url" alt="Vista previa del producto" class="w-20 h-20 rounded-ui-md object-cover">
               } @else {
-                <div class="w-20 h-20 rounded-xl flex items-center justify-center text-xs font-bold" style="background:var(--cream2);color:#5b4150">Sin foto</div>
+                <div class="w-20 h-20 rounded-ui-md flex items-center justify-center text-xs font-bold bg-surface-2 text-muted">Sin foto</div>
               }
               <div class="flex flex-wrap gap-2">
-                <label for="item-image" class="cursor-pointer rounded-full border-2 px-4 py-2 text-xs font-bold uppercase tracking-widest"
-                       [class.opacity-60]="uploading()" style="border-color:var(--plum);color:var(--plum)">
+                <label for="item-image" class="btn btn-secondary btn-sm cursor-pointer"
+                       [class.opacity-60]="uploading()">
                   {{ image().url ? 'Cambiar imagen' : 'Subir imagen' }}
                 </label>
                 <input id="item-image" type="file" class="sr-only" [accept]="acceptedTypes" [disabled]="uploading()" (change)="onFile($event)">
                 @if (image().url) {
                   <button type="button" data-remove-image (click)="removeCurrentImage()" [disabled]="uploading()"
-                          class="rounded-full px-4 py-2 text-xs font-bold uppercase tracking-widest" style="color:#E63946">Quitar imagen</button>
+                          class="btn btn-ghost btn-sm text-danger">Quitar imagen</button>
                 }
               </div>
             </div>
             @if (uploading()) {
               <div class="mt-3" role="progressbar" aria-label="Subiendo imagen" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="progress()">
-                <div class="h-2 rounded-full" style="background:var(--cream2)"><div class="h-2 rounded-full bg-coral" [style.width.%]="progress()"></div></div>
-                <p class="mt-1 text-xs font-bold" style="color:#5b4150">Subiendo… {{ progress() }}%</p>
+                <div class="h-2 rounded-full bg-surface-2"><div class="h-2 rounded-full bg-primary" [style.width.%]="progress()"></div></div>
+                <p class="mt-1 text-xs font-bold text-muted">Subiendo… {{ progress() }}%</p>
               </div>
             }
             @if (uploadError(); as message) {
-              <p role="alert" class="mt-3 text-xs font-bold" style="color:#E63946">{{ message }}</p>
+              <p role="alert" class="mt-3 text-xs font-bold text-danger">{{ message }}</p>
             }
-            <p class="mt-3 text-xs font-medium" style="color:#5b4150">JPEG, PNG o WebP, hasta 5 MB. Las imágenes publicadas son públicas.</p>
+            <p class="mt-3 text-xs font-medium text-muted">JPEG, PNG o WebP, hasta 5 MB. Las imágenes publicadas son públicas.</p>
           </fieldset>
 
           @if (serverError(); as message) {
-            <p role="alert" class="text-sm font-bold" style="color:#E63946">{{ message }}</p>
+            <p role="alert" class="text-sm font-bold text-danger">{{ message }}</p>
           }
 
-          <div class="flex justify-end gap-3 pt-2">
-            <button type="button" data-cancel (click)="cancel()" class="rounded-full border-2 px-6 py-2.5 text-xs font-bold uppercase tracking-widest"
-                    style="border-color:rgba(61,29,46,.2);color:var(--plum)">Cancelar</button>
-            <button type="submit" data-save [disabled]="saving() || uploading()"
-                    class="rounded-full bg-coral text-white px-6 py-2.5 text-xs font-bold uppercase tracking-widest hover:brightness-110 disabled:opacity-60">
-              {{ saving() ? 'Guardando…' : 'Guardar' }}
-            </button>
-          </div>
         </form>
+      <div modal-footer class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+        <button type="button" data-cancel (click)="cancel()" [disabled]="saving()" class="btn btn-secondary">Cancelar</button>
+        <button type="submit" form="product-form" data-save [disabled]="saving() || uploading()" class="btn btn-primary" [class.btn-loading]="saving()">
+          {{ saving() ? 'Guardando…' : 'Guardar' }}
+        </button>
       </div>
-    </div>
+    </app-modal>
   `,
 })
 export class ProductForm implements OnInit, OnDestroy {

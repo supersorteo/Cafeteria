@@ -133,26 +133,32 @@ describe('MenuPage', () => {
   describe('categories', () => {
     it('should validate a blank name without calling the server', async () => {
       await start();
-      submitOf('app-category-panel section > form');
+      click('[data-new-category]');
+      await ui();
+      submitOf('app-category-panel form');
       await ui();
       expect(text()).toContain('Escribe un nombre');
     });
 
     it('should create a category and list it', async () => {
       await start();
+      click('[data-new-category]');
+      await ui();
       type('#new-category', '  Entrantes ');
-      submitOf('app-category-panel section > form');
+      submitOf('app-category-panel form');
       const request = await answer(http, `${ADMIN}/categories`, { id: 'c3', name: 'Entrantes', sortOrder: 2, version: 0 }, { status: 201, statusText: 'Created' }, 'POST');
       await ui();
       expect(request.request.body).toEqual({ name: 'Entrantes' });
       expect(text()).toContain('Entrantes');
-      expect((root().querySelector('#new-category') as HTMLInputElement).value).toBe('');
+      expect(root().querySelector('#new-category')).toBeNull();
     });
 
     it('should explain the category limit', async () => {
       await start();
+      click('[data-new-category]');
+      await ui();
       type('#new-category', 'Una más');
-      submitOf('app-category-panel section > form');
+      submitOf('app-category-panel form');
       await answer(http, `${ADMIN}/categories`, { code: 'limit_reached' }, { status: 409, statusText: 'Conflict' }, 'POST');
       await ui();
       expect(text()).toContain('máximo de 30 categorías');

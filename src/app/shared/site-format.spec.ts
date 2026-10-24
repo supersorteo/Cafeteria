@@ -1,4 +1,4 @@
-import { formatReservationDate, tagColor, titleParts, todayInZone } from './site-format';
+import { formatReservationDate, readableOn, rgbTriplet, tagColor, titleParts, todayInZone } from './site-format';
 
 describe('titleParts', () => {
   it('should mark emphasized segments and line breaks without producing HTML', () => {
@@ -48,5 +48,18 @@ describe('formatReservationDate', () => {
     expect(formatted).toContain('2026');
     expect(formatted).toContain('marzo');
     expect(formatted).toContain('5');
+  });
+});
+
+describe('color helpers', () => {
+  it('should convert hex colors to RGB triplets and fall back on invalid input', () => {
+    expect(rgbTriplet('#FF5C39', '0 0 0')).toBe('255 92 57');
+    expect(rgbTriplet('rojo', '1 2 3')).toBe('1 2 3');
+  });
+
+  it('should pick a readable foreground for light and dark backgrounds', () => {
+    expect(readableOn('#FFE08A')).toBe('42 20 32');
+    expect(readableOn('#1E3A8A')).toBe('255 255 255');
+    expect(readableOn('no-es-color')).toBe('255 255 255');
   });
 });

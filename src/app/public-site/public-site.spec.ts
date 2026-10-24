@@ -12,6 +12,12 @@ async function render(site: SiteData): Promise<ComponentFixture<PublicSite>> {
   return fixture;
 }
 
+async function openReservation(fixture: ComponentFixture<PublicSite>): Promise<void> {
+  (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('#reservaOpen')!.click();
+  fixture.detectChanges();
+  await fixture.whenStable();
+}
+
 const html = (fixture: ComponentFixture<PublicSite>) => fixture.nativeElement as HTMLElement;
 const text = (el: Element | null | undefined) => (el?.textContent ?? '').replace(/ /g, ' ');
 
@@ -93,6 +99,7 @@ describe('PublicSite', () => {
 
   it('should hide every optional section for a brand-new tenant and never invent content', async () => {
     const fixture = await render(emptySite());
+    await openReservation(fixture);
     const root = html(fixture);
     expect(root.querySelector('#nosotros')).toBeNull();
     expect(root.querySelector('#galeria')).toBeNull();
@@ -121,7 +128,9 @@ describe('PublicSite', () => {
   });
 
   it('should associate every form label with its field', async () => {
-    const root = html(await render(makeSite()));
+    const fixture = await render(makeSite());
+    await openReservation(fixture);
+    const root = html(fixture);
     const labels = Array.from(root.querySelectorAll('#reservaForm label')) as HTMLLabelElement[];
     expect(labels.length).toBe(8);
     for (const label of labels) {
@@ -138,6 +147,7 @@ describe('PublicSite', () => {
 
   describe('reservation form', () => {
     async function fill(fixture: ComponentFixture<PublicSite>, values: Record<string, string>): Promise<HTMLFormElement> {
+      await openReservation(fixture);
       const root = html(fixture);
       for (const [id, value] of Object.entries(values)) {
         const field = root.querySelector(`#${id}`) as HTMLInputElement;

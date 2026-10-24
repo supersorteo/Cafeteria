@@ -5,43 +5,44 @@ import { isConnectionProblem, toProblem } from '../core/api-error';
 import { safeReturnUrl } from '../core/auth.guards';
 import { AuthService } from '../core/auth.service';
 import { AuthCard } from './auth-card';
+import { PasswordToggle } from '../shared/ui/password-toggle';
 
 @Component({
-  imports: [ReactiveFormsModule, RouterLink, AuthCard],
+  imports: [ReactiveFormsModule, RouterLink, AuthCard, PasswordToggle],
   selector: 'app-login-page',
   template: `
     <app-auth-card title="Inicia sesión" subtitle="Administra tu carta, tus fotos y tu sitio.">
       <form [formGroup]="form" (ngSubmit)="submit()" class="space-y-5" novalidate>
         <div>
-          <label for="login-email" class="text-xs font-bold uppercase tracking-widest text-teal">Correo</label>
+          <label for="login-email" class="text-xs font-bold uppercase tracking-wider text-muted">Correo</label>
           <input id="login-email" type="email" autocomplete="username" formControlName="email"
-                 class="field mt-2 w-full px-4 py-3 text-sm font-medium">
+                 class="input mt-2">
           @if (form.controls.email.touched && form.controls.email.invalid) {
-            <p class="mt-1 text-xs font-bold" style="color:#E63946">Escribe un correo válido.</p>
+            <p class="mt-1.5 text-xs font-bold text-danger anim-fade-in">Escribe un correo válido.</p>
           }
         </div>
         <div>
-          <label for="login-password" class="text-xs font-bold uppercase tracking-widest text-teal">Contraseña</label>
-          <input id="login-password" type="password" autocomplete="current-password" formControlName="password"
-                 class="field mt-2 w-full px-4 py-3 text-sm font-medium">
+          <label for="login-password" class="text-xs font-bold uppercase tracking-wider text-muted">Contraseña</label>
+          <app-password-toggle><input id="login-password" type="password" autocomplete="current-password" formControlName="password"
+                 class="input mt-2 has-toggle"></app-password-toggle>
           @if (form.controls.password.touched && form.controls.password.invalid) {
-            <p class="mt-1 text-xs font-bold" style="color:#E63946">Escribe tu contraseña.</p>
+            <p class="mt-1.5 text-xs font-bold text-danger anim-fade-in">Escribe tu contraseña.</p>
           }
         </div>
         @if (error(); as message) {
-          <p role="alert" class="text-sm font-bold" style="color:#E63946">{{ message }}</p>
+          <p role="alert" class="rounded-ui-md bg-danger/10 px-4 py-3 text-sm font-bold text-danger anim-fade-in">{{ message }}</p>
         }
         <button type="submit" [disabled]="pending()"
-                class="w-full bg-coral text-white font-bold py-4 rounded-xl uppercase tracking-widest text-sm hover:brightness-110 transition-all disabled:opacity-60 disabled:cursor-not-allowed">
+                class="btn btn-primary btn-lg w-full" [class.btn-loading]="pending()">
           {{ pending() ? 'Entrando…' : 'Entrar' }}
         </button>
       </form>
       <div footer class="space-x-2">
-        <a routerLink="/auth/forgot-password" class="underline underline-offset-2 hover:text-coral">¿Olvidaste tu contraseña?</a>
+        <a routerLink="/auth/forgot-password" >¿Olvidaste tu contraseña?</a>
         <span aria-hidden="true">·</span>
-        <a routerLink="/auth/register" class="underline underline-offset-2 hover:text-coral">Crear cuenta</a>
+        <a routerLink="/auth/register" >Crear cuenta</a>
         <span aria-hidden="true">·</span>
-        <a routerLink="/auth/resend-verification" class="underline underline-offset-2 hover:text-coral">Reenviar verificación</a>
+        <a routerLink="/auth/resend-verification" >Reenviar verificación</a>
       </div>
     </app-auth-card>
   `,

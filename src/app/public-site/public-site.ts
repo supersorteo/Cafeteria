@@ -1,10 +1,11 @@
 import { NgClass } from '@angular/common';
-import { AfterViewInit, Component, computed, effect, input, signal } from '@angular/core';
+import { AfterViewInit, Component, HostListener, computed, effect, input, signal } from '@angular/core';
 import { FormsModule, NgForm } from '@angular/forms';
 import { SiteData } from '../core/site.models';
 import { CountUpDirective } from '../shared/count-up.directive';
 import { RevealDirective } from '../shared/reveal.directive';
-import { formatReservationDate, tagColor, titleParts, todayInZone } from '../shared/site-format';
+import { Modal } from '../shared/ui/modal';
+import { formatReservationDate, readableOn, rgbTriplet, tagColor, titleParts, todayInZone } from '../shared/site-format';
 
 interface Reservation {
   name: string;
@@ -22,13 +23,16 @@ const HERO_CARD_CLASSES = ['hero-photo-card-one', 'hero-photo-card-two', 'hero-p
 const NO_PREFERENCE = 'Sin preferencia';
 
 @Component({
-  imports: [FormsModule, NgClass, RevealDirective, CountUpDirective],
+  imports: [FormsModule, NgClass, RevealDirective, CountUpDirective, Modal],
   selector: 'app-public-site',
   styleUrl: './public-site.css',
   templateUrl: './public-site.html',
   host: {
     '[style.--coral]': 'site().theme.primaryColor',
     '[style.--teal]': 'site().theme.accentColor',
+    '[style.--primary]': 'primaryRgb()',
+    '[style.--primary-fg]': 'primaryContrast()',
+    '[style.--brand-teal]': 'accentRgb()',
   },
 })
 export class PublicSite implements AfterViewInit {
@@ -36,6 +40,10 @@ export class PublicSite implements AfterViewInit {
 
   protected readonly selectedCategoryId = signal<string | null>(null);
   protected readonly formError = signal<string | null>(null);
+  protected readonly reservationOpen = signal(false);
+  protected readonly reservationSent = signal(false);
+  protected readonly lightbox = signal<number | null>(null);
+  protected readonly scrolled = signal(false);
   protected readonly reservation: Reservation = {
     name: '',
     phone: '',
@@ -50,6 +58,13 @@ export class PublicSite implements AfterViewInit {
   protected readonly noPreference = NO_PREFERENCE;
   protected readonly heroCardClasses = HERO_CARD_CLASSES;
 
+  protected readonly primaryRgb = computed(() => rgbTriplet(this.site().theme.primaryColor, '214 66 38'));
+  protected readonly primaryContrast = computed(() => readableOn(this.site().theme.primaryColor));
+  protected readonly accentRgb = computed(() => rgbTriplet(this.site().theme.accentColor, '14 131 136'));
+  protected readonly lightboxImage = computed(() => {
+    const index = this.lightbox();
+    return index === null ? null : (this.site().gallery[index] ?? null);
+  });
   protected readonly displayName = computed(() => {
     const { name, descriptor } = this.site();
     return descriptor ? `${name} ${descriptor}` : name;
@@ -109,6 +124,42 @@ export class PublicSite implements AfterViewInit {
     }
   }
 
+  @HostListener('window:scroll')
+  protected onScroll(): void {
+    this.scrolled.set(window.scrollY > 24);
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  protected onKey(event: KeyboardEvent): void {
+    if (this.lightbox() === null) {
+      return;
+    }
+    if (event.key === 'ArrowRight') {
+      this.stepLightbox(1);
+    } else if (event.key === 'ArrowLeft') {
+      this.stepLightbox(-1);
+    }
+  }
+
+  protected openReservation(event?: Event): void {
+    event?.preventDefault();
+    this.formError.set(null);
+    this.reservationSent.set(false);
+    this.reservationOpen.set(true);
+  }
+
+  protected closeReservation(): void {
+    this.reservationOpen.set(false);
+  }
+
+  protected stepLightbox(delta: number): void {
+    const total = this.site().gallery.length;
+    const index = this.lightbox();
+    if (index !== null && total > 0) {
+      this.lightbox.set((index + delta + total) % total);
+    }
+  }
+
   protected tagColor(tag: string): string {
     return tagColor(tag);
   }
@@ -134,6 +185,7 @@ export class PublicSite implements AfterViewInit {
   protected submitReservation(form: NgForm): void {
     this.formError.set(null);
     if (form.invalid) {
+      this.formError.set('Completa tu nombre, la fecha y la hora para enviar la reserva.');
       return;
     }
     const name = this.reservation.name.trim();
@@ -166,6 +218,7 @@ export class PublicSite implements AfterViewInit {
     ].join('\n');
 
     window.open(this.whatsappUrl(message), '_blank', 'noopener,noreferrer');
+    this.reservationSent.set(true);
   }
 
   private scrollToSection(hash: string, smooth = false): boolean {

@@ -8,20 +8,22 @@ import { notBlank } from './forms';
   host: { class: 'block' },
   template: `
     <fieldset>
-      <legend class="text-xs font-bold uppercase tracking-widest text-teal">{{ legend() }} ({{ array().length }}/{{ max() }})</legend>
+      <legend class="text-xs font-bold uppercase tracking-wider text-muted">{{ legend() }} ({{ array().length }}/{{ max() }})</legend>
       <ul class="mt-3 space-y-2">
         @for (control of array().controls; track control; let index = $index) {
-          <li>
+          <li class="anim-fade-in">
             <div class="flex gap-2">
               <input [formControl]="control" [maxlength]="itemMaxLength()" [attr.aria-label]="itemLabel() + ' ' + (index + 1)"
-                     class="field flex-1 min-w-0 px-3 py-2 text-sm font-medium">
+                     class="input flex-1 min-w-0">
               @if (!readonly()) {
                 <button type="button" (click)="remove(index)" [attr.aria-label]="'Quitar ' + itemLabel().toLowerCase() + ' ' + (index + 1)"
-                        class="px-3 text-sm" style="color:#E63946">✕</button>
+                        class="btn btn-ghost btn-sm text-danger !px-3">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                </button>
               }
             </div>
             @if (control.touched && control.invalid) {
-              <p role="alert" class="mt-1 text-xs font-bold" style="color:#E63946">
+              <p role="alert" class="mt-1 text-xs font-bold text-danger">
                 {{ control.errors?.['server'] ?? 'No puede estar vacío ni superar ' + itemMaxLength() + ' caracteres.' }}
               </p>
             }
@@ -30,8 +32,7 @@ import { notBlank } from './forms';
       </ul>
       @if (!readonly()) {
         <button type="button" (click)="add()" [disabled]="array().length >= max()"
-                class="mt-3 rounded-full border-2 px-4 py-1.5 text-xs font-bold uppercase tracking-widest disabled:opacity-40"
-                style="border-color:var(--plum);color:var(--plum)">{{ addLabel() }}</button>
+                class="btn btn-secondary btn-sm mt-3">+ {{ addLabel() }}</button>
       }
     </fieldset>
   `,

@@ -47,3 +47,30 @@ export function formatReservationDate(isoDate: string, locale: string): string {
     timeZone: 'UTC',
   });
 }
+
+export function hexToRgb(hex: string): [number, number, number] | null {
+  const match = /^#([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!match) {
+    return null;
+  }
+  const value = parseInt(match[1], 16);
+  return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+}
+
+export function rgbTriplet(hex: string, fallback: string): string {
+  const rgb = hexToRgb(hex);
+  return rgb ? rgb.join(' ') : fallback;
+}
+
+export function readableOn(hex: string): string {
+  const rgb = hexToRgb(hex);
+  if (!rgb) {
+    return '255 255 255';
+  }
+  const [r, g, b] = rgb.map(channel => {
+    const value = channel / 255;
+    return value <= 0.03928 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4);
+  });
+  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return luminance > 0.5 ? '42 20 32' : '255 255 255';
+}

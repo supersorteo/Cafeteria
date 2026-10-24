@@ -6,6 +6,7 @@ import { firstValueFrom } from 'rxjs';
 import { isConnectionProblem, toProblem } from '../core/api-error';
 import { AuthService } from '../core/auth.service';
 import { AuthCard } from './auth-card';
+import { PasswordToggle } from '../shared/ui/password-toggle';
 
 function passwordsMatch(group: AbstractControl): ValidationErrors | null {
   const password = group.get('newPassword')?.value;
@@ -14,46 +15,46 @@ function passwordsMatch(group: AbstractControl): ValidationErrors | null {
 }
 
 @Component({
-  imports: [ReactiveFormsModule, RouterLink, AuthCard],
+  imports: [ReactiveFormsModule, RouterLink, AuthCard, PasswordToggle],
   selector: 'app-reset-password-page',
   template: `
     @switch (state()) {
       @case ('done') {
         <app-auth-card title="Contraseña actualizada" subtitle="Cerramos tus sesiones abiertas por seguridad.">
-          <a routerLink="/auth/login" class="inline-block bg-coral text-white font-bold px-8 py-3.5 rounded-full uppercase tracking-widest text-sm hover:brightness-110 transition-all">
+          <a routerLink="/auth/login" class="btn btn-primary btn-lg">
             Iniciar sesión
           </a>
         </app-auth-card>
       }
       @case ('invalid') {
         <app-auth-card title="Enlace no válido" subtitle="El enlace no es válido, ya se usó o caducó.">
-          <a routerLink="/auth/forgot-password" class="underline underline-offset-2 font-bold hover:text-coral">Pedir un enlace nuevo</a>
+          <a routerLink="/auth/forgot-password" class="btn btn-secondary">Pedir un enlace nuevo</a>
         </app-auth-card>
       }
       @default {
         <app-auth-card title="Crea una contraseña nueva" subtitle="Elige una contraseña de al menos 10 caracteres.">
           <form [formGroup]="form" (ngSubmit)="submit()" class="space-y-5" novalidate>
             <div>
-              <label for="reset-password" class="text-xs font-bold uppercase tracking-widest text-teal">Contraseña nueva</label>
-              <input id="reset-password" type="password" autocomplete="new-password" formControlName="newPassword"
-                     class="field mt-2 w-full px-4 py-3 text-sm font-medium">
+              <label for="reset-password" class="text-xs font-bold uppercase tracking-wider text-muted">Contraseña nueva</label>
+              <app-password-toggle><input id="reset-password" type="password" autocomplete="new-password" formControlName="newPassword"
+                     class="input mt-2 has-toggle"></app-password-toggle>
               @if (form.controls.newPassword.touched && form.controls.newPassword.invalid) {
-                <p class="mt-1 text-xs font-bold" style="color:#E63946">Debe tener entre 10 y 72 caracteres.</p>
+                <p class="mt-1.5 text-xs font-bold text-danger anim-fade-in">Debe tener entre 10 y 72 caracteres.</p>
               }
             </div>
             <div>
-              <label for="reset-confirm" class="text-xs font-bold uppercase tracking-widest text-teal">Repite la contraseña</label>
-              <input id="reset-confirm" type="password" autocomplete="new-password" formControlName="confirm"
-                     class="field mt-2 w-full px-4 py-3 text-sm font-medium">
+              <label for="reset-confirm" class="text-xs font-bold uppercase tracking-wider text-muted">Repite la contraseña</label>
+              <app-password-toggle><input id="reset-confirm" type="password" autocomplete="new-password" formControlName="confirm"
+                     class="input mt-2 has-toggle"></app-password-toggle>
               @if (form.controls.confirm.touched && form.errors?.['mismatch']) {
-                <p class="mt-1 text-xs font-bold" style="color:#E63946">Las contraseñas no coinciden.</p>
+                <p class="mt-1.5 text-xs font-bold text-danger anim-fade-in">Las contraseñas no coinciden.</p>
               }
             </div>
             @if (error(); as message) {
-              <p role="alert" class="text-sm font-bold" style="color:#E63946">{{ message }}</p>
+              <p role="alert" class="rounded-ui-md bg-danger/10 px-4 py-3 text-sm font-bold text-danger anim-fade-in">{{ message }}</p>
             }
             <button type="submit" [disabled]="pending()"
-                    class="w-full bg-coral text-white font-bold py-4 rounded-xl uppercase tracking-widest text-sm hover:brightness-110 transition-all disabled:opacity-60 disabled:cursor-not-allowed">
+                    class="btn btn-primary btn-lg w-full" [class.btn-loading]="pending()">
               {{ pending() ? 'Guardando…' : 'Guardar contraseña' }}
             </button>
           </form>

@@ -14,19 +14,23 @@ type Status = 'verifying' | 'ok' | 'invalid' | 'missing' | 'error';
   template: `
     <app-auth-card [title]="title()" [subtitle]="message()">
       @switch (status()) {
+        @case ('verifying') {
+          <div class="space-y-3" aria-hidden="true"><div class="skeleton h-4 w-3/4"></div><div class="skeleton h-4 w-1/2"></div></div>
+        }
         @case ('ok') {
-          <a routerLink="/auth/login" class="inline-block bg-coral text-white font-bold px-8 py-3.5 rounded-full uppercase tracking-widest text-sm hover:brightness-110 transition-all">
+          <div class="success-check mb-5" aria-hidden="true"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path class="anim-draw" d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+          <a routerLink="/auth/login" class="btn btn-primary btn-lg">
             Iniciar sesión
           </a>
         }
         @case ('invalid') {
-          <a routerLink="/auth/resend-verification" class="underline underline-offset-2 font-bold hover:text-coral">Pedir un enlace nuevo</a>
+          <a routerLink="/auth/resend-verification" class="btn btn-secondary">Pedir un enlace nuevo</a>
         }
         @case ('missing') {
-          <a routerLink="/auth/resend-verification" class="underline underline-offset-2 font-bold hover:text-coral">Pedir un enlace nuevo</a>
+          <a routerLink="/auth/resend-verification" class="btn btn-secondary">Pedir un enlace nuevo</a>
         }
         @case ('error') {
-          <button type="button" (click)="retry()" class="bg-coral text-white font-bold px-8 py-3.5 rounded-full uppercase tracking-widest text-sm hover:brightness-110 transition-all">
+          <button type="button" (click)="retry()" class="btn btn-primary btn-lg">
             Reintentar
           </button>
         }

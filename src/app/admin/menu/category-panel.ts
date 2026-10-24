@@ -3,73 +3,71 @@ import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Category } from '../../core/catalog.models';
 import { NoticeService } from '../../core/notice.service';
 import { ConfirmDialog } from '../../shared/confirm-dialog';
+import { EmptyState } from '../../shared/ui/empty-state';
+import { Modal } from '../../shared/ui/modal';
 import { MenuStore, Result } from './menu.store';
 
 @Component({
-  imports: [ReactiveFormsModule, ConfirmDialog],
+  imports: [ReactiveFormsModule, ConfirmDialog, Modal, EmptyState],
   selector: 'app-category-panel',
   template: `
-    <section aria-labelledby="categories-title" class="bg-white rounded-3xl p-5 shadow-lg">
-      <h2 id="categories-title" class="font-display text-xl font-black" style="color:var(--plum)">Categorías</h2>
+    <section aria-labelledby="categories-title" class="card p-5">
+      <div class="flex items-center justify-between gap-3">
+        <h2 id="categories-title" class="font-display text-xl font-black">Categorías</h2>
+        <button type="button" data-new-category (click)="openCreate()" class="btn btn-primary btn-sm">+ Nueva</button>
+      </div>
 
       <ul class="mt-4 space-y-2">
-        @for (category of store.categories(); track category.id; let first = $first; let last = $last) {
-          <li class="rounded-2xl border-2 p-2"
-              [style.borderColor]="category.id === store.selectedId() ? 'var(--coral)' : 'rgba(61,29,46,.1)'">
-            @if (editingId() === category.id) {
-              <form (submit)="$event.preventDefault(); saveEdit(category)" class="space-y-2">
-                <label class="sr-only" [for]="'rename-' + category.id">Nombre de la categoría</label>
-                <input [id]="'rename-' + category.id" [formControl]="editControl" maxlength="120"
-                       class="field w-full px-3 py-2 text-sm font-medium">
-                @if (editError(); as message) {
-                  <p role="alert" class="text-xs font-bold" style="color:#E63946">{{ message }}</p>
-                }
-                @if (conflict()) {
-                  <div role="alert" class="rounded-xl p-3 text-xs font-bold" style="background:#FFF1D6;color:var(--plum)">
-                    Otra persona cambió esta categoría mientras la editabas.
-                    <button type="button" data-reload (click)="reload()" class="underline ml-1">Recargar</button>
-                  </div>
-                }
-                <div class="flex gap-2">
-                  <button type="submit" [disabled]="busy()"
-                          class="rounded-full bg-coral text-white px-4 py-1.5 text-xs font-bold uppercase tracking-widest disabled:opacity-60">Guardar</button>
-                  <button type="button" data-cancel-edit (click)="cancelEdit()"
-                          class="rounded-full border px-4 py-1.5 text-xs font-bold uppercase tracking-widest" style="color:var(--plum)">Cancelar</button>
-                </div>
-              </form>
-            } @else {
-              <div class="flex items-center gap-1">
-                <button type="button" (click)="store.select(category.id)" [attr.aria-current]="category.id === store.selectedId() ? 'true' : null"
-                        class="flex-1 text-left px-2 py-1.5 font-bold text-sm break-words" style="color:var(--plum)">{{ category.name }}</button>
-                <button type="button" (click)="move(category, -1)" [disabled]="first || busy()" [attr.aria-label]="'Subir ' + category.name"
-                        class="px-2 py-1 text-sm disabled:opacity-30">↑</button>
-                <button type="button" (click)="move(category, 1)" [disabled]="last || busy()" [attr.aria-label]="'Bajar ' + category.name"
-                        class="px-2 py-1 text-sm disabled:opacity-30">↓</button>
-                <button type="button" (click)="startEdit(category)" [attr.aria-label]="'Renombrar ' + category.name"
-                        class="px-2 py-1 text-sm">✎</button>
-                <button type="button" (click)="deleting.set(category)" [attr.aria-label]="'Eliminar ' + category.name"
-                        class="px-2 py-1 text-sm" style="color:#E63946">🗑</button>
-              </div>
-            }
+        @for (category of store.categories(); track category.id; let first = $first; let last = $last; let i = $index) {
+          <li class="cat-row anim-fade-up" [class.active]="category.id === store.selectedId()" [style.--i]="i">
+            <div class="flex items-center gap-0.5">
+              <button type="button" (click)="store.select(category.id)" [attr.aria-current]="category.id === store.selectedId() ? 'true' : null"
+                      class="flex-1 text-left px-2.5 py-2 font-bold text-sm break-words rounded-ui-sm">{{ category.name }}</button>
+              <button type="button" class="icon-btn !w-8 !h-8" (click)="move(category, -1)" [disabled]="first || busy()" [attr.aria-label]="'Subir ' + category.name">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+              </button>
+              <button type="button" class="icon-btn !w-8 !h-8" (click)="move(category, 1)" [disabled]="last || busy()" [attr.aria-label]="'Bajar ' + category.name">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+              </button>
+              <button type="button" class="icon-btn !w-8 !h-8" (click)="openEdit(category)" [attr.aria-label]="'Renombrar ' + category.name">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></svg>
+              </button>
+              <button type="button" class="icon-btn !w-8 !h-8 !text-danger" (click)="deleting.set(category)" [attr.aria-label]="'Eliminar ' + category.name">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
+              </button>
+            </div>
           </li>
         } @empty {
-          <li class="text-sm font-medium" style="color:#5b4150">Aún no tienes categorías. Crea la primera para empezar tu carta.</li>
+          <li>
+            <app-empty-state title="Aún no tienes categorías" text="Crea la primera para empezar tu carta.">
+              <button type="button" data-new-category (click)="openCreate()" class="btn btn-primary">Crear categoría</button>
+            </app-empty-state>
+          </li>
         }
       </ul>
-
-      <form (submit)="$event.preventDefault(); add()" class="mt-5 space-y-2">
-        <label for="new-category" class="text-xs font-bold uppercase tracking-widest text-teal">Nueva categoría</label>
-        <div class="flex gap-2">
-          <input id="new-category" [formControl]="newName" maxlength="120" placeholder="Ej. Postres"
-                 class="field flex-1 min-w-0 px-3 py-2 text-sm font-medium">
-          <button type="submit" [disabled]="busy()"
-                  class="rounded-full bg-coral text-white px-4 text-xs font-bold uppercase tracking-widest hover:brightness-110 disabled:opacity-60">Crear</button>
-        </div>
-        @if (addError(); as message) {
-          <p role="alert" class="text-xs font-bold" style="color:#E63946">{{ message }}</p>
-        }
-      </form>
     </section>
+
+    @if (form(); as current) {
+      <app-modal [heading]="current.category ? 'Renombrar categoría' : 'Nueva categoría'" size="sm" [dismissable]="!busy()" (closed)="closeForm()">
+        <form id="category-form" (submit)="$event.preventDefault(); submit()" novalidate>
+          <label [for]="current.category ? 'rename-' + current.category.id : 'new-category'" class="text-xs font-bold uppercase tracking-wider text-muted">Nombre</label>
+          <input [id]="current.category ? 'rename-' + current.category.id : 'new-category'" [formControl]="nameControl" maxlength="120" placeholder="Ej. Postres" class="input mt-2">
+          @if (error(); as message) {
+            <p role="alert" class="mt-2 text-xs font-bold text-danger anim-fade-in">{{ message }}</p>
+          }
+          @if (conflict()) {
+            <div role="alert" class="mt-4 rounded-ui-md p-3 text-xs font-bold bg-warning/15 text-ink">
+              Otra persona cambió esta categoría mientras la editabas.
+              <button type="button" data-reload (click)="reload()" class="underline ml-1">Recargar</button>
+            </div>
+          }
+        </form>
+        <div modal-footer class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+          <button type="button" data-cancel-edit (click)="closeForm()" [disabled]="busy()" class="btn btn-secondary">Cancelar</button>
+          <button type="submit" form="category-form" [disabled]="busy()" class="btn btn-primary" [class.btn-loading]="busy()">{{ current.category ? 'Guardar' : 'Crear' }}</button>
+        </div>
+      </app-modal>
+    }
 
     @if (deleting(); as category) {
       <app-confirm-dialog title="Eliminar categoría"
@@ -82,70 +80,69 @@ export class CategoryPanel {
   protected readonly store = inject(MenuStore);
   private readonly notices = inject(NoticeService);
 
-  protected readonly newName = new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.maxLength(120)] });
-  protected readonly editControl = new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.maxLength(120)] });
-  protected readonly editingId = signal<string | null>(null);
+  protected readonly nameControl = new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.maxLength(120)] });
+  protected readonly form = signal<{ category: Category | null } | null>(null);
   protected readonly conflict = signal(false);
-  protected readonly editError = signal<string | null>(null);
-  protected readonly addError = signal<string | null>(null);
+  protected readonly error = signal<string | null>(null);
   protected readonly busy = signal(false);
   protected readonly deleting = signal<Category | null>(null);
 
-  protected async add(): Promise<void> {
-    if (this.busy()) {
-      return;
-    }
-    if (this.newName.invalid || !this.newName.value.trim()) {
-      this.addError.set('Escribe un nombre (máximo 120 caracteres).');
-      return;
-    }
-    this.addError.set(null);
-    const result = await this.guard(() => this.store.createCategory(this.newName.value));
-    if (result.ok) {
-      this.newName.reset('');
-    } else {
-      this.addError.set(this.message(result.problem.code, 'No se pudo crear la categoría.'));
-    }
-  }
-
-  protected startEdit(category: Category): void {
-    this.editingId.set(category.id);
-    this.editControl.setValue(category.name);
-    this.editError.set(null);
+  protected openCreate(): void {
+    this.nameControl.reset('');
+    this.error.set(null);
     this.conflict.set(false);
+    this.form.set({ category: null });
   }
 
-  protected cancelEdit(): void {
-    this.editingId.set(null);
+  protected openEdit(category: Category): void {
+    this.nameControl.setValue(category.name);
+    this.error.set(null);
     this.conflict.set(false);
-    this.editError.set(null);
+    this.form.set({ category });
   }
 
-  protected async saveEdit(category: Category): Promise<void> {
-    if (this.busy()) {
+  protected closeForm(): void {
+    this.form.set(null);
+    this.conflict.set(false);
+    this.error.set(null);
+  }
+
+  protected async submit(): Promise<void> {
+    const current = this.form();
+    if (!current || this.busy()) {
       return;
     }
-    if (this.editControl.invalid || !this.editControl.value.trim()) {
-      this.editError.set('Escribe un nombre (máximo 120 caracteres).');
+    if (this.nameControl.invalid || !this.nameControl.value.trim()) {
+      this.error.set('Escribe un nombre (máximo 120 caracteres).');
       return;
     }
-    this.editError.set(null);
-    const result = await this.guard(() => this.store.renameCategory(category, this.editControl.value));
+    this.error.set(null);
+    if (!current.category) {
+      const result = await this.guard(() => this.store.createCategory(this.nameControl.value));
+      if (result.ok) {
+        this.closeForm();
+      } else {
+        this.error.set(this.message(result.problem.code, 'No se pudo crear la categoría.'));
+      }
+      return;
+    }
+    const category = current.category;
+    const result = await this.guard(() => this.store.renameCategory(category, this.nameControl.value));
     if (result.ok) {
-      this.cancelEdit();
+      this.closeForm();
     } else if (result.problem.code === 'version_conflict') {
       this.conflict.set(true);
     } else if (result.problem.status === 404) {
-      this.editError.set('La categoría ya no existe.');
+      this.error.set('La categoría ya no existe.');
       await this.store.loadCategories();
     } else {
-      this.editError.set(this.message(result.problem.code, 'No se pudo guardar el cambio.'));
+      this.error.set(this.message(result.problem.code, 'No se pudo guardar el cambio.'));
     }
   }
 
   protected async reload(): Promise<void> {
     await this.store.loadCategories();
-    this.cancelEdit();
+    this.closeForm();
   }
 
   protected async move(category: Category, delta: -1 | 1): Promise<void> {

@@ -1,3 +1,7 @@
+@import './styles/tokens.css';
+@import './styles/motion.css';
+@import './styles/components.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -19,11 +23,9 @@
     --plum:#3D1D2E; --cream:#FFF6EC; --cream2:#FFEDD8; --ink:#33202A;
   }
   *{ -webkit-tap-highlight-color:transparent; }
-  body{ font-family:'Inter Variable','Inter',sans-serif; background:var(--cream); color:var(--ink); overflow-x:hidden; }
-  .font-display{ font-family:'Fraunces Variable','Fraunces',serif; }
-  .text-coral{ color:var(--coral); } .bg-coral{ background:var(--coral); }
-  .text-teal{ color:var(--teal); } .bg-teal{ background:var(--teal); }
-  .text-mango{ color:var(--mango); } .bg-mango{ background:var(--mango); }
+  html{ overflow-x:clip; }
+  body{ font-family:var(--font-ui); background:rgb(var(--bg)); color:rgb(var(--text)); overflow-x:hidden; -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }
+  .theme-fade body{ transition:background-color var(--dur-3), color var(--dur-3); }
 
   /* Hero: degradado atardecer alegre */
   .hero{
@@ -80,3 +82,13 @@
     .marquee-track, .bubble, .wa-float, .animate-bounce{ animation:none; }
   }
 
+.site-nav, .site-nav-bar { transition: height .3s ease, box-shadow .3s ease, background-color .3s ease; }
+.site-nav.scrolled { box-shadow: 0 10px 30px -18px rgba(61, 29, 46, .45); }
+.site-nav.scrolled .site-nav-bar { height: 3.5rem; }
+
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .hero .bubble { animation: hero-drift linear both; animation-timeline: scroll(root block); animation-range: 0 90vh; }
+    @keyframes hero-drift { to { transform: translateY(-80px); } }
+  }
+}

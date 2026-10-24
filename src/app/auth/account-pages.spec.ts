@@ -71,7 +71,7 @@ describe('account pages', () => {
       harness.detectChanges();
       expect(text()).toContain('No pudimos verificar');
 
-      (root().querySelector('button') as HTMLButtonElement).click();
+      (root().querySelector('button.btn') as HTMLButtonElement).click();
       await answerCsrf(http);
       const retry = await answer(http, '/api/v1/auth/verify-email', null, { status: 204, statusText: 'No Content' }, 'POST');
       await settle();

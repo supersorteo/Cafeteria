@@ -20,16 +20,18 @@ describe('routes', () => {
     http = TestBed.inject(HttpTestingController);
   });
 
-  it('should redirect the root to the La Terraza site', async () => {
+  it('should show the platform home at the root with links to register and sign in', async () => {
     await harness.navigateByUrl('/');
-    expect(TestBed.inject(Router).url).toBe('/la-terraza');
-    http.expectOne('/api/v1/public/sites/la-terraza');
-  });
-
-  it('should preserve the fragment when redirecting from the root', async () => {
-    await harness.navigateByUrl('/#menu');
-    expect(TestBed.inject(Router).url).toBe('/la-terraza#menu');
-    http.expectOne('/api/v1/public/sites/la-terraza');
+    http.expectOne('/api/v1/auth/csrf').flush({});
+    await new Promise(resolve => setTimeout(resolve));
+    http.expectOne('/api/v1/auth/me').flush({}, { status: 401, statusText: 'Unauthorized' });
+    await new Promise(resolve => setTimeout(resolve));
+    harness.detectChanges();
+    expect(TestBed.inject(Router).url).toBe('/');
+    const root = harness.routeNativeElement as HTMLElement;
+    expect(root.querySelector('#homeRegister')?.getAttribute('href')).toBe('/auth/register');
+    expect(root.querySelector('#homeLogin')?.getAttribute('href')).toBe('/auth/login');
+    expect(root.querySelector('#homeDemo')?.getAttribute('href')).toBe('/la-terraza');
   });
 
   it('should load any business by its slug', async () => {

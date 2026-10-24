@@ -1,5 +1,4 @@
-import { inject } from '@angular/core';
-import { Router, Routes } from '@angular/router';
+import { Routes } from '@angular/router';
 import { authGuard, guestGuard } from './core/auth.guards';
 import { unsavedChangesGuard } from './core/unsaved-changes.guard';
 import { NotFound } from './not-found/not-found';
@@ -9,8 +8,7 @@ export const routes: Routes = [
   {
     path: '',
     pathMatch: 'full',
-    redirectTo: ({ queryParams, fragment }) =>
-      inject(Router).createUrlTree(['/la-terraza'], { queryParams, fragment: fragment ?? undefined }),
+    loadComponent: () => import('./home/home.page').then(m => m.HomePage),
   },
   {
     path: 'auth',

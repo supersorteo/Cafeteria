@@ -5,12 +5,12 @@ import { Component, input } from '@angular/core';
   host: { class: 'block' },
   template: `
     <div>
-      <label [for]="forId()" class="text-xs font-bold uppercase tracking-widest text-teal">{{ label() }}</label>
+      <label [for]="forId()" class="text-xs font-bold uppercase tracking-wider text-muted">{{ label() }}</label>
       <div class="mt-2"><ng-content /></div>
       @if (error(); as message) {
-        <p role="alert" class="mt-1 text-xs font-bold" style="color:#E63946">{{ message }}</p>
+        <p role="alert" class="mt-1.5 text-xs font-bold text-danger anim-fade-in">{{ message }}</p>
       } @else if (hint()) {
-        <p class="mt-1 text-xs font-medium" style="color:#5b4150">{{ hint() }}</p>
+        <p class="mt-1.5 text-xs font-medium text-muted">{{ hint() }}</p>
       }
     </div>
   `,

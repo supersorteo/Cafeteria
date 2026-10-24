@@ -21,71 +21,68 @@ export const MAX_GALLERY = 6;
 @Component({
   selector: 'app-site-images-editor',
   template: `
-    <section aria-labelledby="images-title" class="bg-white rounded-3xl p-6 shadow-lg">
-      <h2 id="images-title" class="font-display text-xl font-black" style="color:var(--plum)">Imágenes del sitio</h2>
-      <p class="mt-1 text-sm font-medium" style="color:#5b4150">
+    <section aria-label="Imágenes del sitio">
+      <p class="text-sm font-medium text-muted">
         Las imágenes publicadas son públicas: cualquiera con su enlace puede verlas, aunque despubliques el sitio.
       </p>
 
       <div class="mt-6 space-y-8">
         <div>
-          <h3 class="text-xs font-bold uppercase tracking-widest text-teal">Portada (1)</h3>
+          <h3 class="text-xs font-bold uppercase tracking-wider text-muted">Portada (1)</h3>
           <div class="mt-3 flex items-center gap-4">
             @if (hero(); as slot) {
-              <img [src]="slot.url" alt="Imagen de portada" class="w-28 h-20 rounded-xl object-cover">
+              <img [src]="slot.url" alt="Imagen de portada" class="w-28 h-20 rounded-ui-md object-cover">
               @if (!readonly()) {
-                <button type="button" data-remove-hero (click)="removeHero()" class="text-xs font-bold uppercase tracking-widest" style="color:#E63946">Quitar</button>
+                <button type="button" data-remove-hero (click)="removeHero()" class="btn btn-ghost btn-sm text-danger">Quitar</button>
               }
             } @else {
-              <div class="w-28 h-20 rounded-xl flex items-center justify-center text-xs font-bold" style="background:var(--cream2);color:#5b4150">Sin imagen</div>
+              <div class="w-28 h-20 rounded-ui-md flex items-center justify-center text-xs font-bold bg-surface-2 text-muted">Sin imagen</div>
             }
             @if (!readonly()) {
-              <label for="img-hero" class="cursor-pointer rounded-full border-2 px-4 py-2 text-xs font-bold uppercase tracking-widest"
-                     style="border-color:var(--plum);color:var(--plum)">{{ hero() ? 'Cambiar' : 'Subir' }}</label>
+              <label for="img-hero" class="btn btn-secondary btn-sm cursor-pointer">{{ hero() ? 'Cambiar' : 'Subir' }}</label>
               <input id="img-hero" type="file" class="sr-only" [accept]="accepted" [disabled]="uploading() !== null" (change)="choose('hero', $event)">
             }
           </div>
         </div>
 
         <div>
-          <h3 class="text-xs font-bold uppercase tracking-widest text-teal">Nosotros ({{ about().length }}/{{ maxAbout }})</h3>
+          <h3 class="text-xs font-bold uppercase tracking-wider text-muted">Nosotros ({{ about().length }}/{{ maxAbout }})</h3>
           <ul class="mt-3 flex flex-wrap gap-4">
             @for (slot of about(); track slot.id; let index = $index; let first = $first; let last = $last) {
               <li class="w-28">
-                <img [src]="slot.url" [alt]="'Imagen de nosotros ' + (index + 1)" class="w-28 h-20 rounded-xl object-cover">
+                <img [src]="slot.url" [alt]="'Imagen de nosotros ' + (index + 1)" class="w-28 h-20 rounded-ui-md object-cover">
                 @if (!readonly()) {
                   <div class="mt-1 flex justify-between text-sm">
                     <button type="button" (click)="move('about', index, -1)" [disabled]="first" [attr.aria-label]="'Mover nosotros ' + (index + 1) + ' a la izquierda'" class="disabled:opacity-30">←</button>
                     <button type="button" (click)="move('about', index, 1)" [disabled]="last" [attr.aria-label]="'Mover nosotros ' + (index + 1) + ' a la derecha'" class="disabled:opacity-30">→</button>
-                    <button type="button" (click)="removeAbout(index)" [attr.aria-label]="'Quitar nosotros ' + (index + 1)" style="color:#E63946">✕</button>
+                    <button class="text-danger" type="button" (click)="removeAbout(index)" [attr.aria-label]="'Quitar nosotros ' + (index + 1)">✕</button>
                   </div>
                 }
               </li>
             }
           </ul>
           @if (!readonly()) {
-            <label for="img-about" class="mt-3 inline-block rounded-full border-2 px-4 py-2 text-xs font-bold uppercase tracking-widest"
-                   [class.opacity-40]="about().length >= maxAbout" [class.cursor-pointer]="about().length < maxAbout"
-                   style="border-color:var(--plum);color:var(--plum)">Añadir imagen</label>
+            <label for="img-about" class="btn btn-secondary btn-sm mt-3"
+                   [class.opacity-40]="about().length >= maxAbout" [class.cursor-pointer]="about().length < maxAbout">+ Añadir imagen</label>
             <input id="img-about" type="file" class="sr-only" [accept]="accepted" [disabled]="uploading() !== null || about().length >= maxAbout" (change)="choose('about', $event)">
           }
         </div>
 
         <div>
-          <h3 class="text-xs font-bold uppercase tracking-widest text-teal">Galería ({{ gallery().length }}/{{ maxGallery }})</h3>
+          <h3 class="text-xs font-bold uppercase tracking-wider text-muted">Galería ({{ gallery().length }}/{{ maxGallery }})</h3>
           <ul class="mt-3 grid sm:grid-cols-2 gap-4">
             @for (slot of gallery(); track slot.id; let index = $index; let first = $first; let last = $last) {
               <li class="flex gap-3 items-start">
-                <img [src]="slot.url" [alt]="slot.alt || 'Imagen de galería ' + (index + 1)" class="w-24 h-20 rounded-xl object-cover shrink-0">
+                <img [src]="slot.url" [alt]="slot.alt || 'Imagen de galería ' + (index + 1)" class="w-24 h-20 rounded-ui-md object-cover shrink-0">
                 <div class="flex-1 min-w-0">
                   <label [for]="'alt-' + slot.id" class="sr-only">Texto alternativo de la imagen {{ index + 1 }}</label>
                   <input [id]="'alt-' + slot.id" [value]="slot.alt" maxlength="200" placeholder="Descripción (accesibilidad)" [disabled]="readonly()"
-                         (input)="setAlt(index, $any($event.target).value)" class="field w-full px-3 py-2 text-xs font-medium">
+                         (input)="setAlt(index, $any($event.target).value)" class="input w-full px-3 py-2 text-xs font-medium">
                   @if (!readonly()) {
                     <div class="mt-1 flex gap-3 text-sm">
                       <button type="button" (click)="move('gallery', index, -1)" [disabled]="first" [attr.aria-label]="'Subir galería ' + (index + 1)" class="disabled:opacity-30">↑</button>
                       <button type="button" (click)="move('gallery', index, 1)" [disabled]="last" [attr.aria-label]="'Bajar galería ' + (index + 1)" class="disabled:opacity-30">↓</button>
-                      <button type="button" (click)="removeGallery(index)" [attr.aria-label]="'Quitar galería ' + (index + 1)" style="color:#E63946">✕</button>
+                      <button class="text-danger" type="button" (click)="removeGallery(index)" [attr.aria-label]="'Quitar galería ' + (index + 1)">✕</button>
                     </div>
                   }
                 </div>
@@ -93,9 +90,8 @@ export const MAX_GALLERY = 6;
             }
           </ul>
           @if (!readonly()) {
-            <label for="img-gallery" class="mt-3 inline-block rounded-full border-2 px-4 py-2 text-xs font-bold uppercase tracking-widest"
-                   [class.opacity-40]="gallery().length >= maxGallery" [class.cursor-pointer]="gallery().length < maxGallery"
-                   style="border-color:var(--plum);color:var(--plum)">Añadir imagen</label>
+            <label for="img-gallery" class="btn btn-secondary btn-sm mt-3"
+                   [class.opacity-40]="gallery().length >= maxGallery" [class.cursor-pointer]="gallery().length < maxGallery">+ Añadir imagen</label>
             <input id="img-gallery" type="file" class="sr-only" [accept]="accepted" [disabled]="uploading() !== null || gallery().length >= maxGallery" (change)="choose('gallery', $event)">
           }
         </div>
@@ -103,25 +99,24 @@ export const MAX_GALLERY = 6;
 
       @if (uploading() !== null) {
         <div class="mt-5" role="progressbar" aria-label="Subiendo imagen" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="progress()">
-          <div class="h-2 rounded-full" style="background:var(--cream2)"><div class="h-2 rounded-full bg-coral" [style.width.%]="progress()"></div></div>
-          <p class="mt-1 text-xs font-bold" style="color:#5b4150">Subiendo… {{ progress() }}%</p>
+          <div class="h-2 rounded-full bg-surface-2"><div class="h-2 rounded-full bg-primary" [style.width.%]="progress()"></div></div>
+          <p class="mt-1 text-xs font-bold text-muted">Subiendo… {{ progress() }}%</p>
         </div>
       }
       @if (message(); as text) {
-        <p role="alert" class="mt-4 text-sm font-bold" style="color:#E63946">{{ text }}</p>
+        <p role="alert" class="mt-4 text-sm font-bold text-danger">{{ text }}</p>
       }
 
       @if (!readonly()) {
         <div class="mt-6 flex flex-wrap items-center gap-3">
           <button type="button" data-save-images (click)="save()" [disabled]="!dirty() || saving() || uploading() !== null"
-                  class="rounded-full bg-coral text-white px-6 py-2.5 text-xs font-bold uppercase tracking-widest hover:brightness-110 disabled:opacity-50">
+                  class="btn btn-primary" [class.btn-loading]="saving()">
             {{ saving() ? 'Guardando…' : 'Guardar imágenes' }}
           </button>
           <button type="button" data-discard-images (click)="discard()" [disabled]="!dirty() || saving()"
-                  class="rounded-full border-2 px-6 py-2.5 text-xs font-bold uppercase tracking-widest disabled:opacity-40"
-                  style="border-color:rgba(61,29,46,.2);color:var(--plum)">Descartar cambios</button>
+                  class="btn btn-secondary">Descartar cambios</button>
           @if (dirty()) {
-            <span class="text-xs font-bold" style="color:#B7791F">Hay cambios sin guardar</span>
+            <span class="text-xs font-bold text-warning">Hay cambios sin guardar</span>
           }
         </div>
       }

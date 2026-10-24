@@ -30,28 +30,28 @@ const COPY: Record<Mode, { title: string; subtitle: string; endpoint: string; do
   template: `
     <app-auth-card [title]="copy.title" [subtitle]="done() ? '' : copy.subtitle">
       @if (done()) {
-        <p role="status" class="font-medium" style="color:#5b4150">{{ copy.done }}</p>
+        <p role="status" class="font-medium text-muted">{{ copy.done }}</p>
       } @else {
         <form [formGroup]="form" (ngSubmit)="submit()" class="space-y-5" novalidate>
           <div>
-            <label for="email-form-email" class="text-xs font-bold uppercase tracking-widest text-teal">Correo</label>
+            <label for="email-form-email" class="text-xs font-bold uppercase tracking-wider text-muted">Correo</label>
             <input id="email-form-email" type="email" autocomplete="username" formControlName="email"
-                   class="field mt-2 w-full px-4 py-3 text-sm font-medium">
+                   class="input mt-2">
             @if (form.controls.email.touched && form.controls.email.invalid) {
-              <p class="mt-1 text-xs font-bold" style="color:#E63946">Escribe un correo válido.</p>
+              <p class="mt-1.5 text-xs font-bold text-danger anim-fade-in">Escribe un correo válido.</p>
             }
           </div>
           @if (error(); as message) {
-            <p role="alert" class="text-sm font-bold" style="color:#E63946">{{ message }}</p>
+            <p role="alert" class="rounded-ui-md bg-danger/10 px-4 py-3 text-sm font-bold text-danger anim-fade-in">{{ message }}</p>
           }
           <button type="submit" [disabled]="pending()"
-                  class="w-full bg-coral text-white font-bold py-4 rounded-xl uppercase tracking-widest text-sm hover:brightness-110 transition-all disabled:opacity-60 disabled:cursor-not-allowed">
+                  class="btn btn-primary btn-lg w-full" [class.btn-loading]="pending()">
             {{ pending() ? 'Enviando…' : 'Enviar' }}
           </button>
         </form>
       }
       <div footer>
-        <a routerLink="/auth/login" class="underline underline-offset-2 hover:text-coral">Volver a iniciar sesión</a>
+        <a routerLink="/auth/login" >Volver a iniciar sesión</a>
       </div>
     </app-auth-card>
   `,

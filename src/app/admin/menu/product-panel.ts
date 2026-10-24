@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { MenuItem } from '../../core/catalog.models';
 import { NoticeService } from '../../core/notice.service';
 import { ConfirmDialog } from '../../shared/confirm-dialog';
+import { EmptyState } from '../../shared/ui/empty-state';
 import { ItemFilter, MenuStore, Result } from './menu.store';
 
 const FILTERS: { id: ItemFilter; label: string }[] = [
@@ -11,102 +12,104 @@ const FILTERS: { id: ItemFilter; label: string }[] = [
 ];
 
 @Component({
-  imports: [ConfirmDialog],
+  imports: [ConfirmDialog, EmptyState],
   selector: 'app-product-panel',
   template: `
-    <section aria-labelledby="products-title" class="bg-white rounded-3xl p-5 md:p-6 shadow-lg">
+    <section aria-labelledby="products-title" class="card p-5 md:p-6">
       @if (store.selected(); as category) {
         <div class="flex flex-wrap items-center justify-between gap-3">
-          <h2 id="products-title" class="font-display text-xl font-black" style="color:var(--plum)">{{ category.name }}</h2>
-          <button type="button" data-new-item (click)="store.openEditor(null)"
-                  class="rounded-full bg-coral text-white px-5 py-2.5 text-xs font-bold uppercase tracking-widest hover:brightness-110">
-            Nuevo producto
-          </button>
+          <h2 id="products-title" class="font-display text-xl md:text-2xl font-black">{{ category.name }}</h2>
+          <button type="button" data-new-item (click)="store.openEditor(null)" class="btn btn-primary btn-sm">+ Nuevo producto</button>
         </div>
 
-        <div role="group" aria-label="Filtrar productos" class="mt-4 flex gap-2">
+        <div role="group" aria-label="Filtrar productos" class="mt-4 tabs w-fit max-w-full">
           @for (option of filters; track option.id) {
-            <button type="button" (click)="store.setFilter(option.id)" [attr.aria-pressed]="store.filter() === option.id"
-                    class="rounded-full border-2 px-4 py-1.5 text-xs font-bold uppercase tracking-widest"
-                    [style.background]="store.filter() === option.id ? 'var(--plum)' : '#fff'"
-                    [style.color]="store.filter() === option.id ? '#fff' : 'var(--plum)'"
-                    [style.borderColor]="'var(--plum)'">{{ option.label }}</button>
+            <button type="button" (click)="store.setFilter(option.id)" [attr.aria-pressed]="store.filter() === option.id" class="tab">{{ option.label }}</button>
           }
         </div>
 
         @switch (store.itemsState()) {
           @case ('error') {
-            <div role="alert" class="mt-6 rounded-2xl p-4" style="background:#FDECEE">
-              <p class="font-bold" style="color:#E63946">No pudimos cargar los productos.</p>
-              <button type="button" (click)="store.loadItems()" class="mt-3 underline text-sm font-bold" style="color:var(--plum)">Reintentar</button>
+            <div role="alert" class="mt-6 rounded-ui-md p-4 bg-danger/10">
+              <p class="font-bold text-danger">No pudimos cargar los productos.</p>
+              <button type="button" (click)="store.loadItems()" class="btn btn-secondary btn-sm mt-3">Reintentar</button>
             </div>
           }
           @case ('loading') {
-            <p class="mt-6 font-medium" style="color:#5b4150" role="status" aria-busy="true">Cargando productos…</p>
+            <div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3" role="status" aria-busy="true">
+              @for (n of [1, 2, 3]; track n) { <div class="skeleton h-64"></div> }
+              <p class="sr-only">Cargando productos…</p>
+            </div>
           }
           @default {
             @if (store.items().length === 0) {
-              <p class="mt-6 font-medium" style="color:#5b4150">
-                @if (store.filter() === 'all') {
-                  Esta categoría aún no tiene productos.
-                } @else {
-                  No hay productos {{ store.filter() === 'active' ? 'activos' : 'inactivos' }} en esta categoría.
-                }
-              </p>
+              @if (store.filter() === 'all') {
+                <app-empty-state title="Esta categoría aún no tiene productos" text="Añade el primero con su foto y su precio.">
+                  <button type="button" (click)="store.openEditor(null)" class="btn btn-primary">Añadir producto</button>
+                </app-empty-state>
+              } @else {
+                <app-empty-state [title]="'No hay productos ' + (store.filter() === 'active' ? 'activos' : 'inactivos') + ' en esta categoría'" />
+              }
             } @else {
-              <ul class="mt-5 divide-y" style="border-color:rgba(61,29,46,.1)">
+              <ul class="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 @for (item of store.items(); track item.id; let index = $index) {
-                  <li class="py-4 flex flex-wrap items-center gap-4" [class.opacity-60]="!item.active">
-                    @if (item.imageUrl) {
-                      <img [src]="item.imageUrl" [alt]="item.name" class="w-16 h-16 rounded-xl object-cover shrink-0">
-                    } @else {
-                      <div class="w-16 h-16 rounded-xl shrink-0 flex items-center justify-center text-xs font-bold"
-                           style="background:var(--cream2);color:#5b4150" aria-label="Sin imagen">Sin foto</div>
-                    }
-                    <div class="flex-1 min-w-[10rem]">
-                      <p class="font-bold break-words" style="color:var(--plum)">{{ item.name }}</p>
-                      @if (item.tag) {
-                        <span class="inline-block mt-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-white"
-                              style="background:var(--teal)">{{ item.tag }}</span>
+                  <li class="pcard anim-fade-up" [class.inactive]="!item.active" [style.--i]="index">
+                    <div class="pcard-media">
+                      @if (item.imageUrl) {
+                        <img [src]="item.imageUrl" [alt]="item.name" loading="lazy" class="w-full h-full object-cover">
+                      } @else {
+                        <div class="w-full h-full flex items-center justify-center text-xs font-bold bg-surface-2 text-muted" aria-label="Sin imagen">Sin foto</div>
                       }
-                      @if (item.description) {
-                        <p class="mt-1 text-sm font-medium line-clamp-2" style="color:#5b4150">{{ item.description }}</p>
+                      @if (item.tag) {
+                        <span class="pcard-tag">{{ item.tag }}</span>
+                      }
+                      @if (!item.active) {
+                        <span class="pcard-off badge">Inactivo</span>
                       }
                     </div>
-                    <p class="font-display text-lg font-black text-coral">{{ store.formatPrice(item.price) }}</p>
-                    <button type="button" role="switch" [attr.aria-checked]="item.active" [attr.aria-label]="'Activo: ' + item.name"
-                            (click)="toggle(item)" [disabled]="busyId() === item.id"
-                            class="relative w-12 h-7 rounded-full transition-colors disabled:opacity-60"
-                            [style.background]="item.active ? 'var(--teal)' : '#c9bcc3'">
-                      <span class="absolute top-1 w-5 h-5 rounded-full bg-white transition-all" [style.left]="item.active ? '1.5rem' : '0.25rem'"></span>
-                    </button>
-                    <div class="flex items-center gap-1">
-                      <button type="button" (click)="move(item, -1)" [disabled]="!canMove(index, -1) || busyId() !== null"
-                              [attr.aria-label]="'Subir ' + item.name" class="px-2 py-1 disabled:opacity-30">↑</button>
-                      <button type="button" (click)="move(item, 1)" [disabled]="!canMove(index, 1) || busyId() !== null"
-                              [attr.aria-label]="'Bajar ' + item.name" class="px-2 py-1 disabled:opacity-30">↓</button>
-                      <button type="button" (click)="store.openEditor(item)" [attr.aria-label]="'Editar ' + item.name" class="px-2 py-1">✎</button>
-                      <button type="button" (click)="deleting.set(item)" [attr.aria-label]="'Eliminar ' + item.name"
-                              class="px-2 py-1" style="color:#E63946">🗑</button>
+                    <div class="p-4 flex-1 flex flex-col">
+                      <div class="flex items-start justify-between gap-3">
+                        <p class="font-bold break-words leading-snug">{{ item.name }}</p>
+                        <p class="font-display text-lg font-black text-primary shrink-0">{{ store.formatPrice(item.price) }}</p>
+                      </div>
+                      @if (item.description) {
+                        <p class="mt-1.5 text-sm font-medium line-clamp-2 text-muted">{{ item.description }}</p>
+                      }
+                    </div>
+                    <div class="pcard-actions">
+                      <button type="button" role="switch" class="switch" [attr.aria-checked]="item.active" [attr.aria-label]="'Activo: ' + item.name"
+                              (click)="toggle(item)" [disabled]="busyId() === item.id"></button>
+                      <div class="flex items-center">
+                        <button type="button" class="icon-btn !w-9 !h-9" (click)="move(item, -1)" [disabled]="!canMove(index, -1) || busyId() !== null" [attr.aria-label]="'Subir ' + item.name">
+                          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+                        </button>
+                        <button type="button" class="icon-btn !w-9 !h-9" (click)="move(item, 1)" [disabled]="!canMove(index, 1) || busyId() !== null" [attr.aria-label]="'Bajar ' + item.name">
+                          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+                        </button>
+                        <button type="button" class="icon-btn !w-9 !h-9" (click)="store.openEditor(item)" [attr.aria-label]="'Editar ' + item.name">
+                          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></svg>
+                        </button>
+                        <button type="button" class="icon-btn !w-9 !h-9 !text-danger" (click)="deleting.set(item)" [attr.aria-label]="'Eliminar ' + item.name">
+                          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
+                        </button>
+                      </div>
                     </div>
                   </li>
                 }
               </ul>
 
               @if (store.totalPages() > 1) {
-                <nav aria-label="Paginación" class="mt-5 flex items-center justify-between text-sm font-bold" style="color:var(--plum)">
-                  <button type="button" data-prev (click)="store.goToPage(store.page() - 1)" [disabled]="store.page() === 0"
-                          class="rounded-full border-2 px-4 py-1.5 text-xs uppercase tracking-widest disabled:opacity-30">Anterior</button>
-                  <span>Página {{ store.page() + 1 }} de {{ store.totalPages() }} · {{ store.totalItems() }} productos</span>
-                  <button type="button" data-next (click)="store.goToPage(store.page() + 1)" [disabled]="store.page() + 1 >= store.totalPages()"
-                          class="rounded-full border-2 px-4 py-1.5 text-xs uppercase tracking-widest disabled:opacity-30">Siguiente</button>
+                <nav aria-label="Paginación" class="mt-6 flex items-center justify-between gap-3 text-sm font-bold">
+                  <button type="button" data-prev (click)="store.goToPage(store.page() - 1)" [disabled]="store.page() === 0" class="btn btn-secondary btn-sm">Anterior</button>
+                  <span class="text-center text-muted">Página {{ store.page() + 1 }} de {{ store.totalPages() }} · {{ store.totalItems() }} productos</span>
+                  <button type="button" data-next (click)="store.goToPage(store.page() + 1)" [disabled]="store.page() + 1 >= store.totalPages()" class="btn btn-secondary btn-sm">Siguiente</button>
                 </nav>
               }
             }
           }
         }
       } @else {
-        <p class="font-medium" style="color:#5b4150">Crea una categoría para empezar a añadir productos.</p>
+        <p class="font-medium text-muted">Crea una categoría para empezar a añadir productos.</p>
       }
     </section>
 
