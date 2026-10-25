@@ -10,7 +10,7 @@ export function makeMe(overrides: Partial<Me> = {}): Me {
   return {
     email: 'owner@a.test',
     role: 'OWNER',
-    tenant: { id: 't1', slug: 'negocio-a', name: 'Negocio A', published: true },
+    tenant: { id: 't1', slug: 'negocio-a', name: 'Negocio A', published: true, logoUrl: null },
     ...overrides,
   };
 }

@@ -4,6 +4,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { isConnectionProblem, toProblem } from '../core/api-error';
 import { safeReturnUrl } from '../core/auth.guards';
 import { AuthService } from '../core/auth.service';
+import { NoticeService } from '../core/notice.service';
 import { AuthCard } from './auth-card';
 import { PasswordToggle } from '../shared/ui/password-toggle';
 
@@ -51,12 +52,21 @@ export class LoginPage {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly notices = inject(NoticeService);
 
   protected readonly form = inject(NonNullableFormBuilder).group({
     email: ['', [Validators.required, Validators.email]],
     password: ['', Validators.required],
   });
   protected readonly pending = signal(false);
+
+  constructor() {
+    if (this.route.snapshot.queryParamMap.get('verified') === '1') {
+      this.notices.show('info', 'Correo confirmado. Ya puedes iniciar sesión.');
+      void this.router.navigate([], { queryParams: { verified: null }, queryParamsHandling: 'merge', replaceUrl: true });
+    }
+  }
+
   protected readonly error = signal<string | null>(null);
 
   protected async submit(): Promise<void> {

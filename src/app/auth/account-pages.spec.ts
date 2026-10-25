@@ -3,30 +3,56 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
+import { Component } from '@angular/core';
+import { CrossTab, CrossTabMessage } from '../core/cross-tab.service';
 import { answer, answerCsrf, fail, settle, submit, type } from '../testing/http';
 import { EmailFormPage } from './email-form.page';
 import { ResetPasswordPage } from './reset-password.page';
-import { VerifyEmailPage } from './verify-email.page';
+import { VERIFY_TIMINGS, VerifyEmailPage } from './verify-email.page';
+
+@Component({ template: '' })
+class Stub {}
+
+class FakeCrossTab {
+  sent: CrossTabMessage[] = [];
+  handler: ((message: CrossTabMessage) => void) | null = null;
+  otherTabOpen = false;
+  send(message: CrossTabMessage): void {
+    this.sent.push(message);
+    if (this.otherTabOpen && message === 'email-verified') {
+      queueMicrotask(() => this.handler?.('ack'));
+    }
+  }
+  listen(handler: (message: CrossTabMessage) => void): () => void {
+    this.handler = handler;
+    return () => (this.handler = null);
+  }
+}
 
 describe('account pages', () => {
   let harness: RouterTestingHarness;
   let http: HttpTestingController;
   let router: Router;
+  let crossTab: FakeCrossTab;
 
   const root = () => harness.routeNativeElement as HTMLElement;
   const text = () => root().textContent ?? '';
 
   beforeEach(async () => {
+    crossTab = new FakeCrossTab();
     TestBed.configureTestingModule({
       providers: [
         provideRouter([
           { path: 'auth/verify-email', component: VerifyEmailPage },
+          { path: 'auth/login', component: Stub },
           { path: 'auth/reset-password', component: ResetPasswordPage },
           { path: 'auth/forgot-password', data: { mode: 'forgot' }, component: EmailFormPage },
           { path: 'auth/resend-verification', data: { mode: 'resend' }, component: EmailFormPage },
         ]),
         provideHttpClient(),
         provideHttpClientTesting(),
+        { provide: CrossTab, useValue: crossTab },
+        { provide: VERIFY_TIMINGS, useValue: { ackWaitMs: 40, countdownSeconds: 3, tickMs: 60 } },
       ],
     });
     harness = await RouterTestingHarness.create();
@@ -49,7 +75,46 @@ describe('account pages', () => {
 
       expect(request.request.body).toEqual({ token: 'abc123' });
       expect(text()).toContain('Correo confirmado');
-      expect(root().querySelector('a[href="/auth/login"]')).not.toBeNull();
+      expect(root().querySelector('a[href="/auth/login?verified=1"]')).not.toBeNull();
+    });
+
+    async function confirm(): Promise<void> {
+      await harness.navigateByUrl('/auth/verify-email?token=abc123');
+      await answerCsrf(http);
+      await answer(http, '/api/v1/auth/verify-email', null, { status: 204, statusText: 'No Content' }, 'POST');
+      await settle();
+      harness.detectChanges();
+    }
+
+    it('should announce the confirmation to other tabs and let the original tab continue', async () => {
+      crossTab.otherTabOpen = true;
+      await confirm();
+      await new Promise(resolve => setTimeout(resolve, 120));
+      harness.detectChanges();
+
+      expect(crossTab.sent).toEqual(['email-verified']);
+      expect(root().querySelector('[data-other-tab]')?.textContent).toContain('Tu otra pestaña ya continuó');
+      expect(root().querySelector('[data-close-tab]')).not.toBeNull();
+      expect(root().querySelector('[data-countdown]')).toBeNull();
+      expect(router.url).toBe('/auth/verify-email');
+    });
+
+    it('should count down and go to the login in the same tab when no other tab answers', async () => {
+      await confirm();
+      await new Promise(resolve => setTimeout(resolve, 70));
+      harness.detectChanges();
+      expect(root().querySelector('[data-countdown]')?.textContent).toContain('3');
+
+      await new Promise(resolve => setTimeout(resolve, 400));
+      expect(router.url).toBe('/auth/login?verified=1');
+    });
+
+    it('should not announce anything when the confirmation fails', async () => {
+      await harness.navigateByUrl('/auth/verify-email?token=viejo');
+      await answerCsrf(http);
+      await fail(http, '/api/v1/auth/verify-email', 400, { code: 'invalid_token' });
+      await settle();
+      expect(crossTab.sent).toEqual([]);
     });
 
     it('should show an invalid link message and offer a new one', async () => {

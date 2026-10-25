@@ -1,12 +1,14 @@
-import { Component, computed, effect, inject, input, output, signal } from '@angular/core';
+import { Component, DestroyRef, computed, effect, inject, input, output, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { isConnectionProblem, toProblem } from '../../core/api-error';
 import { CatalogApi } from '../../core/catalog.api';
 import { SiteAdminApi } from '../../core/site-admin.api';
 import { SiteImages, SiteSettingsDetail } from '../../core/site-admin.models';
 import { ACCEPTED_IMAGE_TYPES, validateImageFile } from '../menu/menu.store';
+import { SiteSettingsStore } from '../setup/site-settings.store';
 
-type Block = 'hero' | 'about' | 'gallery';
+export type ImageBlock = 'logo' | 'hero' | 'about' | 'gallery';
+type Block = ImageBlock;
 
 interface Slot {
   id: string;
@@ -27,6 +29,29 @@ export const MAX_GALLERY = 6;
       </p>
 
       <div class="mt-6 space-y-8">
+        @if (blocks().includes('logo')) {
+        <div>
+          <h3 class="text-xs font-bold uppercase tracking-wider text-muted">Logo del negocio (1)</h3>
+          <p class="mt-1 text-xs font-medium text-muted">Se muestra en el encabezado de tu sitio y en tu panel. Si no subes uno, se usa el logo de la app. Mejor cuadrado y con fondo transparente.</p>
+          <div class="mt-3 flex items-center gap-4">
+            @if (logo(); as slot) {
+              <img [src]="slot.url" alt="Logo del negocio" class="logo-preview" data-logo-preview>
+              @if (!readonly()) {
+                <button type="button" data-remove-logo (click)="removeLogo()" class="btn btn-ghost btn-sm text-danger">Quitar</button>
+              }
+            } @else {
+              <img src="/logos/icon-192.png" alt="Logo por defecto de la app" class="logo-preview opacity-70" data-logo-default>
+              <span class="text-xs font-bold text-muted">Logo por defecto</span>
+            }
+            @if (!readonly()) {
+              <label for="img-logo" class="btn btn-secondary btn-sm cursor-pointer">{{ logo() ? 'Cambiar' : 'Subir logo' }}</label>
+              <input id="img-logo" type="file" class="sr-only" [accept]="accepted" [disabled]="uploading() !== null" (change)="choose('logo', $event)">
+            }
+          </div>
+        </div>
+        }
+
+        @if (blocks().includes('hero')) {
         <div>
           <h3 class="text-xs font-bold uppercase tracking-wider text-muted">Portada (1)</h3>
           <div class="mt-3 flex items-center gap-4">
@@ -44,7 +69,9 @@ export const MAX_GALLERY = 6;
             }
           </div>
         </div>
+        }
 
+        @if (blocks().includes('about')) {
         <div>
           <h3 class="text-xs font-bold uppercase tracking-wider text-muted">Nosotros ({{ about().length }}/{{ maxAbout }})</h3>
           <ul class="mt-3 flex flex-wrap gap-4">
@@ -67,7 +94,9 @@ export const MAX_GALLERY = 6;
             <input id="img-about" type="file" class="sr-only" [accept]="accepted" [disabled]="uploading() !== null || about().length >= maxAbout" (change)="choose('about', $event)">
           }
         </div>
+        }
 
+        @if (blocks().includes('gallery')) {
         <div>
           <h3 class="text-xs font-bold uppercase tracking-wider text-muted">Galería ({{ gallery().length }}/{{ maxGallery }})</h3>
           <ul class="mt-3 grid sm:grid-cols-2 gap-4">
@@ -95,6 +124,7 @@ export const MAX_GALLERY = 6;
             <input id="img-gallery" type="file" class="sr-only" [accept]="accepted" [disabled]="uploading() !== null || gallery().length >= maxGallery" (change)="choose('gallery', $event)">
           }
         </div>
+        }
       </div>
 
       @if (uploading() !== null) {
@@ -107,7 +137,7 @@ export const MAX_GALLERY = 6;
         <p role="alert" class="mt-4 text-sm font-bold text-danger">{{ text }}</p>
       }
 
-      @if (!readonly()) {
+      @if (!readonly() && !embedded()) {
         <div class="mt-6 flex flex-wrap items-center gap-3">
           <button type="button" data-save-images (click)="save()" [disabled]="!dirty() || saving() || uploading() !== null"
                   class="btn btn-primary" [class.btn-loading]="saving()">
@@ -126,6 +156,8 @@ export const MAX_GALLERY = 6;
 export class SiteImagesEditor {
   readonly images = input.required<SiteImages>();
   readonly readonly = input(false);
+  readonly blocks = input<readonly Block[]>(['logo', 'hero', 'about', 'gallery']);
+  readonly embedded = input(false);
   readonly saved = output<SiteSettingsDetail>();
 
   private readonly catalog = inject(CatalogApi);
@@ -135,6 +167,7 @@ export class SiteImagesEditor {
   protected readonly maxAbout = MAX_ABOUT;
   protected readonly maxGallery = MAX_GALLERY;
   protected readonly hero = signal<Slot | null>(null);
+  protected readonly logo = signal<Slot | null>(null);
   protected readonly about = signal<Slot[]>([]);
   protected readonly gallery = signal<Slot[]>([]);
   protected readonly dirty = signal(false);
@@ -147,6 +180,9 @@ export class SiteImagesEditor {
 
   constructor() {
     effect(() => this.load(this.images()));
+    const store = inject(SiteSettingsStore, { optional: true });
+    store?.registerImages(this);
+    inject(DestroyRef).onDestroy(() => store?.registerImages(null));
   }
 
   protected choose(block: Block, event: Event): void {
@@ -197,6 +233,12 @@ export class SiteImagesEditor {
     this.dirty.set(true);
   }
 
+  protected removeLogo(): void {
+    this.discardIfFresh(this.logo());
+    this.logo.set(null);
+    this.dirty.set(true);
+  }
+
   protected removeHero(): void {
     this.discardIfFresh(this.hero());
     this.hero.set(null);
@@ -215,9 +257,9 @@ export class SiteImagesEditor {
     this.dirty.set(true);
   }
 
-  protected async save(): Promise<void> {
+  async save(): Promise<boolean> {
     if (this.saving() || !this.dirty()) {
-      return;
+      return !this.dirty();
     }
     this.saving.set(true);
     this.message.set(null);
@@ -225,12 +267,14 @@ export class SiteImagesEditor {
       const settings = await firstValueFrom(
         this.api.saveImages({
           hero: this.hero()?.id ?? null,
+          logo: this.logo()?.id ?? null,
           about: this.about().map(slot => slot.id),
           gallery: this.gallery().map(slot => ({ mediaId: slot.id, alt: slot.alt.trim() || null })),
         }),
       );
       this.dirty.set(false);
       this.saved.emit(settings);
+      return true;
     } catch (error) {
       const problem = toProblem(error);
       if (problem.status === 400) {
@@ -240,19 +284,23 @@ export class SiteImagesEditor {
       } else if (problem.status !== 403) {
         this.message.set('No se pudieron guardar las imágenes.');
       }
+      return false;
     } finally {
       this.saving.set(false);
     }
   }
 
-  protected discard(): void {
-    [this.hero(), ...this.about(), ...this.gallery()].forEach(slot => this.discardIfFresh(slot));
+  discard(): void {
+    [this.logo(), this.hero(), ...this.about(), ...this.gallery()].forEach(slot => this.discardIfFresh(slot));
     this.load(this.images());
     this.message.set(null);
   }
 
   private place(block: Block, slot: Slot): void {
-    if (block === 'hero') {
+    if (block === 'logo') {
+      this.discardIfFresh(this.logo());
+      this.logo.set(slot);
+    } else if (block === 'hero') {
       this.discardIfFresh(this.hero());
       this.hero.set(slot);
     } else if (block === 'about') {
@@ -264,6 +312,7 @@ export class SiteImagesEditor {
   }
 
   private load(images: SiteImages): void {
+    this.logo.set(images.logo ? { id: images.logo.id, url: images.logo.url, alt: '', fresh: false } : null);
     this.hero.set(images.hero ? { id: images.hero.id, url: images.hero.url, alt: '', fresh: false } : null);
     this.about.set(images.about.map(image => ({ id: image.id, url: image.url, alt: '', fresh: false })));
     this.gallery.set(images.gallery.map(image => ({ id: image.id, url: image.url, alt: image.alt ?? '', fresh: false })));

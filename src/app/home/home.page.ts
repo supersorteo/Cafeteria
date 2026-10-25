@@ -2,15 +2,16 @@ import { Component, HostListener, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../core/auth.service';
 import { RevealDirective } from '../shared/reveal.directive';
+import { BrandMark } from '../shared/ui/brand-mark';
 import { ThemeToggle } from '../shared/ui/theme-toggle';
 
 @Component({
-  imports: [RouterLink, RevealDirective, ThemeToggle],
+  imports: [RouterLink, RevealDirective, ThemeToggle, BrandMark],
   selector: 'app-home',
   template: `
     <header class="home-header sticky top-0 z-40 transition-all" [class.scrolled]="scrolled()">
       <div class="max-w-6xl mx-auto px-4 sm:px-5 flex items-center justify-between gap-2 transition-all" [class.py-4]="!scrolled()" [class.py-2]="scrolled()">
-        <a routerLink="/" class="font-display text-lg sm:text-xl md:text-2xl font-black text-primary whitespace-nowrap">La Terraza <span class="text-gold">Pro</span></a>
+        <a routerLink="/" class="flex items-center gap-2.5 font-display text-lg sm:text-xl md:text-2xl font-black text-primary whitespace-nowrap"><app-brand-mark [size]="34" />La Terraza <span class="text-gold">Pro</span></a>
         <nav class="flex items-center gap-1 sm:gap-2" aria-label="Principal">
           <app-theme-toggle class="hidden min-[400px]:block" />
           @if (auth.user()) {
@@ -38,7 +39,7 @@ import { ThemeToggle } from '../shared/ui/theme-toggle';
             </p>
             <div class="anim-fade-up mt-9 flex flex-col sm:flex-row gap-3" style="--i:3">
               <a routerLink="/auth/register" class="btn btn-primary btn-lg">Crear mi negocio</a>
-              <a id="homeDemo" routerLink="/la-terraza" class="btn btn-secondary btn-lg">Ver un ejemplo</a>
+              <a id="homeDemo" routerLink="/la-terraza" [queryParams]="{ ref: 'plataforma' }" class="btn btn-secondary btn-lg">Ver un ejemplo</a>
             </div>
             <p class="anim-fade-up mt-5 text-sm font-semibold text-muted" style="--i:4">Sin tarjeta · Listo en 5 minutos · Tu carta siempre actualizada</p>
           </div>
@@ -110,7 +111,7 @@ import { ThemeToggle } from '../shared/ui/theme-toggle';
           <p class="relative mt-3 text-lg font-medium text-white/80">Crea tu cuenta gratis y publica tu carta hoy.</p>
           <div class="relative mt-8 flex flex-col sm:flex-row gap-3 justify-center">
             <a routerLink="/auth/register" class="btn btn-lg bg-white text-[#2A1420] hover:shadow-lift">Crear mi negocio</a>
-            <a routerLink="/la-terraza" class="btn btn-lg border-white/40 text-white hover:bg-white/10">Ver un ejemplo</a>
+            <a routerLink="/la-terraza" [queryParams]="{ ref: 'plataforma' }" class="btn btn-lg border-white/40 text-white hover:bg-white/10">Ver un ejemplo</a>
           </div>
         </div>
       </section>

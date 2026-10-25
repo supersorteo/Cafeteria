@@ -1,11 +1,13 @@
 import { HttpClient } from '@angular/common/http';
-import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { Component, DestroyRef, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { AbstractControl, NonNullableFormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { isConnectionProblem, toProblem } from '../core/api-error';
 import { AuthService } from '../core/auth.service';
+import { CrossTab } from '../core/cross-tab.service';
+import { NoticeService } from '../core/notice.service';
 import { RESERVED_SLUGS, SLUG_PATTERN, slugify } from '../shared/slug';
 import { PasswordMeter } from '../shared/ui/password-meter';
 import { AuthCard } from './auth-card';
@@ -88,6 +90,10 @@ function notReserved(control: AbstractControl<string>): ValidationErrors | null 
 export class RegisterPage {
   private readonly auth = inject(AuthService);
   private readonly http = inject(HttpClient);
+  private readonly crossTab = inject(CrossTab);
+  private readonly notices = inject(NoticeService);
+  private readonly router = inject(Router);
+  private stopListening: (() => void) | null = null;
 
   protected readonly origin = typeof location === 'undefined' ? '' : location.host;
   protected readonly form = inject(NonNullableFormBuilder).group({
@@ -103,6 +109,18 @@ export class RegisterPage {
   protected slugEdited = false;
 
   constructor() {
+    effect(() => {
+      if (this.done() && !this.stopListening) {
+        this.stopListening = this.crossTab.listen(message => {
+          if (message === 'email-verified') {
+            this.crossTab.send('ack');
+            this.notices.show('info', 'Correo confirmado. Ya puedes iniciar sesión.');
+            void this.router.navigate(['/auth/login']);
+          }
+        });
+      }
+    });
+    inject(DestroyRef).onDestroy(() => this.stopListening?.());
     this.form.controls.businessName.valueChanges
       .pipe(takeUntilDestroyed(inject(DestroyRef)))
       .subscribe(name => {

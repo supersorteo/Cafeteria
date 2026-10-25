@@ -23,6 +23,7 @@ export function makeSettings(overrides: Partial<SiteSettingsDetail> = {}): SiteS
       hero: { id: 'h1', url: '/media/h1' },
       about: [{ id: 'a1', url: '/media/a1' }],
       gallery: [{ id: 'g1', url: '/media/g1', alt: 'Terraza' }],
+      logo: null,
     },
     descriptor: 'Bar & Cocina',
     tagline: 'Desde 2012',

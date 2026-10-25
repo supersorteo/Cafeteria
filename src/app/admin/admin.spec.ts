@@ -6,9 +6,11 @@ import { RouterTestingHarness } from '@angular/router/testing';
 import { routes } from '../app.routes';
 import { authInterceptor } from '../core/auth.interceptor';
 import { NoticeService } from '../core/notice.service';
+import { makeSettings } from '../testing/site-admin.fixture';
 import { ME_URL, answer, answerCsrf, fail, makeMe, restoreSession, settle, submit, type } from '../testing/http';
 
 const DASHBOARD = '/api/v1/admin/dashboard';
+const SITE = '/api/v1/admin/site';
 const dashboard = (name: string, overrides: object = {}) => ({
   slug: 'negocio-a', name, published: true, categories: 5, activeItems: 28, inactiveItems: 3, images: 13, ...overrides,
 });
@@ -37,11 +39,17 @@ describe('admin panel', () => {
     http.verify();
   });
 
+
+  async function answerDashboard(name: string, overrides: object = {}, settings = makeSettings()): Promise<void> {
+    await answer(http, DASHBOARD, dashboard(name, overrides));
+    await answer(http, SITE, settings);
+  }
+
   async function openPanel(me = makeMe(), name = 'Negocio A'): Promise<void> {
     const navigation = harness.navigateByUrl('/admin');
     await restoreSession(http, me);
     await navigation;
-    await answer(http, DASHBOARD, dashboard(name));
+    await answerDashboard(name);
     await settle();
     harness.detectChanges();
   }
@@ -62,8 +70,10 @@ describe('admin panel', () => {
   it('should only link screens that exist', async () => {
     await openPanel();
     const links = Array.from(root().querySelectorAll('nav a')).map(a => a.textContent?.trim());
-    expect(links).toEqual(['Resumen', 'Carta', 'Mi sitio', 'Ver mi sitio ↗']);
-    expect((root().querySelector('nav a[target="_blank"]') as HTMLAnchorElement).getAttribute('href')).toBe('/negocio-a');
+    expect(links).toEqual(['Resumen', 'Carta', 'Configuración', 'Ver mi sitio']);
+    const site = root().querySelector('nav a[href^="/negocio-a"]') as HTMLAnchorElement;
+    expect(site.getAttribute('href')).toBe('/negocio-a?ref=panel');
+    expect(site.hasAttribute('target')).toBe(false);
   });
 
   it('should show editors with their own role label', async () => {
@@ -83,7 +93,7 @@ describe('admin panel', () => {
     const navigation = harness.navigateByUrl('/admin/no-existe');
     await restoreSession(http, makeMe());
     await navigation;
-    await answer(http, DASHBOARD, dashboard('Negocio A'));
+    await answerDashboard('Negocio A');
     await settle();
     expect(router.url).toBe('/admin');
   });
@@ -99,7 +109,7 @@ describe('admin panel', () => {
 
     (root().querySelector('button') as HTMLButtonElement).click();
     await restoreSession(http, makeMe());
-    await answer(http, DASHBOARD, dashboard('Negocio A'));
+    await answerDashboard('Negocio A');
     await settle();
     harness.detectChanges();
     expect(text()).toContain('Negocio A');
@@ -110,13 +120,14 @@ describe('admin panel', () => {
     await restoreSession(http, makeMe());
     await navigation;
     await fail(http, DASHBOARD, 500);
+    await answer(http, SITE, makeSettings());
     await settle();
     harness.detectChanges();
     expect(root().querySelector('[role="alert"]')?.textContent).toContain('No pudimos cargar el resumen');
 
     const retry = Array.from(root().querySelectorAll('button')).find(b => b.textContent?.includes('Reintentar')) as HTMLButtonElement;
     retry.click();
-    await answer(http, DASHBOARD, dashboard('Negocio A'));
+    await answerDashboard('Negocio A');
     await settle();
     harness.detectChanges();
     expect(text()).toContain('Negocio A');
@@ -126,6 +137,7 @@ describe('admin panel', () => {
     const navigation = harness.navigateByUrl('/admin');
     await restoreSession(http, makeMe());
     await navigation;
+    await answer(http, SITE, makeSettings());
     await fail(http, DASHBOARD, 401, { code: 'unauthenticated' });
     await settle();
     await settle();
@@ -152,8 +164,8 @@ describe('admin panel', () => {
     submit(root());
     await answerCsrf(http);
     await answer(http, '/api/v1/auth/login', { authenticated: true }, {}, 'POST');
-    await answer(http, ME_URL, makeMe({ email: 'owner@b.test', tenant: { id: 't2', slug: 'negocio-b', name: 'Negocio B', published: false } }));
-    await answer(http, DASHBOARD, dashboard('Negocio B', { slug: 'negocio-b', published: false, categories: 1 }));
+    await answer(http, ME_URL, makeMe({ email: 'owner@b.test', tenant: { id: 't2', slug: 'negocio-b', name: 'Negocio B', published: false, logoUrl: null } }));
+    await answerDashboard('Negocio B', { slug: 'negocio-b', published: false, categories: 1 });
     await settle();
     harness.detectChanges();
 
@@ -162,5 +174,41 @@ describe('admin panel', () => {
     expect(text()).toContain('borrador');
     expect(text()).not.toContain('Negocio A');
     expect(text()).not.toContain('owner@a.test');
+  });
+
+  it('should show the setup progress and send the user to the next pending step', async () => {
+    await openPanel();
+    const card = root().querySelector('[data-setup-card]') as HTMLElement;
+    expect(card.textContent).toContain('7 de 9 pasos completos');
+    expect(card.textContent).toContain('Siguiente: Logo y colores');
+    expect(root().querySelector('a[data-open-wizard]')?.getAttribute('href')).toBe('/admin/setup?paso=brand');
+    expect(root().querySelector('a[data-open-list]')?.getAttribute('href')).toBe('/admin/site');
+  });
+
+  it('should say the setup is complete and keep only the link to the list', async () => {
+    const navigation = harness.navigateByUrl('/admin');
+    await restoreSession(http, makeMe());
+    await navigation;
+    await answerDashboard('Negocio A', {}, makeSettings({
+      published: true,
+      images: { hero: { id: 'h', url: '/m/h' }, logo: { id: 'l', url: '/m/l' }, about: [], gallery: [] },
+    }));
+    await settle();
+    harness.detectChanges();
+    expect((root().querySelector('[data-setup-card]') as HTMLElement).textContent).toContain('Tu configuración está completa');
+    expect(root().querySelector('a[data-open-wizard]')).toBeNull();
+    expect(root().querySelector('a[data-open-list]')).not.toBeNull();
+  });
+
+  it('should keep the summary working when the settings cannot be loaded', async () => {
+    const navigation = harness.navigateByUrl('/admin');
+    await restoreSession(http, makeMe());
+    await navigation;
+    await answer(http, DASHBOARD, dashboard('Negocio A'));
+    await fail(http, SITE, 500);
+    await settle();
+    harness.detectChanges();
+    expect(text()).toContain('Negocio A');
+    expect(root().querySelector('[data-setup-card]')).toBeNull();
   });
 });

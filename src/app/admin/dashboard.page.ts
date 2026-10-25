@@ -4,17 +4,12 @@ import { RouterLink } from '@angular/router';
 import { catchError, map, of, startWith, switchMap } from 'rxjs';
 import { AdminApi, Dashboard } from '../core/admin.api';
 import { NoticeService } from '../core/notice.service';
+import { SiteAdminApi } from '../core/site-admin.api';
+import { SiteSettingsDetail } from '../core/site-admin.models';
 import { TickDirective } from '../shared/ui/tick.directive';
+import { nextPendingStep, progressOf } from './setup/setup-steps';
 
 type State = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; data: Dashboard };
-
-interface Step {
-  label: string;
-  hint: string;
-  done: boolean;
-  link: string;
-  cta: string;
-}
 
 @Component({
   imports: [RouterLink, TickDirective],
@@ -37,17 +32,17 @@ interface Step {
               <p class="mt-2 font-medium text-muted">
                 @if (d.published) {
                   Está <strong>publicado</strong> y visible para cualquier persona en
-                  <a [href]="'/' + d.slug" target="_blank" rel="noopener" class="underline underline-offset-2 font-bold hover:text-primary">/{{ d.slug }}</a>.
+                  <a [routerLink]="['/', d.slug]" [queryParams]="{ ref: 'panel' }" class="underline underline-offset-2 font-bold hover:text-primary">/{{ d.slug }}</a>.
                 } @else {
                   Está en <strong>borrador</strong>: todavía no es visible para el público.
-                  <a routerLink="/admin/site" class="underline underline-offset-2 font-bold hover:text-primary">Completa los datos y publícalo</a>.
+                  <a routerLink="/admin/setup" class="underline underline-offset-2 font-bold hover:text-primary">Completa la configuración y publícalo</a>.
                 }
               </p>
             </div>
             @if (d.published) {
               <div class="flex flex-wrap gap-2">
                 <button type="button" class="btn btn-secondary" (click)="copyLink(d.slug)">Copiar enlace</button>
-                <a [href]="'/' + d.slug" target="_blank" rel="noopener" class="btn btn-primary">Ver sitio ↗</a>
+                <a [routerLink]="['/', d.slug]" [queryParams]="{ ref: 'panel' }" class="btn btn-primary">Ver sitio</a>
               </div>
             }
           </section>
@@ -61,33 +56,33 @@ interface Step {
             }
           </section>
 
-          @if (!allDone()) {
-            <section class="mt-6 card p-6 md:p-7" aria-labelledby="start-title">
-              <div class="flex items-center gap-5">
-                <div class="ring" [style.--p]="progress()" role="img" [attr.aria-label]="progress() + '% completado'">
-                  <span class="font-display font-black">{{ doneCount() }}/{{ steps().length }}</span>
+          @if (setup(); as s) {
+            <section class="mt-6 card p-6 md:p-7" aria-labelledby="setup-title" data-setup-card>
+              <div class="flex flex-col md:flex-row md:items-center gap-5">
+                <div class="flex items-center gap-5 flex-1 min-w-0">
+                  <div class="ring" [style.--p]="s.percent" role="img" [attr.aria-label]="s.percent + '% completado'">
+                    <span class="font-display font-black">{{ s.done }}/{{ s.total }}</span>
+                  </div>
+                  <div class="min-w-0">
+                    <h2 id="setup-title" class="font-display text-xl md:text-2xl font-black">
+                      {{ s.next ? 'Configura tu negocio' : 'Tu configuración está completa' }}
+                    </h2>
+                    <p class="text-sm font-medium text-muted">
+                      @if (s.next) {
+                        {{ s.done }} de {{ s.total }} pasos completos. Siguiente: <strong class="text-ink">{{ s.next.title }}</strong>.
+                      } @else {
+                        Todos los pasos están listos. Puedes editar cualquiera cuando quieras.
+                      }
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h2 id="start-title" class="font-display text-xl md:text-2xl font-black">Pon tu negocio en marcha</h2>
-                  <p class="text-sm font-medium text-muted">Completa estos pasos para publicar una página que enamore.</p>
+                <div class="flex flex-wrap gap-2">
+                  @if (s.next) {
+                    <a routerLink="/admin/setup" [queryParams]="{ paso: s.next.id }" data-open-wizard class="btn btn-primary">Continuar con el asistente</a>
+                  }
+                  <a routerLink="/admin/site" data-open-list class="btn btn-secondary">Ver todos los pasos</a>
                 </div>
               </div>
-              <ul class="mt-5 divide-y divide-line">
-                @for (step of steps(); track step.label) {
-                  <li class="flex items-center gap-3 py-3">
-                    <span class="check" [class.done]="step.done" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
-                    </span>
-                    <div class="flex-1 min-w-0">
-                      <p class="font-bold" [class.line-through]="step.done" [class.text-muted]="step.done">{{ step.label }}</p>
-                      <p class="text-xs font-medium text-muted">{{ step.hint }}</p>
-                    </div>
-                    @if (!step.done) {
-                      <a [routerLink]="step.link" class="btn btn-secondary btn-sm">{{ step.cta }}</a>
-                    }
-                  </li>
-                }
-              </ul>
             </section>
           }
         }
@@ -110,6 +105,7 @@ interface Step {
 })
 export class DashboardPage {
   private readonly api = inject(AdminApi);
+  private readonly siteApi = inject(SiteAdminApi);
   private readonly notices = inject(NoticeService);
   private readonly attempt = signal(0);
 
@@ -124,6 +120,13 @@ export class DashboardPage {
       ),
     ),
     { initialValue: { kind: 'loading' } as State },
+  );
+
+  private readonly settings = toSignal(
+    toObservable(this.attempt).pipe(
+      switchMap(() => this.siteApi.get().pipe(catchError(() => of<SiteSettingsDetail | null>(null)))),
+    ),
+    { initialValue: null as SiteSettingsDetail | null },
   );
 
   protected readonly data = computed(() => {
@@ -141,19 +144,15 @@ export class DashboardPage {
         ]
       : [];
   });
-  protected readonly steps = computed<Step[]>(() => {
+  protected readonly setup = computed(() => {
     const d = this.data();
-    return d
-      ? [
-          { label: 'Crea tu carta', hint: 'Al menos una categoría con un producto activo.', done: d.categories > 0 && d.activeItems > 0, link: '/admin/menu', cta: 'Ir a la carta' },
-          { label: 'Añade imágenes', hint: 'Fotos de tus platos y de tu local.', done: d.images > 0, link: '/admin/site', cta: 'Subir imágenes' },
-          { label: 'Publica tu sitio', hint: 'Hazlo visible para tus clientes.', done: d.published, link: '/admin/site', cta: 'Publicar' },
-        ]
-      : [];
+    const settings = this.settings();
+    if (!d || !settings) {
+      return null;
+    }
+    const snapshot = { settings, categories: d.categories, activeItems: d.activeItems };
+    return { ...progressOf(snapshot), next: nextPendingStep(snapshot) };
   });
-  protected readonly doneCount = computed(() => this.steps().filter(step => step.done).length);
-  protected readonly progress = computed(() => Math.round((this.doneCount() / Math.max(1, this.steps().length)) * 100));
-  protected readonly allDone = computed(() => this.steps().length > 0 && this.doneCount() === this.steps().length);
 
   protected reload(): void {
     this.attempt.update(value => value + 1);

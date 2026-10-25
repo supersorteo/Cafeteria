@@ -25,6 +25,7 @@ export function makeSite(overrides: Partial<SiteData> = {}): SiteData {
       imageUrl: '/media/hero',
     },
     about: { title: 'Tradición, *fuego*\ny compañía', text: 'Texto de nosotros.', imageUrls: ['/media/a1', '/media/a2', '/media/a3'] },
+    logoUrl: null,
     gallery: [
       { url: '/media/g1', alt: 'Terraza' },
       { url: '/media/g2', alt: null },
@@ -64,6 +65,7 @@ export function emptySite(): SiteData {
     contact: { whatsappNumber: '59899111222', phone: null, email: null, address: null, schedule: null },
     hero: { title: null, description: null, caption: null, imageUrl: null },
     about: { title: null, text: null, imageUrls: [] },
+    logoUrl: null,
     gallery: [],
     marquee: [],
     stats: [],

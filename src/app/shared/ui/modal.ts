@@ -13,11 +13,14 @@ let nextId = 0;
         <div class="modal-grab" aria-hidden="true"><span></span></div>
         <header class="modal-header">
           <h2 [id]="titleId" class="font-display text-xl md:text-2xl font-black">{{ heading() }}</h2>
-          @if (dismissable()) {
-            <button type="button" class="modal-x" data-modal-close aria-label="Cerrar" (click)="requestClose()">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
-            </button>
-          }
+          <div class="flex items-center gap-1.5 shrink-0">
+            <ng-content select="[modal-actions]" />
+            @if (dismissable()) {
+              <button type="button" class="modal-x" data-modal-close aria-label="Cerrar" (click)="requestClose()">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+              </button>
+            }
+          </div>
         </header>
         <div class="modal-body"><ng-content /></div>
         <footer class="modal-footer"><ng-content select="[modal-footer]" /></footer>

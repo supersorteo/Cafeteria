@@ -35,6 +35,7 @@ export interface SiteData {
   hero: { title: string | null; description: string | null; caption: string | null; imageUrl: string | null };
   about: { title: string | null; text: string | null; imageUrls: string[] };
   gallery: { url: string; alt: string | null }[];
+  logoUrl: string | null;
   marquee: string[];
   stats: { label: string; value: number }[];
   highlights: { title: string; description: string | null }[];

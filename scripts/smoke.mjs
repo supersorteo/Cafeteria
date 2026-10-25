@@ -33,9 +33,9 @@ const home = await get(`${base}/`);
 const html = await home.text();
 check(home.status === 200 && html.includes('<app-root'), 'La página principal carga la aplicación', `HTTP ${home.status}`);
 const csp = home.headers.get('content-security-policy') ?? '';
-check(csp.includes("script-src 'self'") && csp.includes("frame-ancestors 'none'"), 'Política de seguridad de contenido (CSP) activa');
+check(csp.includes("script-src 'self'") && csp.includes("frame-ancestors 'self'"), 'Política de seguridad de contenido (CSP) activa');
 check(home.headers.get('x-content-type-options') === 'nosniff', 'X-Content-Type-Options: nosniff');
-check(home.headers.get('x-frame-options') === 'DENY', 'X-Frame-Options: DENY');
+check(home.headers.get('x-frame-options') === 'SAMEORIGIN', 'X-Frame-Options: SAMEORIGIN');
 check(home.headers.get('referrer-policy') === 'no-referrer', 'Referrer-Policy: no-referrer');
 check((home.headers.get('strict-transport-security') ?? '').includes('max-age='), 'HSTS activo');
 

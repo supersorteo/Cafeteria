@@ -31,6 +31,7 @@ export const routes: Routes = [
       { path: '**', component: NotFound },
     ],
   },
+  { path: 'admin/preview', loadComponent: () => import('./admin/setup/preview-frame.page').then(m => m.PreviewFramePage) },
   {
     path: 'admin',
     canActivate: [authGuard],
@@ -38,6 +39,11 @@ export const routes: Routes = [
     children: [
       { path: '', pathMatch: 'full', loadComponent: () => import('./admin/dashboard.page').then(m => m.DashboardPage) },
       { path: 'menu', loadComponent: () => import('./admin/menu/menu.page').then(m => m.MenuPage) },
+      {
+        path: 'setup',
+        canDeactivate: [unsavedChangesGuard],
+        loadComponent: () => import('./admin/setup/setup.page').then(m => m.SetupPage),
+      },
       {
         path: 'site',
         canDeactivate: [unsavedChangesGuard],

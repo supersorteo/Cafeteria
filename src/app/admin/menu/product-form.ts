@@ -1,4 +1,5 @@
 import { Component, OnDestroy, OnInit, inject, input, output, signal } from '@angular/core';
+import { AutosizeDirective } from '../../shared/ui/autosize.directive';
 import { AbstractControl, NonNullableFormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { isConnectionProblem, toProblem } from '../../core/api-error';
@@ -14,7 +15,7 @@ function twoDecimals(control: AbstractControl<number | null>): ValidationErrors 
 }
 
 @Component({
-  imports: [ReactiveFormsModule, Modal],
+  imports: [AutosizeDirective, ReactiveFormsModule, Modal],
   selector: 'app-product-form',
   template: `
     <app-modal [heading]="base() ? 'Editar producto' : 'Nuevo producto'" size="md" [dismissable]="!saving() && !uploading()" (closed)="cancel()">
@@ -44,7 +45,7 @@ function twoDecimals(control: AbstractControl<number | null>): ValidationErrors 
 
           <div>
             <label for="item-description" class="text-xs font-bold uppercase tracking-wider text-muted">Descripción (opcional)</label>
-            <textarea id="item-description" formControlName="description" rows="3" maxlength="2000"
+            <textarea appAutosize id="item-description" formControlName="description" rows="3" maxlength="2000"
                       class="input mt-2 resize-none"></textarea>
             @if (error('description'); as message) { <p class="mt-1 text-xs font-bold text-danger">{{ message }}</p> }
           </div>

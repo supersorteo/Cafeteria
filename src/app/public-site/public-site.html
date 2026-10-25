@@ -2,8 +2,8 @@
 <!-- ============ NAV ============ -->
 <nav class="site-nav fixed top-0 inset-x-0 z-40 backdrop-blur-md bg-[#FFF6EC]/85 border-b-2 border-[#FF5C39]/15" [class.scrolled]="scrolled()">
   <div class="site-nav-bar max-w-7xl mx-auto px-5 h-16 flex items-center justify-between">
-    <a href="#inicio" (click)="scrollTo($event)" class="font-display text-xl md:text-2xl tracking-tight font-black">
-      <span class="text-coral">{{ site().name }}</span>@if (site().descriptor) {&ngsp;<span class="text-teal font-semibold">{{ site().descriptor }}</span>}
+    <a href="#inicio" (click)="scrollTo($event)" class="flex items-center gap-2.5 font-display text-xl md:text-2xl tracking-tight font-black">
+      <app-brand-mark [src]="site().logoUrl" [alt]="'Logo de ' + site().name" [size]="38" /><span><span class="text-coral">{{ site().name }}</span>@if (site().descriptor) {&ngsp;<span class="text-teal font-semibold">{{ site().descriptor }}</span>}</span>
     </a>
     <div class="hidden md:flex items-center gap-8 text-sm font-semibold uppercase tracking-widest text-[#3D1D2E]/70">
       @if (showAbout()) {
@@ -339,7 +339,7 @@
           </div>
           <div>
             <label for="f-nota" class="text-xs font-bold uppercase tracking-wider text-muted">Mensaje adicional</label>
-            <textarea id="f-nota" name="note" [(ngModel)]="reservation.note" rows="3" placeholder="Alergias, peticiones especiales..." class="input mt-2 resize-none"></textarea>
+            <textarea appAutosize id="f-nota" name="note" [(ngModel)]="reservation.note" rows="3" placeholder="Alergias, peticiones especiales..." class="input mt-2 resize-none"></textarea>
           </div>
           @if (formError(); as error) {
             <p role="alert" class="rounded-ui-md bg-danger/10 px-4 py-3 text-sm font-bold text-danger text-center">{{ error }}</p>

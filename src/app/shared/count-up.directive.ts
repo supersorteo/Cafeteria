@@ -18,7 +18,7 @@ export class CountUpDirective implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    if (typeof IntersectionObserver === 'undefined' || prefersReducedMotion()) {
+    if (typeof IntersectionObserver === 'undefined' || prefersReducedMotion() || this.element.closest('.is-preview')) {
       this.current.set(this.appCountUp());
       return;
     }

@@ -11,6 +11,7 @@ export interface SiteImages {
   hero: ImageRef | null;
   about: ImageRef[];
   gallery: GalleryRef[];
+  logo: ImageRef | null;
 }
 
 export interface StatEntry {
@@ -60,4 +61,5 @@ export interface SiteImagesPayload {
   hero: string | null;
   about: string[];
   gallery: { mediaId: string; alt: string | null }[];
+  logo: string | null;
 }

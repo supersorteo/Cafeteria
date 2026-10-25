@@ -4,6 +4,8 @@ import { FormsModule, NgForm } from '@angular/forms';
 import { SiteData } from '../core/site.models';
 import { CountUpDirective } from '../shared/count-up.directive';
 import { RevealDirective } from '../shared/reveal.directive';
+import { BrandMark } from '../shared/ui/brand-mark';
+import { AutosizeDirective } from '../shared/ui/autosize.directive';
 import { Modal } from '../shared/ui/modal';
 import { formatReservationDate, readableOn, rgbTriplet, tagColor, titleParts, todayInZone } from '../shared/site-format';
 
@@ -23,13 +25,14 @@ const HERO_CARD_CLASSES = ['hero-photo-card-one', 'hero-photo-card-two', 'hero-p
 const NO_PREFERENCE = 'Sin preferencia';
 
 @Component({
-  imports: [FormsModule, NgClass, RevealDirective, CountUpDirective, Modal],
+  imports: [AutosizeDirective, FormsModule, NgClass, RevealDirective, CountUpDirective, Modal, BrandMark],
   selector: 'app-public-site',
   styleUrl: './public-site.css',
   templateUrl: './public-site.html',
   host: {
     '[style.--coral]': 'site().theme.primaryColor',
     '[style.--teal]': 'site().theme.accentColor',
+    '[class.is-preview]': 'preview()',
     '[style.--primary]': 'primaryRgb()',
     '[style.--primary-fg]': 'primaryContrast()',
     '[style.--brand-teal]': 'accentRgb()',
@@ -37,6 +40,7 @@ const NO_PREFERENCE = 'Sin preferencia';
 })
 export class PublicSite implements AfterViewInit {
   readonly site = input.required<SiteData>();
+  readonly preview = input(false);
 
   protected readonly selectedCategoryId = signal<string | null>(null);
   protected readonly formError = signal<string | null>(null);
@@ -119,13 +123,16 @@ export class PublicSite implements AfterViewInit {
   }
 
   ngAfterViewInit(): void {
-    if (location.hash) {
+    if (location.hash && !this.preview()) {
       requestAnimationFrame(() => this.scrollToSection(location.hash));
     }
   }
 
   @HostListener('window:scroll')
   protected onScroll(): void {
+    if (this.preview()) {
+      return;
+    }
     this.scrolled.set(window.scrollY > 24);
   }
 

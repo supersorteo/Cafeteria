@@ -4,7 +4,26 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { answer, answerCsrf, fail, settle, submit, type } from '../testing/http';
+import { Component } from '@angular/core';
+import { Router } from '@angular/router';
+import { CrossTab, CrossTabMessage } from '../core/cross-tab.service';
+import { NoticeService } from '../core/notice.service';
 import { RegisterPage } from './register.page';
+
+@Component({ template: '' })
+class LoginStub {}
+
+class FakeCrossTab {
+  sent: CrossTabMessage[] = [];
+  handler: ((message: CrossTabMessage) => void) | null = null;
+  send(message: CrossTabMessage): void {
+    this.sent.push(message);
+  }
+  listen(handler: (message: CrossTabMessage) => void): () => void {
+    this.handler = handler;
+    return () => (this.handler = null);
+  }
+}
 
 describe('RegisterPage', () => {
   let harness: RouterTestingHarness;
@@ -14,9 +33,17 @@ describe('RegisterPage', () => {
   const text = () => root().textContent ?? '';
   const value = (selector: string) => (root().querySelector(selector) as HTMLInputElement).value;
 
+  let crossTab: FakeCrossTab;
+
   beforeEach(async () => {
+    crossTab = new FakeCrossTab();
     TestBed.configureTestingModule({
-      providers: [provideRouter([{ path: 'auth/register', component: RegisterPage }]), provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideRouter([{ path: 'auth/register', component: RegisterPage }, { path: 'auth/login', component: LoginStub }]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: CrossTab, useValue: crossTab },
+      ],
     });
     harness = await RouterTestingHarness.create();
     http = TestBed.inject(HttpTestingController);
@@ -111,5 +138,26 @@ describe('RegisterPage', () => {
     await settle();
     harness.detectChanges();
     expect(root().querySelector('[role="alert"]')?.textContent).toContain('Demasiados intentos');
+  });
+
+  it('should move to the login with a notice when the email is confirmed in another tab', async () => {
+    fill();
+    await answerCsrf(http);
+    await answer(http, '/api/v1/auth/register', {}, { status: 201, statusText: 'Created' }, 'POST');
+    await settle();
+    harness.detectChanges();
+    expect(text()).toContain('Revisa tu correo');
+    expect(crossTab.handler).not.toBeNull();
+
+    crossTab.handler!('email-verified');
+    await settle();
+    expect(TestBed.inject(Router).url).toBe('/auth/login');
+    expect(crossTab.sent).toEqual(['ack']);
+    expect(TestBed.inject(NoticeService).notice()?.text).toContain('Correo confirmado');
+    TestBed.inject(NoticeService).dismiss();
+  });
+
+  it('should not listen for confirmations before the account is created', () => {
+    expect(crossTab.handler).toBeNull();
   });
 });

@@ -38,6 +38,15 @@ describe('PublicSite', () => {
     expect(text(root.querySelector('header p'))).toContain('Desde 2012');
   });
 
+  it('should show the default logo in the header and the business logo once it uploads one', async () => {
+    const withoutLogo = html(await render(makeSite()));
+    expect(withoutLogo.querySelector('nav app-brand-mark img')?.getAttribute('src')).toBe('/logos/icon-192.png');
+
+    const withLogo = html(await render(makeSite({ logoUrl: '/media/logo-1' })));
+    expect(withLogo.querySelector('nav app-brand-mark img')?.getAttribute('src')).toBe('/media/logo-1');
+    expect(text(withLogo.querySelector('nav a')).replace(/\s+/g, ' ').trim()).toBe('Café Demo Bar & Cocina');
+  });
+
   it('should apply the tenant theme colors as CSS variables', async () => {
     const fixture = await render(makeSite());
     const host = html(fixture);
@@ -208,6 +217,38 @@ describe('PublicSite', () => {
       const message = decodeURIComponent((open.mock.calls[0] as [string])[0].split('text=')[1]);
       expect(message).not.toContain('Zona:');
       expect(message).toContain('Personas: 2');
+    });
+  });
+
+  describe('preview mode', () => {
+    it('should mark the host and ignore scroll and hash handling', async () => {
+      const fixture = TestBed.createComponent(PublicSite);
+      fixture.componentRef.setInput('site', makeSite());
+      fixture.componentRef.setInput('preview', true);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      const host = fixture.nativeElement as HTMLElement;
+      expect(host.classList.contains('is-preview')).toBe(true);
+
+      Object.defineProperty(window, 'scrollY', { value: 500, configurable: true });
+      window.dispatchEvent(new Event('scroll'));
+      fixture.detectChanges();
+      expect(host.querySelector('.site-nav')?.classList.contains('scrolled')).toBe(false);
+      Object.defineProperty(window, 'scrollY', { value: 0, configurable: true });
+    });
+
+    it('should show the final stat numbers without waiting for the scroll', async () => {
+      const fixture = TestBed.createComponent(PublicSite);
+      fixture.componentRef.setInput('site', makeSite());
+      fixture.componentRef.setInput('preview', true);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('14+');
+    });
+
+    it('should not carry the preview class on the real page', async () => {
+      const fixture = await render(makeSite());
+      expect((fixture.nativeElement as HTMLElement).classList.contains('is-preview')).toBe(false);
     });
   });
 });

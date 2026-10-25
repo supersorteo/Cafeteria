@@ -83,13 +83,13 @@ describe('SiteImagesEditor', () => {
     const request = await answer(http, SITE, makeSettings({ version: 5 }), {}, 'PUT');
     await ui();
 
-    expect(request.request.body).toEqual({ hero: null, about: ['a1'], gallery: [{ mediaId: 'g1', alt: 'Terraza de noche' }] });
+    expect(request.request.body).toEqual({ hero: null, logo: null, about: ['a1'], gallery: [{ mediaId: 'g1', alt: 'Terraza de noche' }] });
     expect(saved.length).toBe(1);
     expect(saved[0].version).toBe(5);
   });
 
   it('should reorder the gallery', async () => {
-    create({ hero: null, about: [], gallery: [{ id: 'g1', url: '/media/g1', alt: 'Uno' }, { id: 'g2', url: '/media/g2', alt: 'Dos' }] });
+    create({ hero: null, logo: null, about: [], gallery: [{ id: 'g1', url: '/media/g1', alt: 'Uno' }, { id: 'g2', url: '/media/g2', alt: 'Dos' }] });
     click('[aria-label="Bajar galería 1"]');
     fixture.detectChanges();
     click('[data-save-images]');
@@ -108,7 +108,7 @@ describe('SiteImagesEditor', () => {
   });
 
   it('should upload with progress and place the new image in its block', async () => {
-    create({ hero: null, about: [], gallery: [] });
+    create({ hero: null, logo: null, about: [], gallery: [] });
     choose('img-gallery', jpeg());
     await ui();
     const request = http.expectOne(MEDIA);
@@ -124,7 +124,7 @@ describe('SiteImagesEditor', () => {
   });
 
   it('should enforce the limits of each block', async () => {
-    create({ hero: null, about: [{ id: 'a1', url: '/media/a1' }, { id: 'a2', url: '/media/a2' }, { id: 'a3', url: '/media/a3' }], gallery: [] });
+    create({ hero: null, logo: null, about: [{ id: 'a1', url: '/media/a1' }, { id: 'a2', url: '/media/a2' }, { id: 'a3', url: '/media/a3' }], gallery: [] });
     expect((root().querySelector('#img-about') as HTMLInputElement).disabled).toBe(true);
     expect(text()).toContain('Nosotros (3/3)');
   });
@@ -140,7 +140,7 @@ describe('SiteImagesEditor', () => {
   });
 
   it('should delete an uploaded image that is removed before saving', async () => {
-    create({ hero: null, about: [], gallery: [] });
+    create({ hero: null, logo: null, about: [], gallery: [] });
     await upload('img-gallery', 'n1');
     click('[aria-label="Quitar galería 1"]');
     await answer(http, `${MEDIA}/n1`, null, { status: 204, statusText: 'No Content' }, 'DELETE');
@@ -169,7 +169,7 @@ describe('SiteImagesEditor', () => {
   });
 
   it('should replace the cover and delete the previous unsaved cover', async () => {
-    create({ hero: null, about: [], gallery: [] });
+    create({ hero: null, logo: null, about: [], gallery: [] });
     await upload('img-hero', 'n1');
     choose('img-hero', jpeg());
     await ui();
@@ -195,5 +195,42 @@ describe('SiteImagesEditor', () => {
     await answer(http, SITE, { code: 'validation_error' }, { status: 400, statusText: 'Bad Request' }, 'PUT');
     await ui();
     expect(text()).toContain('ya no está disponible');
+  });
+  describe('logo', () => {
+    it('should show the default app logo until the business uploads its own', () => {
+      create();
+      expect(root().querySelector('[data-logo-default]')?.getAttribute('src')).toBe('/logos/icon-192.png');
+      expect(text()).toContain('Logo por defecto');
+      expect(root().querySelector('[data-logo-preview]')).toBeNull();
+    });
+
+    it('should upload a logo and save it with the other images', async () => {
+      create({ hero: null, logo: null, about: [], gallery: [] });
+      await upload('img-logo', 'l1');
+      expect(root().querySelector('[data-logo-preview]')?.getAttribute('src')).toBe('/media/l1');
+      expect(root().querySelector('[data-logo-default]')).toBeNull();
+
+      click('[data-save-images]');
+      const request = await answer(http, SITE, makeSettings(), {}, 'PUT');
+      expect(request.request.body).toMatchObject({ logo: 'l1' });
+    });
+
+    it('should go back to the default logo after removing the current one', async () => {
+      create({ hero: null, logo: { id: 'l1', url: '/media/l1' }, about: [], gallery: [] });
+      expect(root().querySelector('[data-logo-preview]')?.getAttribute('src')).toBe('/media/l1');
+      click('[data-remove-logo]');
+      await ui();
+      expect(root().querySelector('[data-logo-default]')).not.toBeNull();
+
+      click('[data-save-images]');
+      const request = await answer(http, SITE, makeSettings(), {}, 'PUT');
+      expect(request.request.body).toMatchObject({ logo: null });
+    });
+
+    it('should not offer logo changes to editors', () => {
+      create(images(), true);
+      expect(root().querySelector('#img-logo')).toBeNull();
+      expect(root().querySelector('[data-remove-logo]')).toBeNull();
+    });
   });
 });

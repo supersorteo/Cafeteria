@@ -1,14 +1,18 @@
 import { Component, OnInit, inject } from '@angular/core';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { CategoryPanel } from './category-panel';
 import { MenuStore } from './menu.store';
 import { ProductForm } from './product-form';
 import { ProductPanel } from './product-panel';
 
 @Component({
-  imports: [CategoryPanel, ProductPanel, ProductForm],
+  imports: [CategoryPanel, ProductPanel, ProductForm, RouterLink],
   selector: 'app-menu-page',
   providers: [MenuStore],
   template: `
+    @if (fromSetup) {
+      <a routerLink="/admin/setup" [queryParams]="{ paso: 'menu' }" data-back-setup class="btn btn-secondary btn-sm mb-4">← Volver a la configuración</a>
+    }
     <h1 class="font-display text-3xl md:text-4xl font-black">Carta</h1>
 
     @switch (store.categoriesState()) {
@@ -40,6 +44,7 @@ import { ProductPanel } from './product-panel';
 })
 export class MenuPage implements OnInit {
   protected readonly store = inject(MenuStore);
+  protected readonly fromSetup = inject(ActivatedRoute, { optional: true })?.snapshot.queryParamMap.get('from') === 'setup';
 
   ngOnInit(): void {
     void this.store.init();

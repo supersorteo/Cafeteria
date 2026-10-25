@@ -1,8 +1,11 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { vi } from 'vitest';
 import { provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
+import { AuthService } from '../core/auth.service';
 import { makeSite } from '../testing/site.fixture';
 import { PublicSitePage } from './public-site.page';
 
@@ -11,6 +14,8 @@ const api = (slug: string) => `/api/v1/public/sites/${slug}`;
 describe('PublicSitePage', () => {
   let harness: RouterTestingHarness;
   let http: HttpTestingController;
+  const authState = signal<{ status: string }>({ status: 'anonymous' });
+  const ensureInitialized = vi.fn().mockResolvedValue(undefined);
 
   const text = () => (harness.routeNativeElement as HTMLElement).textContent ?? '';
 
@@ -20,13 +25,18 @@ describe('PublicSitePage', () => {
         provideRouter([{ path: ':slug', component: PublicSitePage }]),
         provideHttpClient(),
         provideHttpClientTesting(),
+        { provide: AuthService, useValue: { state: authState, ensureInitialized } },
       ],
     });
     harness = await RouterTestingHarness.create();
     http = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => http.verify());
+  afterEach(() => {
+    http.verify();
+    ensureInitialized.mockClear();
+    authState.set({ status: 'anonymous' });
+  });
 
   it('should show a loading state and then the site', async () => {
     await harness.navigateByUrl('/cafe-demo');
@@ -104,5 +114,58 @@ describe('PublicSitePage', () => {
   it('should encode the slug in the request URL', async () => {
     await harness.navigateByUrl('/a%20b');
     http.expectOne(api('a%20b')).flush({}, { status: 404, statusText: 'Not Found' });
+  });
+
+  describe('return bar', () => {
+    const root = () => harness.routeNativeElement as HTMLElement;
+
+    it('should not show any bar nor touch the session for regular visitors', async () => {
+      await harness.navigateByUrl('/cafe-demo');
+      http.expectOne(api('cafe-demo')).flush(makeSite());
+      harness.detectChanges();
+      expect(root().querySelector('app-return-bar')).toBeNull();
+      expect(ensureInitialized).not.toHaveBeenCalled();
+    });
+
+    it('should offer to go back to the platform and to register when coming from the demo link', async () => {
+      await harness.navigateByUrl('/cafe-demo?ref=plataforma');
+      http.expectOne(api('cafe-demo')).flush(makeSite());
+      harness.detectChanges();
+      expect(root().querySelector('#returnHome')?.getAttribute('href')).toBe('/');
+      expect(root().querySelector('#returnRegister')?.getAttribute('href')).toBe('/auth/register');
+      expect(ensureInitialized).not.toHaveBeenCalled();
+    });
+
+    it('should offer to go back to the panel only when there is a session', async () => {
+      authState.set({ status: 'authenticated' });
+      await harness.navigateByUrl('/cafe-demo?ref=panel');
+      http.expectOne(api('cafe-demo')).flush(makeSite());
+      harness.detectChanges();
+      expect(ensureInitialized).toHaveBeenCalled();
+      expect(root().querySelector('#returnPanel')?.getAttribute('href')).toBe('/admin');
+    });
+
+    it('should hide the panel bar for anonymous visitors even if the link carries the hint', async () => {
+      await harness.navigateByUrl('/cafe-demo?ref=panel');
+      http.expectOne(api('cafe-demo')).flush(makeSite());
+      harness.detectChanges();
+      expect(root().querySelector('app-return-bar')).toBeNull();
+    });
+
+    it('should explain a draft site to its owner on the not found screen and offer to go back', async () => {
+      authState.set({ status: 'authenticated' });
+      await harness.navigateByUrl('/borrador?ref=panel');
+      http.expectOne(api('borrador')).flush({ code: 'not_found' }, { status: 404, statusText: 'Not Found' });
+      harness.detectChanges();
+      expect(root().textContent).toContain('Tu sitio está en borrador o no existe');
+      expect(root().querySelectorAll('a[href="/admin"]').length).toBeGreaterThan(0);
+    });
+
+    it('should ignore unknown ref values', async () => {
+      await harness.navigateByUrl('/cafe-demo?ref=otra-cosa');
+      http.expectOne(api('cafe-demo')).flush(makeSite());
+      harness.detectChanges();
+      expect(root().querySelector('app-return-bar')).toBeNull();
+    });
   });
 });

@@ -5,6 +5,7 @@ import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { answer, answerCsrf, fail, makeMe, settle, submit, type } from '../testing/http';
+import { NoticeService } from '../core/notice.service';
 import { LoginPage } from './login.page';
 
 @Component({ template: '' })
@@ -118,5 +119,14 @@ describe('LoginPage', () => {
     harness.detectChanges();
     expect(root().querySelector('[role="alert"]')?.textContent).toContain('No pudimos conectar');
     expect(text()).not.toContain('incorrectos');
+  });
+
+  it('should confirm the verified email with a notice and clean the url', async () => {
+    const notices = TestBed.inject(NoticeService);
+    await harness.navigateByUrl('/auth/login?verified=1');
+    await settle();
+    expect(notices.notice()?.text).toContain('Correo confirmado');
+    expect(router.url).toBe('/auth/login');
+    notices.dismiss();
   });
 });

@@ -8,7 +8,7 @@ export type Role = 'OWNER' | 'EDITOR';
 export interface Me {
   email: string;
   role: Role;
-  tenant: { id: string; slug: string; name: string; published: boolean };
+  tenant: { id: string; slug: string; name: string; published: boolean; logoUrl: string | null };
 }
 
 export type AuthState =

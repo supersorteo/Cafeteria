@@ -31,7 +31,7 @@ describe('routes', () => {
     const root = harness.routeNativeElement as HTMLElement;
     expect(root.querySelector('#homeRegister')?.getAttribute('href')).toBe('/auth/register');
     expect(root.querySelector('#homeLogin')?.getAttribute('href')).toBe('/auth/login');
-    expect(root.querySelector('#homeDemo')?.getAttribute('href')).toBe('/la-terraza');
+    expect(root.querySelector('#homeDemo')?.getAttribute('href')).toBe('/la-terraza?ref=plataforma');
   });
 
   it('should load any business by its slug', async () => {
