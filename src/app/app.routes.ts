@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard, guestGuard } from './core/auth.guards';
+import { superAdminGuard, superAdminGuestGuard } from './core/superadmin.guard';
 import { unsavedChangesGuard } from './core/unsaved-changes.guard';
 import { NotFound } from './not-found/not-found';
 import { PublicSitePage } from './public-site/public-site.page';
@@ -49,6 +50,14 @@ export const routes: Routes = [
         canDeactivate: [unsavedChangesGuard],
         loadComponent: () => import('./admin/site/site.page').then(m => m.SitePage),
       },
+      { path: '**', redirectTo: '' },
+    ],
+  },
+  {
+    path: 'superadmin',
+    children: [
+      { path: 'login', canActivate: [superAdminGuestGuard], loadComponent: () => import('./superadmin/superadmin-login.page').then(m => m.SuperAdminLoginPage) },
+      { path: '', pathMatch: 'full', canActivate: [superAdminGuard], loadComponent: () => import('./superadmin/superadmin.page').then(m => m.SuperAdminPage) },
       { path: '**', redirectTo: '' },
     ],
   },

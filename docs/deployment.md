@@ -59,6 +59,7 @@ Límites: una cuenta personal de Gmail permite unos 500 destinatarios al día. S
 | `APP_PUBLIC_BASE_URL` | `https://tu-app.vercel.app` (sin barra final; es la base de los enlaces de los correos) |
 | `MAIL_FROM`, `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN` | ver paso 1 |
 | `REGISTRATION_ENABLED` | `true` para abrir el registro (por defecto está cerrado) |
+| `SUPERADMIN_EMAIL`, `SUPERADMIN_PASSWORD` | Panel de superadmin. El correo recibe el código de acceso (usa tu Gmail de empresa); la contraseña debe tener al menos 8 caracteres. Sin ellas el panel no existe. Se leen solo en el servidor (Railway o el `.env` local). |
 | Opcionales | `MAIL_SENDER` (`gmail-api` por defecto), `DB_POOL_SIZE` (10), `DB_URL`/`DB_USER`/`DB_PASSWORD` si no usas las `PG*` |
 
    `PORT` lo pone Railway. `SPRING_PROFILES_ACTIVE=production` ya viene en la imagen.
@@ -92,6 +93,8 @@ Comprueba cabeceras de seguridad, rutas profundas, `/api` a través de Vercel, q
 Luego, a mano: registrarte → recibir el correo → verificar → entrar → subir una imagen de unos 4,9 MB (ver «Riesgos») → publicar → reservar por WhatsApp.
 
 ## 6. Operación
+
+**Migración V5 (superadmin).** Solo añade `tenants.suspended_at` y la tabla `audit_log`; no mueve datos. Define `SUPERADMIN_EMAIL` y `SUPERADMIN_PASSWORD` en Railway antes de usar el panel.
 
 **Migración V4 (espacios).** Mueve datos (tarjetas y zonas de reserva pasan a `site_spaces`). Haz una copia de seguridad antes y despliega primero el backend: la API sigue devolviendo `highlights` y `reservationAreas` derivados, así que el frontend anterior no se rompe mientras despliegas el nuevo.
 

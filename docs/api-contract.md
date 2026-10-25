@@ -86,6 +86,23 @@ El `slug` es inmutable. Cambiar la moneda no convierte precios.
 ## Sitio público
 GET `/public/sites/{slug}` (sin sesión): `{slug,name,currency,locale,timezone,theme,contact,hero,about,gallery,logoUrl,categories:[{id,name,items:[{id,name,description,price,tag,imageUrl}]}]}`. Solo productos activos, ordenados; categorías vacías incluidas. Sin IDs de negocio, versiones, estado de publicación ni datos de usuarios. 404 idéntico para sitio inexistente o en borrador.
 
+## Superadmin (`/superadmin`, V5)
+
+Cadena de seguridad propia (`ROLE_SUPERADMIN`), sesión de 15 min de inactividad y CSRF igual que el resto. La sesión viaja en una cookie propia `SA_SESSION` (`Path=/api/v1/superadmin`, `HttpOnly`, `SameSite=Strict`), separada de `SESSION` de los negocios, de modo que ambas conviven sin mezclarse. Sin `SUPERADMIN_EMAIL`/`SUPERADMIN_PASSWORD` todos los endpoints de acceso responden 404.
+
+| Método y ruta | Cuerpo | Respuesta |
+|---|---|---|
+| POST `/superadmin/auth/login` | `{email, password}` | 200 `{step:"code", maskedEmail, expiresInSeconds}` y envía el código; 401 `invalid_credentials` genérico; 429 `too_many_attempts`; 503 `mail_unavailable` |
+| POST `/superadmin/auth/verify` | `{code}` | 204 (concede acceso); 401 si el código es incorrecto, caducó o se agotaron los 5 intentos |
+| GET `/superadmin/auth/me` · POST `/superadmin/auth/logout` | | `{email}` · 204 |
+| GET `/superadmin/stats` | | `{total, active, suspended, published, newLast7Days}` |
+| GET `/superadmin/tenants?query&status=all\|active\|suspended&page&size` | | página de `{id, slug, name, published, suspended, suspendedAt, ownerEmail, ownerVerified, editors, createdAt}` |
+| POST `/superadmin/tenants/{id}/suspend` · `/activate` | | 204 (idempotente) |
+| DELETE `/superadmin/tenants/{id}` | `{confirmSlug}` | 204; 409 `not_suspended`; 400 `slug_mismatch` |
+| GET `/superadmin/audit?limit=50` | | `[{id, at, action, targetLabel, actor, ip, detail}]` |
+
+Un negocio suspendido (`tenants.suspended_at`): login 401, sesiones abiertas 401, sitio público y `/media/**` 404. Una sesión de dueño no sirve en `/superadmin/**` ni la de superadmin en `/admin/**`.
+
 ## Contenido extendido del sitio (V2)
 `PUT /admin/site` acepta además (todos opcionales, solo owner; las listas se **reemplazan** completas):
 

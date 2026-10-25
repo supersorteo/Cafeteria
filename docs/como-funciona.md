@@ -69,6 +69,19 @@ La contraseña es el valor de `seed.dev.password` de tu `application.properties`
 2. Completa el formulario. En la consola del backend busca la línea del correo con el enlace `/auth/verify-email?token=...` y ábrelo en el navegador.
 3. Inicia sesión, carga la carta y publica. Tu página queda en `http://localhost:4200/<tu-slug>`.
 
+## Panel de superadmin
+
+Panel privado para el dueño de la plataforma: lista todos los negocios con su dueño, y permite **suspender, reactivar y eliminar**.
+
+- **Cómo entrar:** pulsa **Ctrl+Alt+P** en cualquier página (se abre un formulario) o ve a `/superadmin` (en móvil y tableta). No hay enlaces visibles.
+- **Acceso en dos pasos:** correo y contraseña (variables `SUPERADMIN_EMAIL` y `SUPERADMIN_PASSWORD` del servidor) y después un código de 6 dígitos que llega a ese correo (caduca en 10 minutos, 5 intentos). La sesión se cierra a los 15 minutos sin actividad.
+- **Sesión independiente de la de los negocios:** usa su propia cookie (`SA_SESSION`, solo para `/api/v1/superadmin`, `HttpOnly` y `SameSite=Strict`), distinta de la de los dueños (`SESSION`). Puedes tener abierta tu sesión de dueño y la de superadmin en el mismo navegador sin que una pise o cierre a la otra, y no se guarda nada del superadmin en `localStorage`. Los campos de acceso desactivan el autocompletado del navegador para no mezclar contraseñas.
+- **Salir sin cerrar sesión:** el botón «Ir al inicio» te saca del panel y mantiene la sesión (al volver con Ctrl+Alt+P entras directo); «Cerrar sesión» sí la termina.
+- **Suspender:** el sitio público y las fotos del negocio dan 404, su dueño y editores no pueden entrar y sus sesiones se cierran. No se borra nada; **Reactivar** lo deja como estaba.
+- **Eliminar:** solo si está suspendido y escribiendo su dirección. Borra el negocio, su carta, sus fotos (también los archivos) y sus usuarios. No se puede deshacer.
+- **Actividad:** registro de cada suspensión, reactivación y eliminación (quién, cuándo, IP).
+- Todo es responsive: tabla en escritorio, tarjetas en móvil.
+
 ## Estructura de despliegue
 
 ```

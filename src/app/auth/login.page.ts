@@ -130,7 +130,7 @@ export class LoginPage {
     } catch (error) {
       const problem = toProblem(error);
       if (problem.status === 401) {
-        this.error.set('Correo o contraseña incorrectos, o la cuenta aún no está verificada.');
+        this.error.set('Correo o contraseña incorrectos, o la cuenta está suspendida o sin verificar.');
       } else if (problem.status === 429) {
         this.error.set('Demasiados intentos. Espera unos minutos e inténtalo de nuevo.');
       } else if (isConnectionProblem(problem)) {
