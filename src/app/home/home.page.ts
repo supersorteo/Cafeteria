@@ -11,7 +11,7 @@ import { ThemeToggle } from '../shared/ui/theme-toggle';
   template: `
     <header class="home-header sticky top-0 z-40 transition-all" [class.scrolled]="scrolled()">
       <div class="max-w-6xl mx-auto px-4 sm:px-5 flex items-center justify-between gap-2 transition-all" [class.py-4]="!scrolled()" [class.py-2]="scrolled()">
-        <a routerLink="/" class="flex items-center gap-2.5 font-display text-lg sm:text-xl md:text-2xl font-black text-primary whitespace-nowrap"><app-brand-mark [size]="34" />La Terraza <span class="text-gold">Pro</span></a>
+        <a routerLink="/" class="flex items-center gap-2.5 font-display text-lg sm:text-xl md:text-2xl font-black text-primary whitespace-nowrap"><app-brand-mark [size]="34" />Deliora</a>
         <nav class="flex items-center gap-1 sm:gap-2" aria-label="Principal">
           <app-theme-toggle class="hidden min-[400px]:block" />
           @if (auth.user()) {
@@ -118,7 +118,7 @@ import { ThemeToggle } from '../shared/ui/theme-toggle';
     </main>
 
     <footer class="py-8 text-center text-xs font-medium text-muted border-t border-line">
-      © {{ year }} La Terraza Pro ·
+      © {{ year }} Deliora ·
       <a routerLink="/auth/login" class="underline underline-offset-2 hover:text-primary">Acceso para negocios</a>
     </footer>
   `,

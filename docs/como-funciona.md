@@ -98,7 +98,7 @@ Pasos de despliegue: `docs/deployment.md`.
 
 ## Botones de retorno
 
-- **Demo → plataforma:** «Ver un ejemplo» abre el sitio en la misma pestaña con `?ref=plataforma`; el sitio muestra abajo «Volver a La Terraza Pro» y «Crear mi negocio». Sin el parámetro (clientes reales de un negocio) no aparece nada.
+- **Demo → plataforma:** «Ver un ejemplo» abre el sitio en la misma pestaña con `?ref=plataforma`; el sitio muestra abajo «Volver a Deliora» y «Crear mi negocio». Sin el parámetro (clientes reales de un negocio) no aparece nada.
 - **Panel → sitio:** «Ver mi sitio» (menú, barra superior, cuenta, resumen y enlace de publicación) abre en la misma pestaña con `?ref=panel`; con sesión iniciada aparece «Volver al panel de administración». Si el sitio está en borrador se ve la pantalla 404 con ese mismo botón y el aviso de publicarlo desde Mi sitio.
 - `ref` es solo una pista de interfaz: no da acceso a nada.
 
