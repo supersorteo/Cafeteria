@@ -4,8 +4,8 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist/bar-la-terraza/browser",
   "rewrites": [
-    { "source": "/api/:path*", "destination": "https://TU-BACKEND.up.railway.app/api/:path*" },
-    { "source": "/media/:path*", "destination": "https://TU-BACKEND.up.railway.app/media/:path*" },
+    { "source": "/api/:path*", "destination": "https://cafeteriaback-production-a155.up.railway.app/api/:path*" },
+    { "source": "/media/:path*", "destination": "https://cafeteriaback-production-a155.up.railway.app/media/:path*" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
