@@ -60,6 +60,7 @@ export class PublicSite implements AfterViewInit {
   };
   protected readonly year = new Date().getFullYear();
   protected readonly noPreference = NO_PREFERENCE;
+  protected readonly accentColors = ['var(--coral)', 'var(--teal)', 'var(--mango)'];
   protected readonly heroCardClasses = HERO_CARD_CLASSES;
 
   protected readonly primaryRgb = computed(() => rgbTriplet(this.site().theme.primaryColor, '214 66 38'));
@@ -94,7 +95,7 @@ export class PublicSite implements AfterViewInit {
     const { about, stats } = this.site();
     return !!about.text || !!about.title || about.imageUrls.length > 0 || stats.length > 0;
   });
-  protected readonly showAmbience = computed(() => this.site().gallery.length > 0 || this.site().highlights.length > 0);
+  protected readonly showAmbience = computed(() => this.site().gallery.length > 0 || this.site().spaces.length > 0);
   protected readonly marqueeLoop = computed(() => {
     const items = this.site().marquee;
     return items.length === 0 ? '' : `${items.join(' · ')} · `.repeat(items.length >= 4 ? 3 : 6);
@@ -153,6 +154,11 @@ export class PublicSite implements AfterViewInit {
     this.formError.set(null);
     this.reservationSent.set(false);
     this.reservationOpen.set(true);
+  }
+
+  protected reserveSpace(name: string): void {
+    this.reservation.area = name;
+    this.openReservation();
   }
 
   protected closeReservation(): void {

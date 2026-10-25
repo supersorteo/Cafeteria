@@ -19,9 +19,19 @@ export interface StatEntry {
   value: number;
 }
 
-export interface HighlightEntry {
-  title: string;
+export interface SpaceEntry {
+  id: string;
+  name: string;
   description: string | null;
+  image: ImageRef | null;
+  bookable: boolean;
+}
+
+export interface SpacePayload {
+  name: string;
+  description: string | null;
+  imageId: string | null;
+  bookable: boolean;
 }
 
 export interface SiteSettingsDetail {
@@ -49,13 +59,12 @@ export interface SiteSettingsDetail {
   footerText: string | null;
   heroCaption: string | null;
   marqueeItems: string[];
-  reservationAreas: string[];
   partySizes: string[];
   stats: StatEntry[];
-  highlights: HighlightEntry[];
+  spaces: SpaceEntry[];
 }
 
-export type SiteSettingsPayload = Omit<SiteSettingsDetail, 'slug' | 'published' | 'images'>;
+export type SiteSettingsPayload = Omit<SiteSettingsDetail, 'slug' | 'published' | 'images' | 'spaces'> & { spaces: SpacePayload[] };
 
 export interface SiteImagesPayload {
   hero: string | null;

@@ -61,11 +61,15 @@ import { PreviewTarget, StepDef, StepId, requirementLabel, stepById } from '../s
                 </span>
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2 flex-wrap">
+                    <svg class="step-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path [attr.d]="step.icon"/></svg>
                     <h3 class="font-display text-lg font-black">{{ step.title }}</h3>
-                    <span class="badge" [class.badge-success]="step.done" [class.badge-warning]="!step.done && step.requirement === 'required'">{{ step.done ? 'Completo' : label(step.requirement) }}</span>
+                    <span class="badge" [class.badge-success]="step.done" [class.badge-warning]="!step.done && step.requirement === 'required'">{{ step.done ? 'Listo' : label(step.requirement) }}</span>
                   </div>
-                  <p class="mt-1 text-sm font-medium text-muted">{{ step.why }}</p>
-                  <p class="mt-0.5 text-xs font-bold text-primary">Dónde se ve: {{ step.where }}</p>
+                  <p class="mt-1 text-sm font-medium" data-step-short>{{ step.short }}</p>
+                  @if (step.example) {
+                    <p class="mt-0.5 text-xs font-medium text-muted">Ejemplo: {{ step.example }}</p>
+                  }
+                  <p class="where-chip mt-2">Se ve en: {{ step.where }}</p>
                 </div>
                 @if (step.id === 'menu') {
                   <a [routerLink]="['/admin/menu']" [queryParams]="{ from: 'setup' }" data-open-menu class="btn btn-secondary btn-sm shrink-0">{{ step.done ? 'Editar carta' : 'Crear carta' }}</a>

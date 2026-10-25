@@ -75,16 +75,16 @@ describe('SitePage (lista numerada)', () => {
     it('should list the nine steps in order with status, purpose and where each one shows', async () => {
       await start();
       const titles = Array.from(root().querySelectorAll('ol h3')).map(h => h.textContent?.trim());
-      expect(titles).toEqual(['Datos básicos', 'Logo y colores', 'Tu carta', 'Portada', 'Nosotros', 'Ambiente', 'Reservas', 'Contacto y pie de página', 'Publicar']);
-      expect(text()).toContain('Dónde se ve: Sección «La carta»');
+      expect(titles).toEqual(['Tu negocio', 'Tu marca', 'Tu portada', 'Tu carta', 'Tu historia', 'Tus espacios y fotos', 'Reservas por WhatsApp', 'Contacto y horarios', 'Publicar tu página']);
+      expect(text()).toContain('Se ve en: La sección «La carta»');
       expect(text()).toContain('7 de 9 pasos completos');
       expect(root().querySelector('form')).toBeNull();
     });
 
     it('should mark pending steps with their requirement and offer the next one', async () => {
       await start(makeSettings({ whatsappNumber: null }));
-      expect(text()).toContain('Obligatorio');
-      expect(el('[data-next-step]').textContent).toContain('Continuar: Datos básicos');
+      expect(text()).toContain('Necesario para publicar');
+      expect(el('[data-next-step]').textContent).toContain('Continuar: Tu negocio');
     });
 
     it('should send the carta step to the menu screen and keep it out of the dialogs', async () => {
@@ -104,7 +104,7 @@ describe('SitePage (lista numerada)', () => {
       expect(dialogs().length).toBe(0);
       await open('basics');
       expect(dialogs().length).toBe(1);
-      expect(topDialog()?.textContent).toContain('1. Datos básicos');
+      expect(topDialog()?.textContent).toContain('1. Tu negocio');
       click('[data-discard]');
       await ui();
       expect(dialogs().length).toBe(0);
@@ -121,7 +121,7 @@ describe('SitePage (lista numerada)', () => {
       await answer(http, SITE, makeSettings());
       await answer(http, DASHBOARD, dashboard());
       await ui();
-      expect(text()).toContain('Datos básicos');
+      expect(text()).toContain('Tu negocio');
     });
 
     it('should keep working when the dashboard counters fail to load', async () => {
@@ -131,7 +131,7 @@ describe('SitePage (lista numerada)', () => {
       await answer(http, SITE, makeSettings());
       await answer(http, DASHBOARD, {}, { status: 500, statusText: 'Error' });
       await ui();
-      expect(text()).toContain('Datos básicos');
+      expect(text()).toContain('Tu negocio');
       expect(text()).toContain('6 de 9 pasos completos');
     });
   });
@@ -171,13 +171,13 @@ describe('SitePage (lista numerada)', () => {
       await ui();
 
       await open('ambience');
-      expect(root().querySelectorAll('input[aria-label^="Título del espacio"]').length).toBe(1);
+      expect(root().querySelectorAll('input[aria-label^="Nombre del espacio"]').length).toBe(1);
       expect(root().querySelector('#img-gallery')).not.toBeNull();
       click('[data-discard]');
       await ui();
 
       await open('booking');
-      expect(root().querySelectorAll('app-string-list-editor input[aria-label^="Zona"]').length).toBe(1);
+      expect(root().querySelector('[data-booking-areas]')?.textContent).toContain('Terraza');
       click('[data-discard]');
       await ui();
 
@@ -291,10 +291,9 @@ describe('SitePage (lista numerada)', () => {
         currency: 'UYU',
         timezone: 'America/Montevideo',
         marqueeItems: ['Uno', 'Dos'],
-        reservationAreas: ['Barra'],
         partySizes: ['2', '4'],
         stats: [{ label: 'Años', value: 14 }],
-        highlights: [{ title: 'Terraza', description: 'Aire libre' }],
+        spaces: [{ name: 'Terraza', description: 'Aire libre', imageId: null, bookable: true }],
         version: 4,
       });
       expect(request.request.body).not.toHaveProperty('slug');
@@ -551,10 +550,10 @@ describe('SitePage (lista numerada)', () => {
       await start();
       await open('publish');
       expect(text()).toContain('Resumen de tu configuración');
-      expect(text()).toContain('2. Logo y colores');
+      expect(text()).toContain('2. Tu marca');
       click('.modal-panel li button.btn-secondary');
       await ui();
-      expect(topDialog()?.textContent).toContain('2. Logo y colores');
+      expect(topDialog()?.textContent).toContain('2. Tu marca');
     });
 
     it('should explain what is missing when publishing is not possible', async () => {
@@ -612,17 +611,43 @@ describe('SitePage (lista numerada)', () => {
   });
 
   describe('list editing', () => {
-    it('should add and remove highlights', async () => {
+    it('should add, reorder and remove spaces', async () => {
       await start();
       await open('ambience');
-      click('[data-add-highlight]');
+      click('[data-add-space]');
       fixture.detectChanges();
-      expect(root().querySelectorAll('input[aria-label^="Título del espacio"]').length).toBe(2);
+      type(root(), 'input[aria-label="Nombre del espacio 2"]', 'Barra');
+      expect(root().querySelectorAll('input[aria-label^="Nombre del espacio"]').length).toBe(2);
+
+      (root().querySelector('[aria-label="Subir espacio 2"]') as HTMLElement).click();
+      fixture.detectChanges();
+      expect((root().querySelector('input[aria-label="Nombre del espacio 1"]') as HTMLInputElement).value).toBe('Barra');
 
       (root().querySelector('[aria-label="Quitar espacio 2"]') as HTMLElement).click();
       fixture.detectChanges();
-      expect(root().querySelectorAll('input[aria-label^="Título del espacio"]').length).toBe(1);
+      expect(root().querySelectorAll('input[aria-label^="Nombre del espacio"]').length).toBe(1);
       expect(text()).toContain('Hay cambios sin guardar');
+    });
+
+    it('should reject two spaces with the same name and send the bookable flag and photo id', async () => {
+      await start();
+      await open('ambience');
+      click('[data-add-space]');
+      fixture.detectChanges();
+      type(root(), 'input[aria-label="Nombre del espacio 2"]', ' terraza ');
+      fixture.detectChanges();
+      expect(text()).toContain('Dos espacios no pueden llamarse igual');
+
+      type(root(), 'input[aria-label="Nombre del espacio 2"]', 'Salón');
+      (root().querySelector('input[aria-label="Acepta reservas 2"]') as HTMLInputElement).click();
+      fixture.detectChanges();
+      const request = await saveWith();
+      expect(request.request.body).toMatchObject({
+        spaces: [
+          { name: 'Terraza', description: 'Aire libre', imageId: null, bookable: true },
+          { name: 'Salón', description: null, imageId: null, bookable: false },
+        ],
+      });
     });
 
     it('should remove marquee phrases in the cover step', async () => {

@@ -192,25 +192,32 @@
       <p class="text-teal font-bold uppercase tracking-[.35em] text-xs mb-4">El ambiente</p>
       <h2 class="font-display text-4xl md:text-5xl font-black" style="color:var(--plum)">Un lugar para <span class="italic text-coral">quedarse</span></h2>
     </div>
+    @if (site().spaces.length > 0) {
+      <div class="reveal space-grid grid sm:grid-cols-2 md:grid-cols-3 gap-6" data-spaces>
+        @for (space of site().spaces; track $index; let index = $index) {
+          <article class="flex flex-col gap-4" [class.space-card-raised]="index % 3 === 1" data-space>
+            @if (space.imageUrl) {
+              <img class="atmosphere-image" [src]="space.imageUrl" [alt]="space.name" loading="lazy">
+            }
+            <div class="space-body" [class.space-body-plain]="!space.imageUrl" [style.borderColor]="accentColors[index % 3]">
+              <h3 class="font-display text-2xl font-black" [style.color]="accentColors[index % 3]">{{ space.name }}</h3>
+              @if (space.description) {
+                <p class="text-sm font-medium mt-2" style="color:#5b4150">{{ space.description }}</p>
+              }
+              @if (space.bookable) {
+                <button type="button" class="space-reserve" (click)="reserveSpace(space.name)">Reservar aquí →</button>
+              }
+            </div>
+          </article>
+        }
+      </div>
+    }
     @if (site().gallery.length > 0) {
-      <div class="reveal atmosphere-gallery grid md:grid-cols-3 gap-4">
+      <div class="reveal atmosphere-gallery grid md:grid-cols-3 gap-4" [class.mt-12]="site().spaces.length > 0">
         @for (image of site().gallery; track $index; let index = $index) {
           <img [class]="index % 3 === 1 ? 'atmosphere-image atmosphere-image-raised' : 'atmosphere-image'"
                [src]="image.url" [alt]="image.alt || site().name" loading="lazy"
                role="button" tabindex="0" class="cursor-zoom-in" (click)="lightbox.set(index)" (keydown.enter)="lightbox.set(index)">
-        }
-      </div>
-    }
-    @if (site().highlights.length > 0) {
-      <div class="reveal mt-12 grid sm:grid-cols-3 gap-6 text-center">
-        @for (highlight of site().highlights; track $index) {
-          <div class="bg-white rounded-3xl p-6 shadow-lg border-b-4"
-               [style.borderColor]="['var(--coral)', 'var(--teal)', 'var(--mango)'][$index]">
-            <p class="font-display text-2xl font-black" [style.color]="['var(--coral)', 'var(--teal)', 'var(--mango)'][$index]">{{ highlight.title }}</p>
-            @if (highlight.description) {
-              <p class="text-sm font-medium mt-2" style="color:#5b4150">{{ highlight.description }}</p>
-            }
-          </div>
         }
       </div>
     }

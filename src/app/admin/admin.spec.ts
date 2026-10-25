@@ -180,7 +180,7 @@ describe('admin panel', () => {
     await openPanel();
     const card = root().querySelector('[data-setup-card]') as HTMLElement;
     expect(card.textContent).toContain('7 de 9 pasos completos');
-    expect(card.textContent).toContain('Siguiente: Logo y colores');
+    expect(card.textContent).toContain('Siguiente: Tu marca');
     expect(root().querySelector('a[data-open-wizard]')?.getAttribute('href')).toBe('/admin/setup?paso=brand');
     expect(root().querySelector('a[data-open-list]')?.getAttribute('href')).toBe('/admin/site');
   });

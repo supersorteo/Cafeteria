@@ -93,13 +93,14 @@ GET `/public/sites/{slug}` (sin sesión): `{slug,name,currency,locale,timezone,t
 |---|---|
 | `descriptor` (ej. "Bar & Cocina"), `tagline`, `aboutTitle`, `footerText`, `heroCaption` | 60 / 160 / 120 / 200 / 80 |
 | `marqueeItems[]` | ≤8 textos de ≤80 |
-| `reservationAreas[]` | ≤8 de ≤40 |
 | `partySizes[]` | ≤10 de ≤20 |
 | `stats[]` `{label(≤40), value(0–999999)}` | ≤3 |
-| `highlights[]` `{title(≤60), description(≤200)}` | ≤3 |
+| `spaces[]` `{name(≤60, único sin distinguir mayúsculas), description(≤200), imageId?, bookable(por defecto true)}` | ≤10 |
 
 `heroTitle` y `aboutTitle` admiten un formato mínimo: `\n` = salto de línea y `*texto*` = énfasis (cursiva de color). Se interpreta en el frontend sin HTML.
 
-`GET /public/sites/{slug}` devuelve además `descriptor`, `tagline`, `footerText`, `hero.caption`, `about.title`, `marquee[]`, `stats[]`, `highlights[]` y `reservation:{areas[],partySizes[]}`. Un negocio nuevo los devuelve vacíos o nulos; el frontend oculta cada sección sin contenido.
+`GET /public/sites/{slug}` devuelve además `descriptor`, `tagline`, `footerText`, `hero.caption`, `about.title`, `marquee[]`, `stats[]`, `spaces[]` `{name,description,imageUrl,bookable}` y `reservation:{areas[],partySizes[]}` (`areas` = nombres de los espacios con `bookable`). Un negocio nuevo los devuelve vacíos o nulos; el frontend oculta cada sección sin contenido.
+
+**Espacios (`V4__site_spaces.sql`).** Un espacio (Terraza, Salón, Barra…) tiene nombre, descripción, foto opcional y `bookable`. Sustituye a las tarjetas `highlights` y a `reservationAreas`: ambas se derivan de `spaces` en las respuestas (compatibilidad con clientes antiguos) y se ignoran en `PUT /admin/site`. `imageId` debe ser un medio `READY` del negocio; las fotos que dejan de usarse se limpian. La migración convierte cada tarjeta y cada zona existente en un espacio (fusionando nombres iguales) sin borrar `site_highlights` ni `tenants.reservation_areas`.
 
 **Logo.** `GET /auth/me` incluye `tenant.logoUrl` (null si el negocio no subió uno). El frontend muestra el logo por defecto de la app (`/logos/icon-192.png`) cuando `logoUrl` es null o la imagen falla al cargar. La migración `V3__site_logo.sql` permite el slot `LOGO` en `site_images`.

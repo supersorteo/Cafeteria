@@ -1,5 +1,5 @@
-import { AbstractControl, FormArray, FormControl, FormGroup, NonNullableFormBuilder, Validators } from '@angular/forms';
-import { SiteSettingsDetail, SiteSettingsPayload } from '../../core/site-admin.models';
+import { AbstractControl, FormArray, FormControl, FormGroup, NonNullableFormBuilder, ValidationErrors, Validators } from '@angular/forms';
+import { ImageRef, SiteSettingsDetail, SiteSettingsPayload } from '../../core/site-admin.models';
 import { HEX_COLOR, describeErrors, notBlank, timezoneValidator } from '../../shared/forms';
 
 export const CURRENCIES = [
@@ -15,7 +15,18 @@ export const LOCALES = [
 ];
 
 export type StatGroup = FormGroup<{ label: FormControl<string>; value: FormControl<number | null> }>;
-export type HighlightGroup = FormGroup<{ title: FormControl<string>; description: FormControl<string> }>;
+export type SpaceGroup = FormGroup<{
+  name: FormControl<string>;
+  description: FormControl<string>;
+  bookable: FormControl<boolean>;
+  image: FormControl<ImageRef | null>;
+}>;
+export const MAX_SPACES = 10;
+
+function uniqueSpaceNames(control: AbstractControl): ValidationErrors | null {
+  const names = (control as FormArray<SpaceGroup>).controls.map(group => group.controls.name.value.trim().toLowerCase()).filter(Boolean);
+  return new Set(names).size === names.length ? null : { duplicateNames: true };
+}
 export type SiteForm = ReturnType<typeof createSiteForm>;
 
 export function createSiteForm(fb: NonNullableFormBuilder) {
@@ -40,10 +51,9 @@ export function createSiteForm(fb: NonNullableFormBuilder) {
     aboutText: ['', Validators.maxLength(2000)],
     footerText: ['', Validators.maxLength(200)],
     marqueeItems: fb.array<FormControl<string>>([]),
-    reservationAreas: fb.array<FormControl<string>>([]),
     partySizes: fb.array<FormControl<string>>([]),
     stats: fb.array<StatGroup>([]),
-    highlights: fb.array<HighlightGroup>([]),
+    spaces: fb.array<SpaceGroup>([], { validators: uniqueSpaceNames }),
   });
 }
 
@@ -54,10 +64,12 @@ export function newStat(fb: NonNullableFormBuilder, label: string, value: number
   });
 }
 
-export function newHighlight(fb: NonNullableFormBuilder, title: string, description: string): HighlightGroup {
+export function newSpace(fb: NonNullableFormBuilder, name = '', description = '', image: ImageRef | null = null, bookable = true): SpaceGroup {
   return fb.group({
-    title: [title, [notBlank, Validators.maxLength(60)]],
+    name: [name, [notBlank, Validators.maxLength(60)]],
     description: [description, Validators.maxLength(200)],
+    bookable: [bookable],
+    image: new FormControl<ImageRef | null>(image),
   });
 }
 
@@ -91,12 +103,11 @@ export function applySettings(form: SiteForm, fb: NonNullableFormBuilder, settin
     footerText: settings.footerText ?? '',
   });
   fillStrings(form.controls.marqueeItems, settings.marqueeItems, 80);
-  fillStrings(form.controls.reservationAreas, settings.reservationAreas, 40);
   fillStrings(form.controls.partySizes, settings.partySizes, 20);
   form.controls.stats.clear();
   settings.stats.forEach(stat => form.controls.stats.push(newStat(fb, stat.label, stat.value)));
-  form.controls.highlights.clear();
-  settings.highlights.forEach(highlight => form.controls.highlights.push(newHighlight(fb, highlight.title, highlight.description ?? '')));
+  form.controls.spaces.clear();
+  settings.spaces.forEach(space => form.controls.spaces.push(newSpace(fb, space.name, space.description ?? '', space.image, space.bookable)));
   form.markAsPristine();
   form.markAsUntouched();
   if (editable) {
@@ -130,10 +141,14 @@ export function toPayload(form: SiteForm, version: number): SiteSettingsPayload 
     aboutText: blank(value.aboutText),
     footerText: blank(value.footerText),
     marqueeItems: value.marqueeItems.map(item => item.trim()),
-    reservationAreas: value.reservationAreas.map(item => item.trim()),
     partySizes: value.partySizes.map(item => item.trim()),
     stats: value.stats.map(stat => ({ label: stat.label.trim(), value: stat.value ?? 0 })),
-    highlights: value.highlights.map(highlight => ({ title: highlight.title.trim(), description: blank(highlight.description) })),
+    spaces: value.spaces.map(space => ({
+      name: space.name.trim(),
+      description: blank(space.description),
+      imageId: space.image?.id ?? null,
+      bookable: space.bookable,
+    })),
     version,
   };
 }

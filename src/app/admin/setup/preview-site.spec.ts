@@ -1,7 +1,7 @@
 import { NonNullableFormBuilder } from '@angular/forms';
 import { TestBed } from '@angular/core/testing';
 import { makeSettings } from '../../testing/site-admin.fixture';
-import { applySettings, createSiteForm } from '../site/site-form';
+import { applySettings, createSiteForm, newSpace } from '../site/site-form';
 import { buildPreviewSite } from './preview-site';
 
 function draftOf(overrides: Partial<ReturnType<ReturnType<typeof createSiteForm>['getRawValue']>> = {}) {
@@ -9,6 +9,12 @@ function draftOf(overrides: Partial<ReturnType<ReturnType<typeof createSiteForm>
   const form = createSiteForm(fb);
   applySettings(form, fb, makeSettings(), true);
   return { ...form.getRawValue(), ...overrides };
+}
+
+function spaceOf(overrides: { name?: string; description?: string; bookable?: boolean; image?: { id: string; url: string } | null } = {}) {
+  const fb = TestBed.inject(NonNullableFormBuilder);
+  const space = newSpace(fb, overrides.name ?? 'Espacio', overrides.description ?? '', overrides.image ?? null, overrides.bookable ?? true);
+  return space.getRawValue();
 }
 
 describe('buildPreviewSite', () => {
@@ -26,8 +32,8 @@ describe('buildPreviewSite', () => {
     expect(site.logoUrl).toBe('/media/l1');
     expect(site.marquee).toEqual(['Uno', 'Dos']);
     expect(site.stats).toEqual([{ label: 'Años', value: 14 }]);
-    expect(site.highlights).toEqual([{ title: 'Terraza', description: 'Aire libre' }]);
-    expect(site.reservation).toEqual({ areas: ['Barra'], partySizes: ['2', '4'] });
+    expect(site.spaces).toEqual([{ name: 'Terraza', description: 'Aire libre', imageUrl: null, bookable: true }]);
+    expect(site.reservation).toEqual({ areas: ['Terraza'], partySizes: ['2', '4'] });
     expect(site.contact.whatsappNumber).toBe('59899111222');
   });
 
@@ -41,7 +47,7 @@ describe('buildPreviewSite', () => {
   it('should turn blank fields into null and drop empty list entries', () => {
     const site = buildPreviewSite(
       saved,
-      draftOf({ tagline: '   ', phone: '', marqueeItems: ['  ', 'Música'], reservationAreas: [' '], stats: [{ label: ' ', value: 1 }], highlights: [{ title: '', description: 'x' }] }),
+      draftOf({ tagline: '   ', phone: '', marqueeItems: ['  ', 'Música'], stats: [{ label: ' ', value: 1 }], spaces: [spaceOf({ name: ' ' })] }),
       images,
       [],
     );
@@ -50,7 +56,28 @@ describe('buildPreviewSite', () => {
     expect(site.marquee).toEqual(['Música']);
     expect(site.reservation.areas).toEqual([]);
     expect(site.stats).toEqual([]);
-    expect(site.highlights).toEqual([]);
+    expect(site.spaces).toEqual([]);
+  });
+
+  it('should show the space photo and list only the bookable spaces as reservation areas', () => {
+    const site = buildPreviewSite(
+      saved,
+      draftOf({
+        spaces: [
+          spaceOf({ name: ' Terraza ', image: { id: 's1', url: '/media/s1' } }),
+          spaceOf({ name: 'Happy hour', description: 'Martes', bookable: false }),
+          spaceOf({ name: 'Barra' }),
+        ],
+      }),
+      images,
+      [],
+    );
+    expect(site.spaces).toEqual([
+      { name: 'Terraza', description: null, imageUrl: '/media/s1', bookable: true },
+      { name: 'Happy hour', description: 'Martes', imageUrl: null, bookable: false },
+      { name: 'Barra', description: null, imageUrl: null, bookable: true },
+    ]);
+    expect(site.reservation.areas).toEqual(['Terraza', 'Barra']);
   });
 
   it('should keep the saved color while the typed one is not a valid hex and never invent a name', () => {

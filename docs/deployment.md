@@ -93,6 +93,8 @@ Luego, a mano: registrarte → recibir el correo → verificar → entrar → su
 
 ## 6. Operación
 
+**Migración V4 (espacios).** Mueve datos (tarjetas y zonas de reserva pasan a `site_spaces`). Haz una copia de seguridad antes y despliega primero el backend: la API sigue devolviendo `highlights` y `reservationAreas` derivados, así que el frontend anterior no se rompe mientras despliegas el nuevo.
+
 **Copias de seguridad (PostgreSQL).** Railway → servicio PostgreSQL → *Variables* → `DATABASE_PUBLIC_URL` (activa el proxy TCP público solo mientras hagas la copia):
 
 ```bash

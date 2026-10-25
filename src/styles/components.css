@@ -263,3 +263,8 @@ app-dashboard-page, app-menu-page, app-site-page, app-setup-page{ display:block;
 .drawer-body{ flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding-bottom:env(safe-area-inset-bottom); }
 @keyframes ui-drawer-in{ from{ transform:translateX(100%);} to{ transform:none;} }
 @keyframes ui-drawer-out{ to{ transform:translateX(100%);} }
+
+.help-callout{ padding:1rem 1.1rem; border-radius:var(--r-lg); background:rgb(var(--primary) / .07); border:1px solid rgb(var(--primary) / .22); }
+.help-title{ font-size:.75rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:rgb(var(--primary)); }
+.where-chip{ display:inline-block; padding:.2rem .65rem; border-radius:9999px; font-size:.75rem; font-weight:700; background:rgb(var(--primary) / .1); color:rgb(var(--primary)); }
+.step-icon{ flex:none; color:rgb(var(--primary)); }

@@ -57,8 +57,8 @@ describe('SiteImagesEditor', () => {
   it('should show the current images and counters', () => {
     create();
     expect(root().querySelector('img[alt="Imagen de portada"]')?.getAttribute('src')).toBe('/media/h1');
-    expect(text()).toContain('Nosotros (1/3)');
-    expect(text()).toContain('Galería (1/6)');
+    expect(text()).toContain('Fotos de tu historia (1/3)');
+    expect(text()).toContain('Más fotos del ambiente (1/6)');
     expect((root().querySelector('#alt-g1') as HTMLInputElement).value).toBe('Terraza');
     expect((root().querySelector('[data-save-images]') as HTMLButtonElement).disabled).toBe(true);
   });
@@ -119,14 +119,14 @@ describe('SiteImagesEditor', () => {
 
     request.flush(media('n1'), { status: 201, statusText: 'Created' });
     await ui();
-    expect(text()).toContain('Galería (1/6)');
+    expect(text()).toContain('Más fotos del ambiente (1/6)');
     expect((root().querySelector('[data-save-images]') as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('should enforce the limits of each block', async () => {
     create({ hero: null, logo: null, about: [{ id: 'a1', url: '/media/a1' }, { id: 'a2', url: '/media/a2' }, { id: 'a3', url: '/media/a3' }], gallery: [] });
     expect((root().querySelector('#img-about') as HTMLInputElement).disabled).toBe(true);
-    expect(text()).toContain('Nosotros (3/3)');
+    expect(text()).toContain('Fotos de tu historia (3/3)');
   });
 
   it('should report an upload failure and allow trying again', async () => {
@@ -145,7 +145,7 @@ describe('SiteImagesEditor', () => {
     click('[aria-label="Quitar galería 1"]');
     await answer(http, `${MEDIA}/n1`, null, { status: 204, statusText: 'No Content' }, 'DELETE');
     await ui();
-    expect(text()).toContain('Galería (0/6)');
+    expect(text()).toContain('Más fotos del ambiente (0/6)');
   });
 
   it('should not delete persisted images when they are removed', async () => {
@@ -163,7 +163,7 @@ describe('SiteImagesEditor', () => {
     click('[data-discard-images]');
     await answer(http, `${MEDIA}/n2`, null, { status: 204, statusText: 'No Content' }, 'DELETE');
     await ui();
-    expect(text()).toContain('Nosotros (1/3)');
+    expect(text()).toContain('Fotos de tu historia (1/3)');
     expect(root().querySelector('img[alt="Imagen de portada"]')).not.toBeNull();
     expect(text()).not.toContain('Hay cambios sin guardar');
   });

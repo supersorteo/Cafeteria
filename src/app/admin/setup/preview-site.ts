@@ -42,9 +42,11 @@ export function buildPreviewSite(saved: SiteSettingsDetail, draft: SiteDraft, im
     logoUrl: images.logo?.url ?? null,
     marquee: draft.marqueeItems.map(item => item.trim()).filter(Boolean),
     stats: draft.stats.filter(stat => stat.label.trim()).map(stat => ({ label: stat.label.trim(), value: stat.value ?? 0 })),
-    highlights: draft.highlights.filter(item => item.title.trim()).map(item => ({ title: item.title.trim(), description: blank(item.description) })),
+    spaces: draft.spaces
+      .filter(space => space.name.trim())
+      .map(space => ({ name: space.name.trim(), description: blank(space.description), imageUrl: space.image?.url ?? null, bookable: space.bookable })),
     reservation: {
-      areas: draft.reservationAreas.map(item => item.trim()).filter(Boolean),
+      areas: draft.spaces.filter(space => space.bookable && space.name.trim()).map(space => space.name.trim()),
       partySizes: draft.partySizes.map(item => item.trim()).filter(Boolean),
     },
     categories,

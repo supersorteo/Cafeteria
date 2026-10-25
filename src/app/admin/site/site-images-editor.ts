@@ -53,7 +53,7 @@ export const MAX_GALLERY = 6;
 
         @if (blocks().includes('hero')) {
         <div>
-          <h3 class="text-xs font-bold uppercase tracking-wider text-muted">Portada (1)</h3>
+          <h3 class="text-xs font-bold uppercase tracking-wider text-muted">Foto principal de la portada (1)</h3>
           <div class="mt-3 flex items-center gap-4">
             @if (hero(); as slot) {
               <img [src]="slot.url" alt="Imagen de portada" class="w-28 h-20 rounded-ui-md object-cover">
@@ -73,7 +73,7 @@ export const MAX_GALLERY = 6;
 
         @if (blocks().includes('about')) {
         <div>
-          <h3 class="text-xs font-bold uppercase tracking-wider text-muted">Nosotros ({{ about().length }}/{{ maxAbout }})</h3>
+          <h3 class="text-xs font-bold uppercase tracking-wider text-muted">Fotos de tu historia ({{ about().length }}/{{ maxAbout }})</h3>
           <ul class="mt-3 flex flex-wrap gap-4">
             @for (slot of about(); track slot.id; let index = $index; let first = $first; let last = $last) {
               <li class="w-28">
@@ -98,7 +98,7 @@ export const MAX_GALLERY = 6;
 
         @if (blocks().includes('gallery')) {
         <div>
-          <h3 class="text-xs font-bold uppercase tracking-wider text-muted">Galería ({{ gallery().length }}/{{ maxGallery }})</h3>
+          <h3 class="text-xs font-bold uppercase tracking-wider text-muted">Más fotos del ambiente ({{ gallery().length }}/{{ maxGallery }})</h3>
           <ul class="mt-3 grid sm:grid-cols-2 gap-4">
             @for (slot of gallery(); track slot.id; let index = $index; let first = $first; let last = $last) {
               <li class="flex gap-3 items-start">

@@ -93,22 +93,24 @@ Pasos de despliegue: `docs/deployment.md`.
 
 Los pasos siguen las secciones de la página pública (lo que rellenas es lo que se ve) y están ordenados por importancia:
 
-| # | Paso | Obligatorio | Se ve en |
+| # | Paso | ¿Hace falta? | Lo ve tu cliente en |
 |---|---|---|---|
-| 1 | Datos básicos: nombre, tipo, **WhatsApp**, moneda, idioma, zona horaria | Sí (el WhatsApp, para publicar) | Encabezado y botón «Reservar» |
-| 2 | Logo y colores | No | Encabezado, botones, acentos |
-| 3 | Tu carta (categorías y productos) | Recomendado | Sección «La carta» |
-| 4 | Portada: frase, título, descripción, etiqueta, foto, frases que se desplazan | No | Parte superior |
-| 5 | Nosotros: título, texto, fotos, cifras | No | Sección «Nosotros» |
-| 6 | Ambiente: galería y espacios/promociones | No | Sección «El ambiente» |
-| 7 | Reservas: zonas y tamaños de grupo | No (hay valores por defecto) | Formulario de reserva |
-| 8 | Contacto y pie de página | No | Pie de página |
-| 9 | Publicar (con resumen de lo que falta) | Final | Toda la página |
+| 1 | **Tu negocio**: nombre, tipo, **WhatsApp**, moneda, idioma, zona horaria | Necesario para publicar (el WhatsApp) | Nombre arriba y botón «Reservar» |
+| 2 | **Tu marca**: logo y colores | Puedes hacerlo después | Logo arriba; botones y detalles con tus colores |
+| 3 | **Tu portada**: frase de bienvenida, título, descripción, foto principal, cinta de frases | Puedes hacerlo después | Lo primero que ve al abrir tu página |
+| 4 | **Tu carta**: categorías y productos | Muy recomendable | Sección «La carta» |
+| 5 | **Tu historia**: título, texto, fotos y números destacados | Puedes hacerlo después | Sección «Nosotros» |
+| 6 | **Tus espacios y fotos**: cada espacio (Terraza, Salón, Barra…) con foto, nombre, descripción y «Acepta reservas»; más fotos del ambiente | Puedes hacerlo después | Sección «El ambiente», con «Reservar aquí» en cada espacio |
+| 7 | **Reservas por WhatsApp**: tamaños de grupo (las zonas salen de los espacios que aceptan reservas) | Puedes hacerlo después (hay valores por defecto) | Formulario de reserva |
+| 8 | **Contacto y horarios**: teléfono, correo, dirección, horarios, mensaje final | Puedes hacerlo después | Final de la página |
+| 9 | **Publicar tu página** (con resumen de lo que falta) | Último paso | Toda la página |
+
+Cada paso muestra un cuadro «¿Para qué sirve?» con qué haces, un ejemplo y cómo lo verá tu cliente.
 
 Hay dos formas de recorrerlos, con los mismos formularios:
 
 - **Asistente** (`/admin/setup`): un paso a la vez con barra de progreso, selector de pasos y botones **Atrás · Omitir · Guardar y continuar**. Los pasos opcionales se pueden omitir; el paso de la carta lleva a la pantalla Carta y vuelve con «← Volver a la configuración». Si hay cambios sin guardar, pide confirmación antes de salir del paso.
-- **Lista numerada** (`/admin/site`, «Configuración»): los 9 pasos con su estado (Completo / Obligatorio / Opcional), para qué sirve cada uno y dónde se ve; **Editar** abre el paso en un modal.
+- **Lista numerada** (`/admin/site`, «Configuración»): los 9 pasos con su estado (Listo / Necesario para publicar / Muy recomendable / Puedes hacerlo después), con icono, qué haces, un ejemplo y dónde lo ve tu cliente; **Editar** abre el paso en un modal.
 
 **Vista previa en vivo, en formato teléfono:** el botón **«Vista previa»** está arriba (en la cabecera del asistente y en la cabecera de cada modal). Muestra tu página pública real dentro de un teléfono de 390 px (con un viewport de verdad, así que ves exactamente la versión móvil), desplazada y resaltada en la sección del paso. Lo que escribes aparece al instante, antes de guardar; las fotos nuevas se ven cuando las guardas. En pantallas anchas (≥ 1280 px) el teléfono queda acoplado junto al formulario y se oculta con el mismo botón; en pantallas más pequeñas se abre como un **panel lateral** que se desliza desde la derecha (en el móvil ocupa toda la pantalla). Se cierra con ✕, tocando fuera o con Escape.
 

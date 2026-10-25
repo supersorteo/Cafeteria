@@ -31,10 +31,9 @@ export function makeSettings(overrides: Partial<SiteSettingsDetail> = {}): SiteS
     footerText: 'Pie',
     heroCaption: 'Una noche',
     marqueeItems: ['Uno', 'Dos'],
-    reservationAreas: ['Barra'],
     partySizes: ['2', '4'],
     stats: [{ label: 'Años', value: 14 }],
-    highlights: [{ title: 'Terraza', description: 'Aire libre' }],
+    spaces: [{ id: 's1', name: 'Terraza', description: 'Aire libre', image: null, bookable: true }],
     ...overrides,
   };
 }

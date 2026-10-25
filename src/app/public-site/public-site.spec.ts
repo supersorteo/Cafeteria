@@ -94,10 +94,42 @@ describe('PublicSite', () => {
     expect(root.querySelector('.marquee-track')).not.toBeNull();
     expect(text(root.querySelector('.marquee-track'))).toContain('Música en vivo · Happy hour');
     expect(root.querySelectorAll('.story-gallery img').length).toBe(3);
-    expect(root.querySelectorAll('.atmosphere-image').length).toBe(2);
+    expect(root.querySelectorAll('.atmosphere-gallery .atmosphere-image').length).toBe(2);
     expect(root.querySelector('.hero-visual')).not.toBeNull();
     expect(text(root.querySelector('.hero-image-caption'))).toContain('Una noche para disfrutar');
     expect(text(root.querySelector('footer'))).toContain('Lun a Vie · 18 a 02');
+  });
+
+  it('should show every space with its photo, name and description, and offer to book only the bookable ones', async () => {
+    const root = html(await render(makeSite()));
+    const spaces = Array.from(root.querySelectorAll('[data-space]'));
+    expect(spaces.map(space => text(space.querySelector('h3')))).toEqual(['Terraza', 'Barra', 'Happy hour']);
+    expect(spaces[0].querySelector('img.atmosphere-image')?.getAttribute('src')).toBe('/media/s1');
+    expect(text(spaces[0].querySelector('p'))).toBe('Aire libre');
+    expect(spaces[1].querySelector('img')).toBeNull();
+    expect(spaces.map(space => space.querySelector('.space-reserve') !== null)).toEqual([true, true, false]);
+  });
+
+  it('should open the reservation with the chosen space preselected and send it in the message', async () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    const fixture = await render(makeSite());
+    const root = html(fixture);
+    (root.querySelectorAll('.space-reserve')[1] as HTMLButtonElement).click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const zona = root.querySelector<HTMLSelectElement>('#f-zona')!;
+    expect(zona.value).toBe('Barra');
+    const setValue = (id: string, value: string) => {
+      const field = root.querySelector<HTMLInputElement>('#' + id)!;
+      field.value = value;
+      field.dispatchEvent(new Event('input'));
+    };
+    setValue('f-nombre', 'Ana');
+    setValue('f-fecha', '2999-03-05');
+    fixture.detectChanges();
+    root.querySelector<HTMLFormElement>('#reservaForm')!.dispatchEvent(new Event('submit'));
+    expect(decodeURIComponent(String(open.mock.calls[0][0]))).toContain('Zona: Barra');
   });
 
   it('should count up the stats', async () => {

@@ -167,6 +167,10 @@
   margin-top: 2rem;
 }
 
+.space-body-plain { height: 100%; padding: 1.5rem; border-bottom: 4px solid; border-radius: 1.5rem; background: #fff; box-shadow: 0 12px 30px -20px rgba(61,29,46,.4); }
+.space-reserve { margin-top:.75rem; font-size: .85rem; font-weight: 800; color: var(--coral); }
+@media (min-width:768px){ .space-card-raised{ margin-top:2rem; } }
+
 .menu-card {
   overflow: hidden;
   border: 1px solid rgba(61, 29, 46, .08);

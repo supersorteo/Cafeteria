@@ -19,7 +19,7 @@ import { StepEditor } from './step-editor';
           <header class="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h1 class="font-display text-3xl md:text-4xl font-black">Configura tu negocio</h1>
-              <p class="mt-1 text-sm font-medium text-muted" data-progress-text>Paso {{ def().number }} de {{ total }} · {{ store.progress().done }} completos</p>
+              <p class="mt-1 text-sm font-medium text-muted" data-progress-text>Paso {{ def().number }} de {{ total }} · {{ def().title }} · {{ store.progress().done }} listos</p>
             </div>
             <div class="flex items-center gap-2">
               @if (def().id !== 'publish') {
@@ -51,12 +51,13 @@ import { StepEditor } from './step-editor';
               </li>
             }
           </ol>
+          <p class="mt-3 text-sm font-medium text-muted" data-step-short><strong class="text-ink">{{ def().title }}:</strong> {{ def().short }}</p>
 
           <div class="mt-6 wizard-grid" [class.with-preview]="previewOpen() && wide() && def().id !== 'publish'">
             <section class="card p-5 md:p-7 anim-fade-in" [attr.aria-labelledby]="'wizard-title'">
               <div class="flex items-center gap-2 flex-wrap">
                 <h2 id="wizard-title" class="font-display text-2xl md:text-3xl font-black">{{ def().number }}. {{ def().title }}</h2>
-                <span class="badge" [class.badge-success]="isDone()" [class.badge-warning]="!isDone() && def().requirement === 'required'">{{ isDone() ? 'Completo' : label(def().requirement) }}</span>
+                <span class="badge" [class.badge-success]="isDone()" [class.badge-warning]="!isDone() && def().requirement === 'required'">{{ isDone() ? 'Listo' : label(def().requirement) }}</span>
               </div>
 
               <div class="mt-4">

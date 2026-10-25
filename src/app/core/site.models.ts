@@ -21,6 +21,13 @@ export interface SiteCategory {
   items: SiteItem[];
 }
 
+export interface SiteSpace {
+  name: string;
+  description: string | null;
+  imageUrl: string | null;
+  bookable: boolean;
+}
+
 export interface SiteData {
   slug: string;
   name: string;
@@ -38,7 +45,7 @@ export interface SiteData {
   logoUrl: string | null;
   marquee: string[];
   stats: { label: string; value: number }[];
-  highlights: { title: string; description: string | null }[];
+  spaces: SiteSpace[];
   reservation: { areas: string[]; partySizes: string[] };
   categories: SiteCategory[];
 }

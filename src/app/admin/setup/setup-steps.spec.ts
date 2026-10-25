@@ -5,8 +5,8 @@ import { SetupSnapshot, STEPS, isStepDone, nextPendingStep, progressOf, stepById
 const empty = (overrides: Partial<SiteSettingsDetail> = {}): SetupSnapshot => ({
   settings: makeSettings({
     whatsappNumber: null, phone: null, email: null, address: null, schedule: null, footerText: null, tagline: null,
-    heroTitle: null, aboutText: null, aboutTitle: null, marqueeItems: [], reservationAreas: [], partySizes: [],
-    stats: [], highlights: [], published: false,
+    heroTitle: null, aboutText: null, aboutTitle: null, marqueeItems: [], partySizes: [],
+    stats: [], spaces: [], published: false,
     images: { hero: null, logo: null, about: [], gallery: [] },
     ...overrides,
   }),
@@ -17,7 +17,7 @@ const empty = (overrides: Partial<SiteSettingsDetail> = {}): SetupSnapshot => ({
 describe('setup steps', () => {
   it('should list the nine steps in order with unique numbers', () => {
     expect(STEPS.map(step => step.number)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
-    expect(STEPS.map(step => step.id)).toEqual(['basics', 'brand', 'menu', 'hero', 'about', 'ambience', 'booking', 'contact', 'publish']);
+    expect(STEPS.map(step => step.id)).toEqual(['basics', 'brand', 'hero', 'menu', 'about', 'ambience', 'booking', 'contact', 'publish']);
     expect(stepById('basics').requirement).toBe('required');
     expect(STEPS.every(step => step.why && step.where)).toBe(true);
   });
@@ -37,9 +37,9 @@ describe('setup steps', () => {
     ['about', { aboutText: 'Historia' }],
     ['about', { stats: [{ label: 'Años', value: 3 }] }],
     ['about', { images: { hero: null, logo: null, about: [{ id: 'a', url: '/m/a' }], gallery: [] } }],
-    ['ambience', { highlights: [{ title: 'Terraza', description: null }] }],
+    ['ambience', { spaces: [{ id: 's1', name: 'Terraza', description: null, image: null, bookable: false }] }],
     ['ambience', { images: { hero: null, logo: null, about: [], gallery: [{ id: 'g', url: '/m/g', alt: null }] } }],
-    ['booking', { reservationAreas: ['Barra'] }],
+    ['booking', { spaces: [{ id: 's1', name: 'Barra', description: null, image: null, bookable: true }] }],
     ['booking', { partySizes: ['2', '4'] }],
     ['contact', { phone: '099' }],
     ['contact', { footerText: 'Pie' }],

@@ -6,7 +6,7 @@ import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { answer, answerCsrf, fail, makeMe, settle, submit, type } from '../testing/http';
 import { NoticeService } from '../core/notice.service';
-import { LoginPage } from './login.page';
+import { LoginPage, REMEMBER_PASSWORD_IN_DEV } from './login.page';
 
 @Component({ template: '' })
 class Stub {}
@@ -30,6 +30,7 @@ describe('LoginPage', () => {
         ]),
         provideHttpClient(),
         provideHttpClientTesting(),
+        { provide: REMEMBER_PASSWORD_IN_DEV, useValue: false },
       ],
     });
     harness = await RouterTestingHarness.create();
@@ -37,7 +38,11 @@ describe('LoginPage', () => {
     router = TestBed.inject(Router);
   });
 
-  afterEach(() => http.verify());
+  afterEach(() => {
+    http.verify();
+    localStorage.removeItem('terraza-login-email');
+    localStorage.removeItem('terraza-login-dev-password');
+  });
 
   function fillAndSubmit(email = 'owner@a.test', password = 'Clave-Segura-1'): void {
     type(root(), '#login-email', email);
@@ -52,6 +57,47 @@ describe('LoginPage', () => {
     await answer(http, '/api/v1/auth/me', makeMe());
     await settle();
   }
+
+  it('should remember the email after a successful login and prefill it next time, never the password', async () => {
+    await harness.navigateByUrl('/auth/login');
+    fillAndSubmit('owner@a.test');
+    await completeLogin();
+    expect(localStorage.getItem('terraza-login-email')).toBe('owner@a.test');
+    expect(JSON.stringify(Object.entries(localStorage))).not.toContain('Clave-Segura-1');
+
+    await harness.navigateByUrl('/auth/login');
+    expect((root().querySelector('#login-email') as HTMLInputElement).value).toBe('owner@a.test');
+    expect((root().querySelector('#login-password') as HTMLInputElement).value).toBe('');
+  });
+
+  it('should also prefill the password only when the dev-only option is on', async () => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([{ path: 'auth/login', component: LoginPage }, { path: 'admin', component: Stub }, { path: 'admin/menu', component: Stub }]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: REMEMBER_PASSWORD_IN_DEV, useValue: true },
+      ],
+    });
+    harness = await RouterTestingHarness.create();
+    http = TestBed.inject(HttpTestingController);
+    await harness.navigateByUrl('/auth/login');
+    fillAndSubmit('owner@a.test', 'Clave-Segura-1');
+    await completeLogin();
+
+    await harness.navigateByUrl('/auth/login');
+    expect((root().querySelector('#login-password') as HTMLInputElement).value).toBe('Clave-Segura-1');
+  });
+
+  it('should forget the email when the user unchecks remember', async () => {
+    localStorage.setItem('terraza-login-email', 'old@a.test');
+    await harness.navigateByUrl('/auth/login');
+    (root().querySelector('[data-remember]') as HTMLInputElement).click();
+    fillAndSubmit('owner@a.test');
+    await completeLogin();
+    expect(localStorage.getItem('terraza-login-email')).toBeNull();
+  });
 
   it('should validate the form without calling the server', async () => {
     await harness.navigateByUrl('/auth/login');

@@ -81,8 +81,8 @@ describe('SetupPage (asistente)', () => {
   describe('inicio', () => {
     it('should start at the first pending step and show the progress and the nine steps', async () => {
       await start();
-      expect(title()).toBe('2. Logo y colores');
-      expect(root().querySelector('[data-progress-text]')?.textContent).toContain('Paso 2 de 9 · 7 completos');
+      expect(title()).toBe('2. Tu marca');
+      expect(root().querySelector('[data-progress-text]')?.textContent).toContain('Paso 2 de 9 · Tu marca · 7 listos');
       expect(root().querySelectorAll('[data-wizard-step]').length).toBe(9);
       expect(root().querySelector('[data-wizard-step="brand"]')?.getAttribute('aria-current')).toBe('step');
       expect(root().querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('78');
@@ -90,28 +90,28 @@ describe('SetupPage (asistente)', () => {
 
     it('should start with the required step while the WhatsApp number is missing', async () => {
       await start(makeSettings({ whatsappNumber: null }));
-      expect(title()).toBe('1. Datos básicos');
-      expect(text()).toContain('Obligatorio');
+      expect(title()).toBe('1. Tu negocio');
+      expect(text()).toContain('Necesario para publicar');
       expect(root().querySelector('[data-skip]')).toBeNull();
       expect((root().querySelector('[data-prev]') as HTMLButtonElement).disabled).toBe(true);
     });
 
     it('should open the step requested in the url', async () => {
       await start(makeSettings(), '/admin/setup?paso=ambience');
-      expect(title()).toBe('6. Ambiente');
+      expect(title()).toBe('6. Tus espacios y fotos');
       expect(root().querySelector('#img-gallery')).not.toBeNull();
     });
 
     it('should ignore an unknown step in the url', async () => {
       await start(makeSettings(), '/admin/setup?paso=nada');
-      expect(title()).toBe('2. Logo y colores');
+      expect(title()).toBe('2. Tu marca');
     });
 
     it('should land on the publish step when everything is complete', async () => {
       await start(
         makeSettings({ published: true, images: { hero: { id: 'h', url: '/m/h' }, logo: { id: 'l', url: '/m/l' }, about: [], gallery: [] } }),
       );
-      expect(title()).toBe('9. Publicar');
+      expect(title()).toBe('9. Publicar tu página');
       expect(root().querySelector('[data-finish]')?.getAttribute('href')).toBe('/admin');
       expect(root().querySelector('[data-continue]')).toBeNull();
     });
@@ -125,7 +125,7 @@ describe('SetupPage (asistente)', () => {
       await answer(http, SITE, makeSettings());
       await answer(http, DASHBOARD, dashboard());
       await ui();
-      expect(title()).toBe('2. Logo y colores');
+      expect(title()).toBe('2. Tu marca');
     });
   });
 
@@ -137,7 +137,7 @@ describe('SetupPage (asistente)', () => {
       await ui();
       expect(request.request.body).toMatchObject({ name: 'Café Nuevo', version: 4 });
       expect(notices.notice()?.text).toContain('Cambios guardados');
-      expect(title()).toBe('2. Logo y colores');
+      expect(title()).toBe('2. Tu marca');
       expect(router.url).toContain('paso=brand');
     });
 
@@ -145,7 +145,7 @@ describe('SetupPage (asistente)', () => {
       await start(makeSettings(), '/admin/setup?paso=contact');
       submit(root());
       await ui();
-      expect(title()).toBe('9. Publicar');
+      expect(title()).toBe('9. Publicar tu página');
       http.expectNone(SITE);
     });
 
@@ -153,10 +153,10 @@ describe('SetupPage (asistente)', () => {
       await start(makeSettings(), '/admin/setup?paso=hero');
       click('[data-skip]');
       await ui();
-      expect(title()).toBe('5. Nosotros');
+      expect(title()).toBe('4. Tu carta');
       click('[data-prev]');
       await ui();
-      expect(title()).toBe('4. Portada');
+      expect(title()).toBe('3. Tu portada');
       http.expectNone(SITE);
     });
 
@@ -164,7 +164,7 @@ describe('SetupPage (asistente)', () => {
       await start();
       click('[data-wizard-step="booking"]');
       await ui();
-      expect(title()).toBe('7. Reservas');
+      expect(title()).toBe('7. Reservas por WhatsApp');
       expect(root().querySelector('[data-wizard-step="booking"]')?.getAttribute('aria-current')).toBe('step');
     });
 
@@ -173,7 +173,7 @@ describe('SetupPage (asistente)', () => {
       type(root(), '#s-whatsapp', '+598');
       submit(root());
       await ui();
-      expect(title()).toBe('1. Datos básicos');
+      expect(title()).toBe('1. Tu negocio');
       expect(text()).toContain('Entre 8 y 15 dígitos');
       expect(text()).toContain('Revisa los campos marcados');
       http.expectNone(SITE);
@@ -186,7 +186,7 @@ describe('SetupPage (asistente)', () => {
       await ui();
       await answer(http, SITE, 'boom', { status: 503, statusText: 'Unavailable' }, 'PUT');
       await ui();
-      expect(title()).toBe('1. Datos básicos');
+      expect(title()).toBe('1. Tu negocio');
       expect(text()).toContain('problema de conexión');
       expect(value('#s-name')).toBe('Mi cambio');
     });
@@ -199,7 +199,7 @@ describe('SetupPage (asistente)', () => {
       await answer(http, SITE, { code: 'version_conflict' }, { status: 409, statusText: 'Conflict' }, 'PUT');
       await ui();
       expect(root().querySelector('[role="alert"]')?.textContent).toContain('no se guardó para no pisar');
-      expect(title()).toBe('1. Datos básicos');
+      expect(title()).toBe('1. Tu negocio');
 
       click('[data-reload]');
       await answer(http, SITE, makeSettings({ name: 'De la otra persona', version: 9 }));
@@ -227,7 +227,7 @@ describe('SetupPage (asistente)', () => {
       click('[data-cancel]');
       await ui();
       expect(dialogs().length).toBe(0);
-      expect(title()).toBe('1. Datos básicos');
+      expect(title()).toBe('1. Tu negocio');
       expect(value('#s-name')).toBe('Sin guardar');
     });
 
@@ -237,7 +237,7 @@ describe('SetupPage (asistente)', () => {
       await ui();
       click('[data-confirm]');
       await ui();
-      expect(title()).toBe('8. Contacto y pie de página');
+      expect(title()).toBe('8. Contacto y horarios');
       click('[data-wizard-step="basics"]');
       await ui();
       expect(value('#s-name')).toBe('Negocio A');
@@ -271,7 +271,7 @@ describe('SetupPage (asistente)', () => {
       expect(text()).toContain('productos activos en 2 categorías');
       submit(root());
       await ui();
-      expect(title()).toBe('4. Portada');
+      expect(title()).toBe('5. Tu historia');
       http.expectNone(SITE);
     });
 
@@ -292,7 +292,7 @@ describe('SetupPage (asistente)', () => {
       await start(makeSettings(), '/admin/setup?paso=publish');
       click('section[aria-label="Resumen de tu configuración"] button.btn-secondary');
       await ui();
-      expect(title()).toBe('2. Logo y colores');
+      expect(title()).toBe('2. Tu marca');
     });
 
     it('should upload the logo and save it before moving on', async () => {
@@ -315,8 +315,24 @@ describe('SetupPage (asistente)', () => {
       );
       await ui();
       expect(request.request.body).toMatchObject({ logo: 'l1' });
-      expect(title()).toBe('3. Tu carta');
-      expect(root().querySelector('[data-progress-text]')?.textContent).toContain('8 completos');
+      expect(title()).toBe('3. Tu portada');
+      expect(root().querySelector('[data-progress-text]')?.textContent).toContain('8 listos');
+    });
+
+    it('should upload a space photo and save its id with the step', async () => {
+      await start(makeSettings(), '/admin/setup?paso=ambience');
+      const input = root().querySelector('#space-img-0') as HTMLInputElement;
+      Object.defineProperty(input, 'files', { value: [new File([new Uint8Array(10)], 'terraza.png', { type: 'image/png' })], configurable: true });
+      input.dispatchEvent(new Event('change'));
+      await ui();
+      http.expectOne(MEDIA).flush(media('s9'), { status: 201, statusText: 'Created' });
+      await ui();
+      expect(root().querySelector('[data-space] img')?.getAttribute('src')).toBe('/media/s9');
+
+      const request = await saveAndContinue(makeSettings({ version: 5 }));
+      await ui();
+      expect(request.request.body).toMatchObject({ spaces: [{ name: 'Terraza', imageId: 's9', bookable: true }] });
+      expect(title()).toBe('7. Reservas por WhatsApp');
     });
 
     it('should ask about the currency change before saving and moving on', async () => {
@@ -330,7 +346,7 @@ describe('SetupPage (asistente)', () => {
       const request = await answer(http, SITE, makeSettings({ currency: 'USD', version: 5 }), {}, 'PUT');
       await ui();
       expect(request.request.body).toMatchObject({ currency: 'USD' });
-      expect(title()).toBe('2. Logo y colores');
+      expect(title()).toBe('2. Tu marca');
     });
 
     it('should not move on when the currency change is cancelled', async () => {
@@ -340,7 +356,7 @@ describe('SetupPage (asistente)', () => {
       await ui();
       click('[data-cancel]');
       await ui();
-      expect(title()).toBe('1. Datos básicos');
+      expect(title()).toBe('1. Tu negocio');
       http.expectNone(SITE);
     });
   });
@@ -384,7 +400,7 @@ describe('SetupPage (asistente)', () => {
       expect(root().querySelector('[data-continue]')?.textContent).toContain('Continuar');
       submit(root());
       await ui();
-      expect(title()).toBe('2. Logo y colores');
+      expect(title()).toBe('2. Tu marca');
       http.expectNone(SITE);
     });
   });

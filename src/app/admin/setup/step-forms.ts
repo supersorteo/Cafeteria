@@ -1,12 +1,14 @@
 import { Component, Directive, inject } from '@angular/core';
 import { AutosizeDirective } from '../../shared/ui/autosize.directive';
+import { HighlightTitle } from '../../shared/ui/highlight-title';
 import { FormArray, NonNullableFormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Field } from '../../shared/field';
 import { supportedTimezones } from '../../shared/forms';
 import { StringListEditor } from '../../shared/string-list-editor';
-import { CURRENCIES, HighlightGroup, LOCALES, SiteForm, StatGroup, fieldError, newHighlight, newStat } from '../site/site-form';
+import { CURRENCIES, LOCALES, SiteForm, StatGroup, fieldError, newStat } from '../site/site-form';
 import { SiteImagesEditor } from '../site/site-images-editor';
 import { SiteSettingsStore } from './site-settings.store';
+import { SpacesEditor } from './spaces-editor';
 
 @Directive()
 abstract class StepForm {
@@ -29,30 +31,30 @@ abstract class StepForm {
   template: `
     <div class="space-y-5">
       <div class="grid sm:grid-cols-2 gap-5">
-        <app-field label="Nombre del negocio" forId="s-name" [error]="err('name')">
+        <app-field label="Nombre del negocio" forId="s-name" [error]="err('name')" hint="Tal como quieres que lo vean tus clientes.">
           <input id="s-name" [formControl]="form.controls.name" maxlength="120" class="input">
         </app-field>
-        <app-field label="Tipo de negocio (opcional)" forId="s-descriptor" [error]="err('descriptor')" hint="Ej. Bar &amp; Cocina">
+        <app-field label="¿Qué tipo de negocio es? (opcional)" forId="s-descriptor" [error]="err('descriptor')" hint="Ej. Bar y cocina, Cafetería, Pizzería">
           <input id="s-descriptor" [formControl]="form.controls.descriptor" maxlength="60" class="input">
         </app-field>
       </div>
       <app-field label="WhatsApp para reservas" forId="s-whatsapp" [error]="err('whatsappNumber', 'Entre 8 y 15 dígitos, sin + ni espacios.')"
-                 hint="Con código de país, sin + (ej. 59899123456). Es obligatorio para publicar.">
+                 hint="Con código de país, sin + ni espacios. Ej. 59899123456. Aquí te llegan las reservas y es necesario para publicar.">
         <input id="s-whatsapp" [formControl]="form.controls.whatsappNumber" inputmode="numeric" class="input">
       </app-field>
       <div class="grid sm:grid-cols-2 gap-5">
-        <app-field label="Moneda" forId="s-currency" [error]="err('currency')">
+        <app-field label="Moneda" forId="s-currency" [error]="err('currency')" hint="La moneda de los precios de tu carta.">
           <select id="s-currency" [formControl]="form.controls.currency" class="input">
             @for (currency of currencies; track currency.code) { <option [value]="currency.code">{{ currency.label }}</option> }
           </select>
         </app-field>
-        <app-field label="Idioma y formato" forId="s-locale" [error]="err('locale')">
+        <app-field label="Idioma y formato de precios" forId="s-locale" [error]="err('locale')">
           <select id="s-locale" [formControl]="form.controls.locale" class="input">
             @for (locale of locales; track locale.code) { <option [value]="locale.code">{{ locale.label }}</option> }
           </select>
         </app-field>
       </div>
-      <app-field label="Zona horaria" forId="s-timezone" [error]="err('timezone')">
+      <app-field label="Zona horaria (para las fechas de reserva)" forId="s-timezone" [error]="err('timezone')" hint="Si no estás seguro, deja la que aparece.">
         <input id="s-timezone" [formControl]="form.controls.timezone" list="timezones" maxlength="64" class="input">
         <datalist id="timezones">
           @for (zone of timezones; track zone) { <option [value]="zone"></option> }
@@ -86,14 +88,14 @@ export class StepBasicsForm extends StepForm {
       <span class="inline-block mt-3 rounded-full bg-white/95 px-4 py-1.5 text-xs font-bold" [style.color]="form.controls.primaryColor.value">Reservar</span>
     </div>
     <div class="mt-5 grid sm:grid-cols-2 gap-5">
-      <app-field label="Color principal" forId="s-primary" [error]="err('primaryColor', 'Usa un color con el formato #FF5C39.')">
+      <app-field label="Color principal" forId="s-primary" [error]="err('primaryColor', 'Usa un color con el formato #FF5C39.')" hint="El color de tus botones y detalles.">
         <div class="flex gap-3 items-center">
           <input type="color" [value]="form.controls.primaryColor.value" [disabled]="form.disabled" aria-label="Elegir color principal"
                  (input)="setColor('primaryColor', $event)" class="color-swatch">
           <input id="s-primary" [formControl]="form.controls.primaryColor" maxlength="7" class="input flex-1">
         </div>
       </app-field>
-      <app-field label="Color de acento" forId="s-accent" [error]="err('accentColor', 'Usa un color con el formato #0E8388.')">
+      <app-field label="Color secundario" forId="s-accent" [error]="err('accentColor', 'Usa un color con el formato #0E8388.')" hint="Para resaltados y detalles.">
         <div class="flex gap-3 items-center">
           <input type="color" [value]="form.controls.accentColor.value" [disabled]="form.disabled" aria-label="Elegir color de acento"
                  (input)="setColor('accentColor', $event)" class="color-swatch">
@@ -112,30 +114,30 @@ export class StepBrandForm extends StepForm {
 }
 
 @Component({
-  imports: [AutosizeDirective, ReactiveFormsModule, Field, StringListEditor, SiteImagesEditor],
+  imports: [AutosizeDirective, ReactiveFormsModule, Field, HighlightTitle, StringListEditor, SiteImagesEditor],
   selector: 'app-step-hero',
   host: { class: 'block' },
   template: `
     <div class="space-y-5">
       <p class="text-sm font-medium text-muted">
-        En los títulos, pulsa Enter para cambiar de línea y rodea una palabra con *asteriscos* para resaltarla.
+        Consejo: en el título, selecciona una palabra y pulsa «Resaltar con color». Usa Enter para pasar a otra línea.
       </p>
-      <app-field label="Frase corta de la portada (opcional)" forId="s-tagline" [error]="err('tagline')">
+      <app-field label="Frase de bienvenida (opcional)" forId="s-tagline" [error]="err('tagline')" hint="Una frase corta sobre el título. Ej. Desde 2012">
         <input id="s-tagline" [formControl]="form.controls.tagline" maxlength="160" class="input">
       </app-field>
-      <app-field label="Título de la portada (opcional)" forId="s-hero-title" [error]="err('heroTitle')">
-        <textarea appAutosize id="s-hero-title" [formControl]="form.controls.heroTitle" rows="2" maxlength="160" class="input resize-none"></textarea>
+      <app-field label="Título grande de la portada (opcional)" forId="s-hero-title" [error]="err('heroTitle')">
+        <app-highlight-title [control]="form.controls.heroTitle" inputId="s-hero-title" [maxLength]="160" />
       </app-field>
-      <app-field label="Descripción de la portada (opcional)" forId="s-hero-description" [error]="err('heroDescription')">
+      <app-field label="Descripción breve (opcional)" forId="s-hero-description" [error]="err('heroDescription')" hint="Una o dos frases sobre tu negocio.">
         <textarea appAutosize id="s-hero-description" [formControl]="form.controls.heroDescription" rows="3" maxlength="600" class="input resize-none"></textarea>
       </app-field>
-      <app-field label="Etiqueta sobre la foto de portada (opcional)" forId="s-hero-caption" [error]="err('heroCaption')">
+      <app-field label="Texto pequeño sobre la foto (opcional)" forId="s-hero-caption" [error]="err('heroCaption')" hint="Ej. Una noche para disfrutar">
         <input id="s-hero-caption" [formControl]="form.controls.heroCaption" maxlength="80" class="input">
       </app-field>
       @if (store.imagesState(); as images) {
         <app-site-images-editor [images]="images" [blocks]="['hero']" [embedded]="true" [readonly]="!store.isOwner()" (saved)="store.onImagesSaved($event)" />
       }
-      <app-string-list-editor [array]="form.controls.marqueeItems" [max]="8" legend="Frases que se desplazan bajo la portada" itemLabel="Frase"
+      <app-string-list-editor [array]="form.controls.marqueeItems" [max]="8" legend="Cinta de frases (texto que se mueve bajo la portada)" itemLabel="Frase"
                               addLabel="Añadir frase" [itemMaxLength]="80" [readonly]="form.disabled" />
     </div>
   `,
@@ -143,22 +145,23 @@ export class StepBrandForm extends StepForm {
 export class StepHeroForm extends StepForm {}
 
 @Component({
-  imports: [AutosizeDirective, ReactiveFormsModule, Field, SiteImagesEditor],
+  imports: [AutosizeDirective, ReactiveFormsModule, Field, HighlightTitle, SiteImagesEditor],
   selector: 'app-step-about',
   host: { class: 'block' },
   template: `
     <div class="space-y-5">
-      <app-field label="Título de «Nosotros» (opcional)" forId="s-about-title" [error]="err('aboutTitle')">
-        <textarea appAutosize id="s-about-title" [formControl]="form.controls.aboutTitle" rows="2" maxlength="120" class="input resize-none"></textarea>
+      <app-field label="Título de tu historia (opcional)" forId="s-about-title" [error]="err('aboutTitle')" hint="Ej. Tradición, fuego y buena compañía">
+        <app-highlight-title [control]="form.controls.aboutTitle" inputId="s-about-title" [maxLength]="120" />
       </app-field>
-      <app-field label="Texto de «Nosotros» (opcional)" forId="s-about-text" [error]="err('aboutText')">
+      <app-field label="Cuenta tu historia (opcional)" forId="s-about-text" [error]="err('aboutText')" hint="Cómo empezaste, qué te hace especial.">
         <textarea appAutosize id="s-about-text" [formControl]="form.controls.aboutText" rows="5" maxlength="2000" class="input resize-none"></textarea>
       </app-field>
       @if (store.imagesState(); as images) {
         <app-site-images-editor [images]="images" [blocks]="['about']" [embedded]="true" [readonly]="!store.isOwner()" (saved)="store.onImagesSaved($event)" />
       }
       <fieldset>
-        <legend class="text-xs font-bold uppercase tracking-wider text-muted">Cifras ({{ form.controls.stats.length }}/3)</legend>
+        <legend class="text-xs font-bold uppercase tracking-wider text-muted">Números destacados ({{ form.controls.stats.length }}/3)</legend>
+        <p class="mt-1 text-xs font-medium text-muted">Datos que impresionan. Ej.: 12 · años de historia</p>
         <ul class="mt-3 space-y-3">
           @for (group of form.controls.stats.controls; track group; let index = $index) {
             <li class="flex flex-wrap gap-2 items-start anim-fade-in">
@@ -198,51 +201,19 @@ export class StepAboutForm extends StepForm {
 }
 
 @Component({
-  imports: [ReactiveFormsModule, SiteImagesEditor],
+  imports: [SiteImagesEditor, SpacesEditor],
   selector: 'app-step-ambience',
   host: { class: 'block' },
   template: `
-    <div class="space-y-6">
+    <div class="space-y-8">
+      <app-spaces-editor />
       @if (store.imagesState(); as images) {
         <app-site-images-editor [images]="images" [blocks]="['gallery']" [embedded]="true" [readonly]="!store.isOwner()" (saved)="store.onImagesSaved($event)" />
       }
-      <fieldset>
-        <legend class="text-xs font-bold uppercase tracking-wider text-muted">Espacios y promociones ({{ form.controls.highlights.length }}/3)</legend>
-        <ul class="mt-3 space-y-3">
-          @for (group of form.controls.highlights.controls; track group; let index = $index) {
-            <li class="grid sm:grid-cols-[1fr_2fr_auto] gap-2 items-start anim-fade-in">
-              <input [formControl]="group.controls.title" maxlength="60" [attr.aria-label]="'Título del espacio ' + (index + 1)" placeholder="Terraza" class="input">
-              <input [formControl]="group.controls.description" maxlength="200" [attr.aria-label]="'Descripción del espacio ' + (index + 1)" placeholder="Aire libre y música en vivo" class="input">
-              @if (form.enabled) {
-                <button type="button" (click)="removeFrom(form.controls.highlights, index)" [attr.aria-label]="'Quitar espacio ' + (index + 1)" class="btn btn-ghost btn-sm text-danger !px-3">✕</button>
-              }
-              @if ((group.controls.title.touched || group.controls.description.touched) && group.invalid) {
-                <p role="alert" class="sm:col-span-3 text-xs font-bold text-danger">Escribe un título (máx. 60); la descripción admite hasta 200 caracteres.</p>
-              }
-            </li>
-          }
-        </ul>
-        @if (form.enabled) {
-          <button type="button" data-add-highlight (click)="addHighlight()" [disabled]="form.controls.highlights.length >= 3" class="btn btn-secondary btn-sm mt-3">+ Añadir espacio</button>
-        }
-      </fieldset>
     </div>
   `,
 })
-export class StepAmbienceForm extends StepForm {
-  protected addHighlight(): void {
-    const array = this.form.controls.highlights;
-    if (array.length < 3) {
-      array.push(newHighlight(this.fb, '', ''));
-      array.markAsDirty();
-    }
-  }
-
-  protected removeFrom(array: FormArray<HighlightGroup>, index: number): void {
-    array.removeAt(index);
-    array.markAsDirty();
-  }
-}
+export class StepAmbienceForm extends StepForm {}
 
 @Component({
   imports: [ReactiveFormsModule, StringListEditor],
@@ -250,15 +221,32 @@ export class StepAmbienceForm extends StepForm {
   host: { class: 'block' },
   template: `
     <div class="space-y-8">
-      <p class="text-sm font-medium text-muted">Si no añades nada, la página usa valores por defecto (de 2 a +10 personas, sin zonas).</p>
-      <app-string-list-editor [array]="form.controls.reservationAreas" [max]="8" legend="Zonas para reservar" itemLabel="Zona"
-                              addLabel="Añadir zona" [itemMaxLength]="40" [readonly]="form.disabled" />
-      <app-string-list-editor [array]="form.controls.partySizes" [max]="10" legend="Opciones de personas" itemLabel="Opción"
+      <p class="text-sm font-medium text-muted">Si no añades nada, la página ofrece grupos de 2 a más de 10 personas. Grupos, por ejemplo: 2, 4, 6.</p>
+      <app-string-list-editor [array]="form.controls.partySizes" [max]="10" legend="¿Para cuántas personas?" itemLabel="Opción"
                               addLabel="Añadir opción" [itemMaxLength]="20" [readonly]="form.disabled" />
+      <section aria-label="Zonas para reservar" data-booking-areas>
+        <h3 class="text-xs font-bold uppercase tracking-wider text-muted">¿Dónde pueden sentarse?</h3>
+        @if (bookableSpaces().length > 0) {
+          <ul class="mt-2 flex flex-wrap gap-2">
+            @for (name of bookableSpaces(); track name) {
+              <li class="badge badge-success">{{ name }}</li>
+            }
+          </ul>
+        } @else {
+          <p class="mt-1 text-sm font-medium text-muted">Todavía no tienes espacios que acepten reservas: el cliente no elegirá zona.</p>
+        }
+        <p class="mt-2 text-xs font-medium text-muted">Estas zonas salen de tus espacios. Para cambiarlas, ve al paso 6 «Tus espacios y fotos» y marca «Acepta reservas».</p>
+      </section>
     </div>
   `,
 })
-export class StepBookingForm extends StepForm {}
+export class StepBookingForm extends StepForm {
+  protected bookableSpaces(): string[] {
+    return this.form.controls.spaces.controls
+      .filter(space => space.controls.bookable.value && space.controls.name.value.trim())
+      .map(space => space.controls.name.value.trim());
+  }
+}
 
 @Component({
   imports: [AutosizeDirective, ReactiveFormsModule, Field],
@@ -277,10 +265,10 @@ export class StepBookingForm extends StepForm {}
       <app-field label="Dirección (opcional)" forId="s-address" [error]="err('address')">
         <input id="s-address" [formControl]="form.controls.address" maxlength="255" class="input">
       </app-field>
-      <app-field label="Horarios (opcional)" forId="s-schedule" [error]="err('schedule')" hint="Una línea por franja horaria.">
+      <app-field label="Horarios (opcional)" forId="s-schedule" [error]="err('schedule')" hint="Una línea por día o franja. Ej. Lun a Vie 18:00 a 02:00">
         <textarea appAutosize id="s-schedule" [formControl]="form.controls.schedule" rows="3" maxlength="500" class="input resize-none"></textarea>
       </app-field>
-      <app-field label="Texto del pie de página (opcional)" forId="s-footer" [error]="err('footerText')">
+      <app-field label="Mensaje final de tu página (opcional)" forId="s-footer" [error]="err('footerText')" hint="Ej. Gracias por visitarnos">
         <input id="s-footer" [formControl]="form.controls.footerText" maxlength="200" class="input">
       </app-field>
     </div>

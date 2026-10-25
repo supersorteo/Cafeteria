@@ -35,7 +35,11 @@ export function makeSite(overrides: Partial<SiteData> = {}): SiteData {
       { label: 'Años', value: 14 },
       { label: 'Destilados', value: 120 },
     ],
-    highlights: [{ title: 'Terraza', description: 'Aire libre' }],
+    spaces: [
+      { name: 'Terraza', description: 'Aire libre', imageUrl: '/media/s1', bookable: true },
+      { name: 'Barra', description: null, imageUrl: null, bookable: true },
+      { name: 'Happy hour', description: 'Martes a jueves', imageUrl: null, bookable: false },
+    ],
     reservation: { areas: ['Terraza', 'Barra'], partySizes: ['2', '4', '+10'] },
     categories: [
       {
@@ -69,7 +73,7 @@ export function emptySite(): SiteData {
     gallery: [],
     marquee: [],
     stats: [],
-    highlights: [],
+    spaces: [],
     reservation: { areas: [], partySizes: [] },
     categories: [],
   });

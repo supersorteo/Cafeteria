@@ -10,8 +10,14 @@ import { StepAboutForm, StepAmbienceForm, StepBasicsForm, StepBookingForm, StepB
   selector: 'app-step-editor',
   host: { class: 'block' },
   template: `
-    <p class="text-sm font-medium text-muted">{{ def().why }}</p>
-    <p class="mt-1 mb-5 text-xs font-bold text-primary">Dónde se ve: {{ def().where }}</p>
+    <aside class="help-callout mb-5" data-help>
+      <p class="help-title">¿Para qué sirve?</p>
+      <p class="mt-1 text-sm font-medium">{{ def().why }}</p>
+      @if (def().example) {
+        <p class="mt-2 text-sm text-muted" data-help-example><strong class="text-ink">Ejemplo:</strong> {{ def().example }}</p>
+      }
+      <p class="mt-2 text-sm text-muted" data-help-where><strong class="text-ink">Así lo verá tu cliente:</strong> {{ def().where }}</p>
+    </aside>
 
     @switch (step()) {
       @case ('basics') { <app-step-basics /> }
