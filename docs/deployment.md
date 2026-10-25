@@ -123,7 +123,7 @@ Haz una copia antes de cada despliegue que incluya migraciones y al menos una ve
 - **Subida de imágenes por Vercel**: no encontré documentado un límite de tamaño de petición para las reescrituras a un origen externo (las *Functions* tienen 4,5 MB). El backend acepta hasta 5 MiB. Prueba con una imagen de ~4,9 MB; si falla con 413, hay que comprimir en el navegador antes de subir o subir directo al backend.
 - **Límite de intentos por IP**: se basa en `X-Forwarded-For`, que Vercel establece con la IP real. Alguien que ataque directamente el dominio de Railway podría falsearla; un techo global por ruta (10× el límite por IP) frena la rotación masiva de IP falsas. Si quieres más protección, no publiques el dominio de Railway y limita el acceso.
 - **Varias réplicas**: la cola de correos y la limpieza de imágenes admiten varias réplicas; el límite de intentos es en memoria y por réplica.
-- **La Terraza real**: los datos de demostración (seed) no existen en producción; se cargan desde el panel.
+- **Sitio de demostración `/la-terraza`** (el de «Ver un ejemplo»): el seed de desarrollo no corre en producción (crea cuentas con una contraseña conocida), pero el backend crea el sitio demo por su cuenta al arrancar: negocio publicado **sin usuarios**, con carta de 28 platos, espacios, galería y las 13 fotos incluidas en la app (`src/main/resources/demo-images`), que se suben a Cloudinary. Es idempotente y nunca toca un negocio `la-terraza` que tenga dueño. Se desactiva con `DEMO_SITE_ENABLED=false`. Si lo eliminas desde el panel de superadmin, vuelve a crearse en el siguiente arranque, salvo que lo desactives.
 
 ## Nota sobre la vista previa del panel
 
