@@ -54,19 +54,20 @@ Límites: una cuenta personal de Gmail permite unos 500 destinatarios al día. S
 
 | Variable | Valor |
 |---|---|
-| `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE` | `${{Postgres.PGHOST}}`, `${{Postgres.PGPORT}}`, … (referencias al servicio PostgreSQL; ajusta «Postgres» si lo renombraste) |
+| `DB_URL` | `jdbc:postgresql://${{Postgres.PGHOST}}:${{Postgres.PGPORT}}/${{Postgres.PGDATABASE}}` (formato JDBC; referencias al servicio PostgreSQL, ajusta «Postgres» si lo renombraste). Usa el host interno de Railway, no el público (`*.proxy.rlwy.net`) |
+| `DB_USER`, `DB_PASSWORD` | `${{Postgres.PGUSER}}`, `${{Postgres.PGPASSWORD}}` |
 | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | credenciales **nuevas** de Cloudinary |
 | `APP_PUBLIC_BASE_URL` | `https://tu-app.vercel.app` (sin barra final; es la base de los enlaces de los correos) |
-| `MAIL_FROM`, `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN` | ver paso 1 |
+| `MAIL_FROM`, `MAIL_USERNAME`, `MAIL_PASSWORD` | Con el plan Pro de Railway el correo sale por SMTP (valor por defecto): tu Gmail y su contraseña de aplicación de 16 letras. Con otros planes usa `MAIL_SENDER=gmail-api` y las `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN` del paso 1 |
 | `REGISTRATION_ENABLED` | `true` para abrir el registro (por defecto está cerrado) |
 | `SUPERADMIN_EMAIL`, `SUPERADMIN_PASSWORD` | Panel de superadmin. El correo recibe el código de acceso (usa tu Gmail de empresa); la contraseña debe tener al menos 8 caracteres. Sin ellas el panel no existe. Se leen solo en el servidor (Railway o el `.env` local). |
-| Opcionales | `MAIL_SENDER` (`gmail-api` por defecto), `DB_POOL_SIZE` (10), `DB_URL`/`DB_USER`/`DB_PASSWORD` si no usas las `PG*` |
+| Opcionales | `MAIL_SENDER` (`smtp` por defecto; `gmail-api` si tu plan bloquea SMTP), `DB_POOL_SIZE` (10) |
 
    `PORT` lo pone Railway. `SPRING_PROFILES_ACTIVE=production` ya viene en la imagen.
 4. *Settings → Networking → Generate Domain* y copia `https://xxxx.up.railway.app`.
 5. En los *Deploy Logs* debe aparecer `The following 1 profile is active: "production"` y `Started CafeteriaApplication`. Flyway crea el esquema en el primer arranque.
 
-El perfil de producción es autosuficiente: no depende de `application.properties`. Si falta una variable obligatoria (`APP_PUBLIC_BASE_URL`, `MAIL_FROM`, `CLOUDINARY_*`, o las `GMAIL_*` con `gmail-api`), la aplicación falla al arrancar con un mensaje claro, en lugar de fallar al enviar el primer correo.
+El perfil de producción es autosuficiente: el `Dockerfile` fija `SPRING_CONFIG_LOCATION=classpath:/application-production.properties`, de modo que `application.properties` (desarrollo) no se lee en Railway. Si falta una variable obligatoria (`APP_PUBLIC_BASE_URL`, `MAIL_FROM`, `CLOUDINARY_*`, o las `GMAIL_*` con `gmail-api`), la aplicación falla al arrancar con un mensaje claro, en lugar de fallar al enviar el primer correo.
 
 ## 3. Vercel (frontend)
 
