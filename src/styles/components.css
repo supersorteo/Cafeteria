@@ -83,6 +83,14 @@ html:has(dialog.modal[open]){ overflow:hidden; }
 }
 
 .toast{ background:rgb(var(--text)); color:rgb(var(--bg)); animation:ui-toast-in var(--dur-3) var(--ease-spring) both; }
+
+.intro-scene-image{ transform-origin:center; }
+.intro-scene-image-0{ animation:intro-image-in-0 .6s var(--ease-spring) both; }
+.intro-scene-image-1{ animation:intro-image-in-1 .6s var(--ease-spring) both; }
+.intro-scene-image-2{ animation:intro-image-in-2 .6s var(--ease-spring) both; }
+@keyframes intro-image-in-0{ from{ opacity:0; transform:translateY(1rem) scale(.96) rotate(-1deg); } to{ opacity:1; transform:none; } }
+@keyframes intro-image-in-1{ from{ opacity:0; transform:translateX(1rem) scale(.96) rotate(1deg); } to{ opacity:1; transform:none; } }
+@keyframes intro-image-in-2{ from{ opacity:0; transform:translateY(-1rem) scale(.96) rotate(-1deg); } to{ opacity:1; transform:none; } }
 .toast-error{ background:rgb(var(--danger)); color:#fff; }
 
 .tabs{ position:relative; display:flex; gap:.25rem; padding:.25rem; border-radius:9999px; background:rgb(var(--surface-2)); overflow-x:auto; scrollbar-width:none; }
@@ -123,12 +131,16 @@ html:has(dialog.modal[open]){ overflow:hidden; }
 .hero-orb{ position:absolute; border-radius:9999px; pointer-events:none; animation:floaty 10s ease-in-out infinite; }
 .hero-orb-a{ width:22rem; height:22rem; top:-7rem; right:-5rem; background:radial-gradient(circle at 30% 30%, rgb(var(--primary) / .28), transparent 70%); }
 .hero-orb-b{ width:16rem; height:16rem; bottom:-4rem; left:-3rem; background:radial-gradient(circle at 30% 30%, rgb(var(--brand-teal) / .22), transparent 70%); animation-delay:-5s; }
-.hero-visual .phone{ transform:rotate(2deg); }
+.hero-visual{ padding-bottom:3rem; }
+.hero-visual .phone{ position:relative; top:auto; left:auto; width:100%; height:auto; margin:0; background:#fffaf2; color:#2A1420; transform:rotate(2deg); }
 .float-chip{ position:absolute; box-shadow:0 18px 40px -16px rgb(var(--shadow-rgb) / calc(.35 * var(--shadow-a))); }
 .float-chip-a{ left:-1.75rem; top:-1.25rem; animation:floaty 7s ease-in-out infinite; }
 .float-chip-b{ right:-.5rem; bottom:-3rem; animation:floaty 8s ease-in-out infinite; animation-delay:-3s; }
 @media (max-width:480px){ .float-chip-a{ left:-.5rem; } .float-chip-b{ right:-.25rem; } }
 .cta-band{ background:radial-gradient(ellipse at 20% 0%, rgb(var(--gold) / .45), transparent 55%), radial-gradient(ellipse at 90% 100%, rgb(var(--primary) / .55), transparent 60%), linear-gradient(155deg, #3a1727, #1c0b14); }
+.map-pin-visual{ animation:map-pin-float 5s ease-in-out infinite; }
+@keyframes map-pin-float{ 0%,100%{ transform:translateY(0) rotate(-1deg); } 50%{ transform:translateY(-.45rem) rotate(1deg); } }
+@media (prefers-reduced-motion:reduce){ .map-pin-visual{ animation:none; } }
 
 .side{ width:16rem; background:linear-gradient(180deg, #34172a 0%, #2A1420 55%, #1c0b14 100%); transition:width var(--dur-3) var(--ease-out); overflow:hidden; }
 .side-collapsed{ width:5rem; }
