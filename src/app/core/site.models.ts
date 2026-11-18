@@ -48,4 +48,5 @@ export interface SiteData {
   spaces: SiteSpace[];
   reservation: { areas: string[]; partySizes: string[] };
   categories: SiteCategory[];
+  reservationsEnabled: boolean;
 }

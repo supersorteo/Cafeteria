@@ -58,7 +58,7 @@ describe('SitePage (lista numerada)', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting(), { provide: AuthService, useValue: { isOwner: owner } }],
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting(), { provide: AuthService, useValue: { isOwner: owner, canEditSite: owner, planExpired: signal(false) } }],
     });
     http = TestBed.inject(HttpTestingController);
     notices = TestBed.inject(NoticeService);

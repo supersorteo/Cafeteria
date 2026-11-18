@@ -1,0 +1,105 @@
+import { DatePipe } from '@angular/common';
+import { Component, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { isConnectionProblem, toProblem } from '../core/api-error';
+import { AuthService } from '../core/auth.service';
+import { NoticeService } from '../core/notice.service';
+import { PLAN_WARNING_DAYS, PlanService, daysLeft, formatActivationCode } from '../core/plan.service';
+import { Modal } from '../shared/ui/modal';
+
+@Component({
+  imports: [DatePipe, FormsModule, Modal],
+  selector: 'app-plan-banner',
+  host: { class: 'block' },
+  template: `
+    @if (auth.user(); as user) {
+      @if (auth.planExpired()) {
+        <div class="plan-banner plan-banner-expired" role="alert" data-plan-expired>
+          <div class="min-w-0">
+            <p class="font-bold">Tu plan venció el {{ user.plan.expiresAt | date: 'dd/MM/yyyy' }}</p>
+            <p class="text-sm font-medium opacity-90">Puedes seguir entrando y viendo tu información, pero no puedes hacer cambios y tu página no recibe reservas hasta que renueves con un código nuevo.</p>
+          </div>
+          @if (auth.isOwner()) {
+            <button type="button" class="btn btn-primary btn-sm shrink-0" data-renew (click)="plan.openRenewal()">Renovar con un código</button>
+          } @else {
+            <p class="text-sm font-bold shrink-0">Pide al propietario que renueve el plan.</p>
+          }
+        </div>
+      } @else if (soon() !== null) {
+        <div class="plan-banner plan-banner-soon" data-plan-soon>
+          <p class="min-w-0 text-sm font-bold">Tu plan vence en {{ soon() }} {{ soon() === 1 ? 'día' : 'días' }} ({{ user.plan.expiresAt | date: 'dd/MM/yyyy' }}).</p>
+          @if (auth.isOwner()) {
+            <button type="button" class="btn btn-secondary btn-sm shrink-0" data-renew (click)="plan.openRenewal()">Renovar</button>
+          }
+        </div>
+      }
+    }
+
+    @if (plan.renewalOpen()) {
+      <app-modal heading="Renovar tu plan" size="sm" [dismissable]="!busy()" (closed)="close()">
+        <p class="font-medium text-muted">Escribe el código de activación que adquiriste. El tiempo se suma a tu plan y todo vuelve a funcionar.</p>
+        <label for="renew-code" class="mt-4 block text-xs font-bold uppercase tracking-wider text-muted">Código de activación</label>
+        <input id="renew-code" class="input mt-2 font-bold tracking-wider" autocomplete="off" autocapitalize="characters" spellcheck="false"
+               placeholder="DLR-XXXX-XXXX" data-renew-code [ngModel]="code()" (ngModelChange)="onCode($event)" (keyup.enter)="submit()">
+        @if (error()) { <p role="alert" class="mt-2 text-sm font-bold text-danger">{{ error() }}</p> }
+        <div modal-footer class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+          <button type="button" class="btn btn-secondary" data-cancel [disabled]="busy()" (click)="close()">Cancelar</button>
+          <button type="button" class="btn btn-primary" data-confirm [disabled]="busy() || code().length < 13" (click)="submit()">{{ busy() ? 'Comprobando…' : 'Renovar' }}</button>
+        </div>
+      </app-modal>
+    }
+  `,
+})
+export class PlanBanner {
+  protected readonly auth = inject(AuthService);
+  protected readonly plan = inject(PlanService);
+  private readonly notices = inject(NoticeService);
+
+  protected readonly code = signal('');
+  protected readonly busy = signal(false);
+  protected readonly error = signal<string | null>(null);
+
+  protected soon(): number | null {
+    const days = daysLeft(this.auth.user()?.plan?.expiresAt ?? null);
+    return days !== null && days > 0 && days <= PLAN_WARNING_DAYS ? days : null;
+  }
+
+  protected onCode(value: string): void {
+    this.code.set(formatActivationCode(value));
+  }
+
+  protected close(): void {
+    if (!this.busy()) {
+      this.plan.closeRenewal();
+      this.code.set('');
+      this.error.set(null);
+    }
+  }
+
+  protected async submit(): Promise<void> {
+    if (this.busy() || this.code().length < 13) {
+      return;
+    }
+    this.busy.set(true);
+    this.error.set(null);
+    try {
+      await this.plan.redeem(this.code());
+      this.busy.set(false);
+      this.close();
+      this.notices.show('info', 'Plan renovado. Ya puedes volver a hacer cambios.');
+    } catch (error) {
+      const problem = toProblem(error);
+      this.error.set(
+        problem.code === 'invalid_code'
+          ? 'El código no es válido o ya fue usado.'
+          : problem.status === 429
+            ? 'Demasiados intentos. Espera un rato e inténtalo de nuevo.'
+            : isConnectionProblem(problem)
+              ? 'No pudimos conectar con el servidor. Inténtalo de nuevo.'
+              : 'No se pudo renovar el plan.',
+      );
+    } finally {
+      this.busy.set(false);
+    }
+  }
+}

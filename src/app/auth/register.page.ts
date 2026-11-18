@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Component, DestroyRef, effect, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { AbstractControl, NonNullableFormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -7,10 +7,13 @@ import { firstValueFrom } from 'rxjs';
 import { isConnectionProblem, toProblem } from '../core/api-error';
 import { AuthService } from '../core/auth.service';
 import { CrossTab } from '../core/cross-tab.service';
+import { formatActivationCode } from '../core/plan.service';
 import { NoticeService } from '../core/notice.service';
 import { RESERVED_SLUGS, SLUG_PATTERN, slugify } from '../shared/slug';
 import { PasswordMeter } from '../shared/ui/password-meter';
 import { AuthCard } from './auth-card';
+import { REMEMBER_PASSWORD_IN_DEV, rememberNewAccount } from './login.page';
+import { mailboxLink } from './mailbox-link';
 import { PasswordToggle } from '../shared/ui/password-toggle';
 
 function notReserved(control: AbstractControl<string>): ValidationErrors | null {
@@ -28,6 +31,14 @@ function notReserved(control: AbstractControl<string>): ValidationErrors | null 
           Abre el correo y confirma tu dirección para poder iniciar sesión. El enlace vale 24 horas.
           Si no lo ves, revisa la carpeta de spam.
         </p>
+        <p class="mt-3 text-sm font-bold break-all" data-sent-to>Enviado a {{ sentTo() }}</p>
+        @if (mailbox(); as box) {
+          <a [href]="box.url" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-lg w-full mt-5" data-open-mail>Abrir {{ box.provider }}</a>
+        }
+        <p class="mt-4 text-sm font-medium text-muted">
+          Hasta que confirmes tu correo no podrás iniciar sesión.
+          ¿No llegó? <a routerLink="/auth/resend-verification" data-resend>Reenviar el correo</a>.
+        </p>
         <div footer>
           <a routerLink="/auth/login" >Ir a iniciar sesión</a>
         </div>
@@ -35,6 +46,16 @@ function notReserved(control: AbstractControl<string>): ValidationErrors | null 
     } @else {
       <app-auth-card title="Crea tu cuenta" subtitle="Registra tu negocio y empieza a publicar tu carta.">
         <form [formGroup]="form" (ngSubmit)="submit()" class="space-y-5" novalidate>
+          <div>
+            <label for="reg-code" class="text-xs font-bold uppercase tracking-wider text-muted">Código de activación</label>
+            <input id="reg-code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="DLR-XXXX-XXXX"
+                   formControlName="activationCode" (input)="formatCode()" class="input mt-2 font-bold tracking-wider">
+            @if (showError('activationCode'); as message) {
+              <p class="mt-1.5 text-xs font-bold text-danger anim-fade-in">{{ message }}</p>
+            } @else {
+              <p class="mt-1.5 text-xs font-medium text-muted">Lo recibes al adquirir tu plan. Sin código no se puede crear el negocio.</p>
+            }
+          </div>
           <div>
             <label for="reg-business" class="text-xs font-bold uppercase tracking-wider text-muted">Nombre del negocio</label>
             <input id="reg-business" type="text" autocomplete="organization" formControlName="businessName"
@@ -93,6 +114,7 @@ export class RegisterPage {
   private readonly crossTab = inject(CrossTab);
   private readonly notices = inject(NoticeService);
   private readonly router = inject(Router);
+  private readonly devPassword = inject(REMEMBER_PASSWORD_IN_DEV);
   private stopListening: (() => void) | null = null;
 
   protected readonly origin = typeof location === 'undefined' ? '' : location.host;
@@ -101,10 +123,13 @@ export class RegisterPage {
     slug: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(63), Validators.pattern(SLUG_PATTERN), notReserved]],
     email: ['', [Validators.required, Validators.email, Validators.maxLength(254)]],
     password: ['', [Validators.required, Validators.minLength(10), Validators.maxLength(72)]],
+    activationCode: ['', [Validators.required, Validators.pattern(/^DLR-[A-Z0-9]{4}-[A-Z0-9]{4}$/)]],
   });
   protected readonly password = toSignal(this.form.controls.password.valueChanges, { initialValue: '' });
   protected readonly pending = signal(false);
   protected readonly done = signal(false);
+  protected readonly sentTo = signal('');
+  protected readonly mailbox = computed(() => mailboxLink(this.sentTo()));
   protected readonly error = signal<string | null>(null);
   protected slugEdited = false;
 
@@ -130,7 +155,15 @@ export class RegisterPage {
       });
   }
 
-  protected showError(name: 'businessName' | 'slug' | 'email' | 'password'): string | null {
+  protected formatCode(): void {
+    const control = this.form.controls.activationCode;
+    const formatted = formatActivationCode(control.value);
+    if (formatted !== control.value) {
+      control.setValue(formatted);
+    }
+  }
+
+  protected showError(name: 'businessName' | 'slug' | 'email' | 'password' | 'activationCode'): string | null {
     const control = this.form.controls[name];
     if (!control.touched || !control.errors) {
       return null;
@@ -154,6 +187,8 @@ export class RegisterPage {
         return 'Escribe un correo válido.';
       case 'password':
         return 'La contraseña debe tener entre 10 y 72 caracteres.';
+      case 'activationCode':
+        return errors['server'] ? String(errors['server']) : 'Escribe tu código con el formato DLR-XXXX-XXXX.';
     }
   }
 
@@ -171,6 +206,8 @@ export class RegisterPage {
       await this.auth.ensureCsrf();
       const value = this.form.getRawValue();
       await firstValueFrom(this.http.post('/api/v1/auth/register', { ...value, email: value.email.trim(), businessName: value.businessName.trim() }));
+      rememberNewAccount(value.email, value.password, this.devPassword);
+      this.sentTo.set(value.email.trim());
       this.done.set(true);
     } catch (error) {
       this.handleError(toProblem(error));
@@ -180,7 +217,10 @@ export class RegisterPage {
   }
 
   private handleError(problem: ReturnType<typeof toProblem>): void {
-    if (problem.code === 'slug_taken') {
+    if (problem.code === 'invalid_code') {
+      this.form.controls.activationCode.setErrors({ server: 'El código no es válido o ya fue usado.' });
+      this.form.controls.activationCode.markAsTouched();
+    } else if (problem.code === 'slug_taken') {
       this.form.controls.slug.setErrors({ taken: true });
       this.form.controls.slug.markAsTouched();
     } else if (problem.code === 'slug_reserved') {

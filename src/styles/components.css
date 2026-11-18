@@ -280,3 +280,7 @@ app-dashboard-page, app-menu-page, app-site-page, app-setup-page{ display:block;
 .help-title{ font-size:.75rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:rgb(var(--primary)); }
 .where-chip{ display:inline-block; padding:.2rem .65rem; border-radius:9999px; font-size:.75rem; font-weight:700; background:rgb(var(--primary) / .1); color:rgb(var(--primary)); }
 .step-icon{ flex:none; color:rgb(var(--primary)); }
+
+.plan-banner{ display:flex; align-items:center; justify-content:space-between; gap:.75rem 1rem; flex-wrap:wrap; padding:.9rem 1.1rem; border-radius:var(--r-lg); border:1px solid transparent; }
+.plan-banner-expired{ background:rgb(var(--danger) / .1); border-color:rgb(var(--danger) / .35); }
+.plan-banner-soon{ background:rgb(var(--warning) / .14); border-color:rgb(var(--warning) / .4); }

@@ -142,6 +142,7 @@ describe('LoginPage', () => {
     harness.detectChanges();
 
     expect(root().querySelector('[role="alert"]')?.textContent).toContain('Correo o contraseña incorrectos');
+    expect(root().querySelector('[data-verify-hint]')?.textContent).toContain('confirma tu correo');
     expect(button().disabled).toBe(false);
     expect(router.url).toBe('/auth/login');
   });
@@ -165,6 +166,7 @@ describe('LoginPage', () => {
     harness.detectChanges();
     expect(root().querySelector('[role="alert"]')?.textContent).toContain('No pudimos conectar');
     expect(text()).not.toContain('incorrectos');
+    expect(root().querySelector('[data-verify-hint]')).toBeNull();
   });
 
   it('should confirm the verified email with a notice and clean the url', async () => {

@@ -151,6 +151,9 @@ export class PublicSite implements AfterViewInit {
 
   protected openReservation(event?: Event): void {
     event?.preventDefault();
+    if (!this.site().reservationsEnabled) {
+      return;
+    }
     this.formError.set(null);
     this.reservationSent.set(false);
     this.reservationOpen.set(true);

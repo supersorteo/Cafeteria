@@ -11,6 +11,7 @@ export function makeMe(overrides: Partial<Me> = {}): Me {
     email: 'owner@a.test',
     role: 'OWNER',
     tenant: { id: 't1', slug: 'negocio-a', name: 'Negocio A', published: true, logoUrl: null },
+    plan: { expiresAt: null, status: 'ACTIVE' },
     ...overrides,
   };
 }

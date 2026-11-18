@@ -15,6 +15,11 @@ export const REMEMBER_PASSWORD_IN_DEV = new InjectionToken<boolean>('remember-pa
   factory: () => isDevMode() && typeof location !== 'undefined' && ['localhost', '127.0.0.1'].includes(location.hostname),
 });
 
+export function rememberNewAccount(email: string, password: string, includePassword: boolean): void {
+  writeStored(REMEMBERED_EMAIL_KEY, email.trim());
+  writeStored(DEV_PASSWORD_KEY, includePassword ? password : null);
+}
+
 function readStored(key: string): string | null {
   try {
     return localStorage.getItem(key);
@@ -63,6 +68,12 @@ function writeStored(key: string, value: string | null): void {
         </label>
         @if (error(); as message) {
           <p role="alert" class="rounded-ui-md bg-danger/10 px-4 py-3 text-sm font-bold text-danger anim-fade-in">{{ message }}</p>
+          @if (verifyHint()) {
+            <p class="text-sm font-medium text-muted" data-verify-hint>
+              ¿Acabas de registrarte? Primero confirma tu correo con el enlace que te enviamos.
+              <a routerLink="/auth/resend-verification">Reenviar verificación</a>
+            </p>
+          }
         }
         <button type="submit" [disabled]="pending()"
                 class="btn btn-primary btn-lg w-full" [class.btn-loading]="pending()">
@@ -109,6 +120,7 @@ export class LoginPage {
   }
 
   protected readonly error = signal<string | null>(null);
+  protected readonly verifyHint = signal(false);
 
   protected async submit(): Promise<void> {
     if (this.pending()) {
@@ -120,6 +132,7 @@ export class LoginPage {
     }
     this.pending.set(true);
     this.error.set(null);
+    this.verifyHint.set(false);
     try {
       const { email, password } = this.form.getRawValue();
       await this.auth.login(email, password);
@@ -130,6 +143,7 @@ export class LoginPage {
     } catch (error) {
       const problem = toProblem(error);
       if (problem.status === 401) {
+        this.verifyHint.set(true);
         this.error.set('Correo o contraseña incorrectos, o la cuenta está suspendida o sin verificar.');
       } else if (problem.status === 429) {
         this.error.set('Demasiados intentos. Espera unos minutos e inténtalo de nuevo.');

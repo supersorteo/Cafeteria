@@ -52,7 +52,8 @@ describe('RegisterPage', () => {
 
   afterEach(() => http.verify());
 
-  function fill(overrides: Partial<Record<'business' | 'slug' | 'email' | 'password', string>> = {}): void {
+  function fill(overrides: Partial<Record<'business' | 'slug' | 'email' | 'password' | 'code', string>> = {}): void {
+    type(root(), '#reg-code', overrides.code ?? 'dlr abcd 2345');
     type(root(), '#reg-business', overrides.business ?? 'Café Nuevo');
     if (overrides.slug !== undefined) {
       type(root(), '#reg-slug', overrides.slug);
@@ -98,8 +99,49 @@ describe('RegisterPage', () => {
       slug: 'cafe-nuevo',
       email: 'nuevo@cafe.test',
       password: 'Clave-Segura-1',
+      activationCode: 'DLR-ABCD-2345',
     });
     expect(text()).toContain('Revisa tu correo');
+    expect(text()).toContain('Enviado a nuevo@cafe.test');
+    expect(localStorage.getItem('terraza-login-email')).toBe('nuevo@cafe.test');
+    expect(root().querySelector('[data-resend]')).not.toBeNull();
+    expect(root().querySelector('[data-open-mail]')).toBeNull();
+  });
+
+  it('should offer a button that opens the inbox of the email provider in a new tab', async () => {
+    fill({ email: 'Ana@Gmail.com' });
+    await answerCsrf(http);
+    await answer(http, '/api/v1/auth/register', { message: 'ok' }, { status: 202, statusText: 'Accepted' }, 'POST');
+    await settle();
+    harness.detectChanges();
+
+    const link = root().querySelector('[data-open-mail]') as HTMLAnchorElement;
+    expect(link.textContent).toContain('Abrir Gmail');
+    expect(link.getAttribute('href')).toBe('https://mail.google.com/mail/?authuser=ana%40gmail.com');
+    expect(link.target).toBe('_blank');
+    expect(link.rel).toContain('noopener');
+  });
+
+  it('should format the activation code as the user types and require it before sending anything', async () => {
+    type(root(), '#reg-code', 'dlr abcd2345 extra');
+    expect(value('#reg-code')).toBe('DLR-ABCD-2345');
+    type(root(), '#reg-code', 'abcd');
+    expect(value('#reg-code')).toBe('DLR-ABCD');
+
+    fill({ code: '' });
+    expect(text()).toContain('formato DLR-XXXX-XXXX');
+    http.expectNone(() => true);
+  });
+
+  it('should explain that the activation code is not valid, without creating anything', async () => {
+    fill();
+    await answerCsrf(http);
+    await fail(http, '/api/v1/auth/register', 400, { code: 'invalid_code' });
+    await settle();
+    harness.detectChanges();
+
+    expect(text()).toContain('El código no es válido o ya fue usado.');
+    expect(text()).not.toContain('Revisa tu correo');
   });
 
   it('should report a taken address on the slug field and keep the form', async () => {

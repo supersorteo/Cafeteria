@@ -82,6 +82,17 @@ Panel privado para el dueño de la plataforma: lista todos los negocios con su d
 - **Actividad:** registro de cada suspensión, reactivación y eliminación (quién, cuándo, IP).
 - Todo es responsive: tabla en escritorio, tarjetas en móvil.
 
+## Códigos de activación y planes
+
+Para registrar un negocio hace falta un **código de activación** (`DLR-XXXX-XXXX`) que se adquiere aparte. Cada código dura **1 mes, 3 meses, 6 meses o 1 año** y sirve **una sola vez**.
+
+- **Generarlos (superadmin → pestaña «Códigos»):** eliges duración y cantidad (1 a 500) y una etiqueta; aparece el lote para **copiar todos** o **descargar CSV**. Puedes filtrar por estado, duración y lote, buscar por código, correo o negocio, **deshabilitar/habilitar** y **eliminar**, y ver quién usó cada uno. En un código canjeado, deshabilitar equivale a suspender el negocio, habilitar lo reactiva y eliminar borra el negocio entero en cascada (pide escribir su dirección). Generar, deshabilitar, habilitar y eliminar piden siempre confirmación. También ves los planes por vencer y vencidos.
+- **Registro:** el formulario pide el código primero. Sin un código válido no se crea nada, y el mensaje de error es siempre el mismo (no revela si existe, está usado o deshabilitado). El plazo **empieza al canjearlo**.
+- **Plan vencido = solo lectura:** el dueño puede entrar y ver su panel, pero **no puede cambiar nada** (carta, fotos, ajustes, publicar) y su sitio público **no admite reservas** (se ve con el aviso «Las reservas no están disponibles por ahora»). No se borra nada. Un banner le explica qué pasó.
+- **Renovar:** con **Renovar con un código** (banner del panel) canjea un código nuevo. El tiempo **se suma** (si renueva antes de vencer, se añade al vencimiento actual) y **el código anterior se elimina**, sin dejar datos fantasma. Solo el propietario renueva; el editor ve que debe pedirlo.
+- **Demo `/la-terraza`:** no tiene vencimiento.
+- Un aviso suave aparece cuando faltan 7 días o menos.
+
 ## Estructura de despliegue
 
 ```

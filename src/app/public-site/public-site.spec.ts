@@ -132,6 +132,28 @@ describe('PublicSite', () => {
     expect(decodeURIComponent(String(open.mock.calls[0][0]))).toContain('Zona: Barra');
   });
 
+  it('should hide every reservation entry point and say so when reservations are disabled', async () => {
+    const fixture = await render(makeSite({ reservationsEnabled: false }));
+    const root = html(fixture);
+
+    expect(root.querySelector('#reservaOpen')).toBeNull();
+    expect(root.querySelector('#waFloat')).toBeNull();
+    expect(root.querySelector('.space-reserve')).toBeNull();
+    expect(root.querySelector('a[href="#reservas"]')).toBeNull();
+    expect(text(root.querySelector('[data-reservations-off]'))).toContain('Las reservas no están disponibles por ahora');
+    expect(text(root.querySelector('#menu'))).toContain('Negroni');
+    expect(text(root.querySelector('#galeria'))).toContain('Terraza');
+  });
+
+  it('should keep every reservation entry point when reservations are enabled', async () => {
+    const root = html(await render(makeSite()));
+
+    expect(root.querySelector('#reservaOpen')).not.toBeNull();
+    expect(root.querySelector('#waFloat')).not.toBeNull();
+    expect(root.querySelectorAll('.space-reserve').length).toBeGreaterThan(0);
+    expect(root.querySelector('[data-reservations-off]')).toBeNull();
+  });
+
   it('should count up the stats', async () => {
     const root = html(await render(makeSite()));
     const values = Array.from(root.querySelectorAll('#nosotros .font-display.text-3xl')).map(el => text(el));

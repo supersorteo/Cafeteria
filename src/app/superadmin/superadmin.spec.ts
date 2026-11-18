@@ -12,7 +12,7 @@ import { answer, answerCsrf, answerMatching, fail, settle, type } from '../testi
 const API = '/api/v1/superadmin';
 const tenant = (overrides: Partial<SuperAdminTenant> = {}): SuperAdminTenant => ({
   id: 't1', slug: 'negocio-a', name: 'Negocio A', published: true, suspended: false, suspendedAt: null,
-  ownerEmail: 'owner@a.test', ownerVerified: true, editors: 1, createdAt: '2026-10-01T10:00:00Z', ...overrides,
+  ownerEmail: 'owner@a.test', ownerVerified: true, editors: 1, createdAt: '2026-10-01T10:00:00Z', planExpiresAt: null, planStatus: 'ACTIVE', ...overrides,
 });
 const page = (content: SuperAdminTenant[], extra: object = {}) => ({ content, page: 0, size: 10, totalElements: content.length, totalPages: 1, ...extra });
 const stats = { total: 2, active: 1, suspended: 1, published: 1, newLast7Days: 2 };
@@ -143,6 +143,30 @@ describe('superadmin', () => {
       expect(rows[1].textContent).toContain('Suspendido');
       expect(root().querySelector('[data-stats]')?.textContent).toContain('Suspendidos');
       expect(root().querySelectorAll('[data-cards] [data-row]').length).toBe(2);
+    });
+
+    it('should show the plan of each business, marking the expired ones', async () => {
+      await openPanel([
+        tenant({ planExpiresAt: '2027-03-10T12:00:00Z' }),
+        tenant({ id: 't2', slug: 'bar-b', name: 'Bar B', planExpiresAt: '2026-10-05T12:00:00Z', planStatus: 'EXPIRED' }),
+        tenant({ id: 't3', slug: 'la-terraza', name: 'La Terraza' }),
+      ]);
+
+      const plans = Array.from(root().querySelectorAll('table [data-plan]')).map(p => p.textContent?.replace(/\s+/g, ' ').trim());
+      expect(plans).toEqual(['Vence 10/03/2027', 'Venció 05/10/2026', 'Sin vencimiento']);
+      expect(root().querySelector('table [data-slug="bar-b"] [data-plan] .text-danger')).not.toBeNull();
+    });
+
+    it('should open the codes tab', async () => {
+      await openPanel();
+      (Array.from(root().querySelectorAll('[role="tab"]')).find(t => t.textContent?.includes('Códigos')) as HTMLElement).click();
+      await answerMatching(http, r => r.url === `${API}/codes`, 'codes', { content: [], page: 0, size: 10, totalElements: 0, totalPages: 0 });
+      await answer(http, `${API}/codes/stats`, { available: 0, redeemed: 0, disabled: 0, plansExpiringSoon: 0, plansExpired: 0 });
+      await answer(http, `${API}/codes/batches`, []);
+      await ui();
+
+      expect(root().querySelector('[data-generate]')).not.toBeNull();
+      expect(root().querySelector('[data-code-stats]')).not.toBeNull();
     });
 
     it('should only offer to delete a business once it is suspended', async () => {

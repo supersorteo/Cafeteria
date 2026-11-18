@@ -1,4 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { AuthService } from '../../core/auth.service';
 import { Observable, firstValueFrom } from 'rxjs';
 import { ApiProblem, isConnectionProblem, toProblem } from '../../core/api-error';
 import { CatalogApi } from '../../core/catalog.api';
@@ -35,6 +36,9 @@ export function validateImageFile(file: File): string | null {
 export class MenuStore {
   private readonly api = inject(CatalogApi);
   private readonly notices = inject(NoticeService);
+  private readonly auth = inject(AuthService);
+
+  readonly locked = computed(() => this.auth.planExpired());
   private itemsRequest = 0;
 
   readonly pageSize = 10;

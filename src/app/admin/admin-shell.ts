@@ -4,11 +4,12 @@ import { AuthService } from '../core/auth.service';
 import { NoticeService } from '../core/notice.service';
 import { BrandMark } from '../shared/ui/brand-mark';
 import { Modal } from '../shared/ui/modal';
+import { PlanBanner } from './plan-banner';
 import { StatusScreen } from '../shared/ui/status-screen';
 import { ThemeToggle } from '../shared/ui/theme-toggle';
 
 @Component({
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, Modal, ThemeToggle, StatusScreen, BrandMark],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, Modal, ThemeToggle, StatusScreen, BrandMark, PlanBanner],
   selector: 'app-admin-shell',
   template: `
     @switch (auth.state().status) {
@@ -62,6 +63,7 @@ import { ThemeToggle } from '../shared/ui/theme-toggle';
                 </div>
               </header>
               <main class="flex-1 p-4 sm:p-6 md:p-10 pb-28 md:pb-10">
+                <app-plan-banner class="mb-5" />
                 <router-outlet />
               </main>
             </div>

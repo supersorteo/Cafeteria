@@ -9,6 +9,7 @@ export interface Me {
   email: string;
   role: Role;
   tenant: { id: string; slug: string; name: string; published: boolean; logoUrl: string | null };
+  plan: { expiresAt: string | null; status: 'ACTIVE' | 'EXPIRED' };
 }
 
 export type AuthState =
@@ -31,6 +32,8 @@ export class AuthService {
     return state.status === 'authenticated' ? state.user : null;
   });
   readonly isOwner = computed(() => this.user()?.role === 'OWNER');
+  readonly planExpired = computed(() => this.user()?.plan?.status === 'EXPIRED');
+  readonly canEditSite = computed(() => this.isOwner() && !this.planExpired());
 
   ensureInitialized(): Promise<void> {
     return (this.initialization ??= this.restore());
@@ -49,6 +52,11 @@ export class AuthService {
     await this.ensureCsrf();
     const body = new HttpParams().set('username', email.trim()).set('password', password);
     await firstValueFrom(this.http.post(`${API}/login`, body));
+    const user = await firstValueFrom(this.http.get<Me>(`${API}/me`));
+    this.current.set({ status: 'authenticated', user });
+  }
+
+  async refreshUser(): Promise<void> {
     const user = await firstValueFrom(this.http.get<Me>(`${API}/me`));
     this.current.set({ status: 'authenticated', user });
   }

@@ -95,6 +95,8 @@ Luego, a mano: registrarte → recibir el correo → verificar → entrar → su
 
 ## 6. Operación
 
+**Migración V6 (códigos de activación).** Añade `tenants.plan_expires_at` y las tablas `code_batches` y `activation_codes`. Desde esta versión **el registro exige un código**; `REGISTRATION_ENABLED` vale `true` por defecto (ponlo en `false` solo para cerrar el registro del todo). Antes de abrirlo al público: haz una copia de seguridad, **limpia los negocios de prueba** (panel de superadmin: suspender y eliminar, o reiniciar el esquema) y genera tus primeros lotes desde la pestaña «Códigos». La demo `/la-terraza` se vuelve a crear sola y no vence. Despliega el backend primero y el frontend enseguida: hasta que el frontend nuevo esté arriba, el formulario de registro no pedirá el código.
+
 **Migración V5 (superadmin).** Solo añade `tenants.suspended_at` y la tabla `audit_log`; no mueve datos. Define `SUPERADMIN_EMAIL` y `SUPERADMIN_PASSWORD` en Railway antes de usar el panel.
 
 **Migración V4 (espacios).** Mueve datos (tarjetas y zonas de reserva pasan a `site_spaces`). Haz una copia de seguridad antes y despliega primero el backend: la API sigue devolviendo `highlights` y `reservationAreas` derivados, así que el frontend anterior no se rompe mientras despliegas el nuevo.

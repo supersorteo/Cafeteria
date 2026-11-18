@@ -19,7 +19,7 @@ const FILTERS: { id: ItemFilter; label: string }[] = [
       @if (store.selected(); as category) {
         <div class="flex flex-wrap items-center justify-between gap-3">
           <h2 id="products-title" class="font-display text-xl md:text-2xl font-black">{{ category.name }}</h2>
-          <button type="button" data-new-item (click)="store.openEditor(null)" class="btn btn-primary btn-sm">+ Nuevo producto</button>
+          <button type="button" data-new-item (click)="store.openEditor(null)" [disabled]="store.locked()" class="btn btn-primary btn-sm">+ Nuevo producto</button>
         </div>
 
         <div role="group" aria-label="Filtrar productos" class="mt-4 tabs w-fit max-w-full">
@@ -45,7 +45,7 @@ const FILTERS: { id: ItemFilter; label: string }[] = [
             @if (store.items().length === 0) {
               @if (store.filter() === 'all') {
                 <app-empty-state title="Esta categoría aún no tiene productos" text="Añade el primero con su foto y su precio.">
-                  <button type="button" (click)="store.openEditor(null)" class="btn btn-primary">Añadir producto</button>
+                  <button type="button" (click)="store.openEditor(null)" [disabled]="store.locked()" class="btn btn-primary">Añadir producto</button>
                 </app-empty-state>
               } @else {
                 <app-empty-state [title]="'No hay productos ' + (store.filter() === 'active' ? 'activos' : 'inactivos') + ' en esta categoría'" />
@@ -80,16 +80,16 @@ const FILTERS: { id: ItemFilter; label: string }[] = [
                       <button type="button" role="switch" class="switch" [attr.aria-checked]="item.active" [attr.aria-label]="'Activo: ' + item.name"
                               (click)="toggle(item)" [disabled]="busyId() === item.id"></button>
                       <div class="flex items-center">
-                        <button type="button" class="icon-btn !w-9 !h-9" (click)="move(item, -1)" [disabled]="!canMove(index, -1) || busyId() !== null" [attr.aria-label]="'Subir ' + item.name">
+                        <button type="button" class="icon-btn !w-9 !h-9" (click)="move(item, -1)" [disabled]="!canMove(index, -1) || busyId() !== null || store.locked()" [attr.aria-label]="'Subir ' + item.name">
                           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
                         </button>
-                        <button type="button" class="icon-btn !w-9 !h-9" (click)="move(item, 1)" [disabled]="!canMove(index, 1) || busyId() !== null" [attr.aria-label]="'Bajar ' + item.name">
+                        <button type="button" class="icon-btn !w-9 !h-9" (click)="move(item, 1)" [disabled]="!canMove(index, 1) || busyId() !== null || store.locked()" [attr.aria-label]="'Bajar ' + item.name">
                           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
                         </button>
-                        <button type="button" class="icon-btn !w-9 !h-9" (click)="store.openEditor(item)" [attr.aria-label]="'Editar ' + item.name">
+                        <button type="button" class="icon-btn !w-9 !h-9" (click)="store.openEditor(item)" [disabled]="store.locked()" [attr.aria-label]="'Editar ' + item.name">
                           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></svg>
                         </button>
-                        <button type="button" class="icon-btn !w-9 !h-9 !text-danger" (click)="deleting.set(item)" [attr.aria-label]="'Eliminar ' + item.name">
+                        <button type="button" class="icon-btn !w-9 !h-9 !text-danger" (click)="deleting.set(item)" [disabled]="store.locked()" [attr.aria-label]="'Eliminar ' + item.name">
                           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
                         </button>
                       </div>

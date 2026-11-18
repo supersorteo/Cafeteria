@@ -11,6 +11,7 @@ import { ConfirmDialog } from '../shared/confirm-dialog';
 import { EmptyState } from '../shared/ui/empty-state';
 import { Modal } from '../shared/ui/modal';
 import { Tabs } from '../shared/ui/tabs';
+import { POLL_MS, SuperAdminCodes } from './superadmin-codes';
 import { ThemeToggle } from '../shared/ui/theme-toggle';
 
 type Action = { kind: 'suspend' | 'activate' | 'delete'; tenant: SuperAdminTenant };
@@ -22,7 +23,7 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 @Component({
-  imports: [DatePipe, NgTemplateOutlet, FormsModule, RouterLink, Tabs, ThemeToggle, ConfirmDialog, Modal, EmptyState],
+  imports: [DatePipe, NgTemplateOutlet, FormsModule, RouterLink, SuperAdminCodes, Tabs, ThemeToggle, ConfirmDialog, Modal, EmptyState],
   selector: 'app-superadmin-page',
   template: `
     <div class="min-h-screen bg-app">
@@ -87,6 +88,7 @@ const ACTION_LABELS: Record<string, string> = {
                         <th scope="col" class="px-4 py-3">Negocio</th>
                         <th scope="col" class="px-4 py-3">Dueño</th>
                         <th scope="col" class="px-4 py-3">Estado</th>
+                        <th scope="col" class="px-4 py-3">Plan</th>
                         <th scope="col" class="px-4 py-3">Alta</th>
                         <th scope="col" class="px-4 py-3 text-right">Acciones</th>
                       </tr>
@@ -103,6 +105,9 @@ const ACTION_LABELS: Record<string, string> = {
                             @if (tenant.editors > 0) { <span class="block text-xs text-muted">+ {{ tenant.editors }} editor{{ tenant.editors === 1 ? '' : 'es' }}</span> }
                           </td>
                           <td class="px-4 py-3 align-top"><ng-container *ngTemplateOutlet="badges; context: { $implicit: tenant }" /></td>
+                          <td class="px-4 py-3 align-top whitespace-nowrap" data-plan>
+                            @if (tenant.planExpiresAt) { <span [class.text-danger]="tenant.planStatus === 'EXPIRED'" class="font-medium">{{ tenant.planStatus === 'EXPIRED' ? 'Venció' : 'Vence' }} {{ tenant.planExpiresAt | date: 'dd/MM/yyyy' }}</span> } @else { <span class="text-muted">Sin vencimiento</span> }
+                          </td>
                           <td class="px-4 py-3 align-top whitespace-nowrap text-muted">{{ tenant.createdAt | date: 'dd/MM/yyyy' }}</td>
                           <td class="px-4 py-3 align-top"><div class="flex justify-end gap-2"><ng-container *ngTemplateOutlet="actions; context: { $implicit: tenant }" /></div></td>
                         </tr>
@@ -122,6 +127,7 @@ const ACTION_LABELS: Record<string, string> = {
                         <ng-container *ngTemplateOutlet="badges; context: { $implicit: tenant }" />
                       </div>
                       <p class="mt-2 text-sm break-all">{{ tenant.ownerEmail ?? '—' }}</p>
+                      <p class="text-xs font-medium" data-plan [class.text-danger]="tenant.planStatus === 'EXPIRED'">{{ tenant.planExpiresAt ? (tenant.planStatus === 'EXPIRED' ? 'Plan vencido el ' : 'Plan hasta el ') + (tenant.planExpiresAt | date: 'dd/MM/yyyy') : 'Sin vencimiento' }}</p>
                       <p class="text-xs text-muted">Alta {{ tenant.createdAt | date: 'dd/MM/yyyy' }}@if (tenant.editors > 0) { · + {{ tenant.editors }} editor{{ tenant.editors === 1 ? '' : 'es' }} }</p>
                       <div class="mt-3 flex flex-wrap gap-2"><ng-container *ngTemplateOutlet="actions; context: { $implicit: tenant }" /></div>
                     </li>
@@ -138,6 +144,8 @@ const ACTION_LABELS: Record<string, string> = {
               }
             }
           </section>
+        } @else if (tab() === 'codes') {
+          <app-superadmin-codes />
         } @else {
           <section aria-label="Actividad" class="space-y-3" data-activity>
             @if (audit(); as entries) {
@@ -214,9 +222,11 @@ export class SuperAdminPage implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly notices = inject(NoticeService);
   private searchTimer?: ReturnType<typeof setTimeout>;
+  private poll?: ReturnType<typeof setInterval>;
 
   protected readonly tabItems = [
     { id: 'tenants', label: 'Negocios' },
+    { id: 'codes', label: 'Códigos' },
     { id: 'activity', label: 'Actividad' },
   ];
   protected readonly filters: { id: TenantStatusFilter; label: string }[] = [
@@ -225,7 +235,7 @@ export class SuperAdminPage implements OnInit, OnDestroy {
     { id: 'suspended', label: 'Suspendidos' },
   ];
 
-  protected readonly tab = signal<'tenants' | 'activity'>('tenants');
+  protected readonly tab = signal<'tenants' | 'codes' | 'activity'>('tenants');
   protected readonly stats = signal<SuperAdminStats | null>(null);
   protected readonly page = signal<SuperAdminTenantPage | null>(null);
   protected readonly audit = signal<SuperAdminAudit[] | null>(null);
@@ -241,10 +251,17 @@ export class SuperAdminPage implements OnInit, OnDestroy {
   ngOnInit(): void {
     void this.load();
     void this.loadStats();
+    this.poll = setInterval(() => {
+      if (this.tab() === 'tenants' && document.visibilityState === 'visible' && !this.action() && !this.loading()) {
+        void this.load(undefined, true);
+        void this.loadStats();
+      }
+    }, POLL_MS);
   }
 
   ngOnDestroy(): void {
     clearTimeout(this.searchTimer);
+    clearInterval(this.poll);
   }
 
   protected statItems(): { label: string; value: number | string; tone?: 'danger' }[] {
@@ -263,7 +280,7 @@ export class SuperAdminPage implements OnInit, OnDestroy {
   }
 
   protected selectTab(id: string): void {
-    this.tab.set(id === 'activity' ? 'activity' : 'tenants');
+    this.tab.set(id === 'activity' ? 'activity' : id === 'codes' ? 'codes' : 'tenants');
     if (this.tab() === 'activity') {
       void this.loadAudit();
     }
@@ -284,12 +301,17 @@ export class SuperAdminPage implements OnInit, OnDestroy {
     void this.load(index);
   }
 
-  protected async load(index = this.page()?.page ?? 0): Promise<void> {
-    this.loading.set(true);
+  protected async load(index = this.page()?.page ?? 0, silent = false): Promise<void> {
+    if (!silent) {
+      this.loading.set(true);
+    }
     this.error.set(null);
     try {
       this.page.set(await firstValueFrom(this.api.tenants(this.query(), this.status(), index)));
     } catch (error) {
+      if (silent && this.page()) {
+        return;
+      }
       this.error.set(this.failure(error, 'No pudimos cargar los negocios.'));
     } finally {
       this.loading.set(false);

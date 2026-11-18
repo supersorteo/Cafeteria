@@ -28,7 +28,7 @@ export class SiteSettingsStore {
   private images: ImagesHandle | null = null;
   private currencyAnswer: ((accepted: boolean) => void) | null = null;
 
-  readonly isOwner = this.auth.isOwner;
+  readonly isOwner = this.auth.canEditSite;
   readonly form: SiteForm = createSiteForm(this.fb);
 
   readonly state = signal<'loading' | 'ready' | 'error'>('loading');

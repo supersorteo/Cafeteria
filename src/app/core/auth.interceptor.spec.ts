@@ -7,6 +7,7 @@ import { CSRF, answerCsrf, fail, makeMe, restoreSession, settle } from '../testi
 import { AuthService } from './auth.service';
 import { authInterceptor } from './auth.interceptor';
 import { NoticeService } from './notice.service';
+import { PlanService } from './plan.service';
 
 @Component({ template: '' })
 class Stub {}
@@ -83,6 +84,22 @@ describe('authInterceptor', () => {
     expect(notices.notice()?.text).toContain('No tienes permiso');
     expect(auth.state().status).toBe('authenticated');
     expect(router.url).toBe('/admin');
+  });
+
+  it('should open the renewal dialog, refresh the plan and not show the generic message when the plan expired', async () => {
+    await authenticate();
+    const plan = TestBed.inject(PlanService);
+    const rejected = expect(new Promise((_, reject) => client.put('/api/v1/admin/site', {}).subscribe({ error: reject }))).rejects.toBeTruthy();
+    await fail(http, '/api/v1/admin/site', 403, { code: 'plan_expired' });
+    await rejected;
+    await settle();
+
+    http.expectOne('/api/v1/auth/me').flush(makeMe({ plan: { expiresAt: '2026-10-01T12:00:00Z', status: 'EXPIRED' } }));
+    await settle();
+    expect(plan.renewalOpen()).toBe(true);
+    expect(notices.notice()).toBeNull();
+    expect(auth.planExpired()).toBe(true);
+    http.expectNone('/api/v1/admin/site');
   });
 
   it('should refresh the csrf token once on a csrf failure but never resend the write', async () => {

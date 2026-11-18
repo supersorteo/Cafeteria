@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { catchError, throwError } from 'rxjs';
 import { toProblem } from './api-error';
 import { AuthService } from './auth.service';
+import { PlanService } from './plan.service';
 import { SuperAdminAuth } from './superadmin-auth.service';
 import { NoticeService } from './notice.service';
 
@@ -14,6 +15,7 @@ const SUPERADMIN_AUTH_API = '/api/v1/superadmin/auth/';
 export const authInterceptor: HttpInterceptorFn = (request, next) => {
   const auth = inject(AuthService);
   const superAdmin = inject(SuperAdminAuth);
+  const plan = inject(PlanService);
   const router = inject(Router);
   const notice = inject(NoticeService);
 
@@ -36,7 +38,10 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
           notice.show('info', 'Tu sesión expiró. Inicia sesión de nuevo.');
           void router.navigate(['/auth/login'], { queryParams: { returnUrl } });
         } else if (problem.status === 403) {
-          if (problem.code === 'csrf_invalid') {
+          if (problem.code === 'plan_expired') {
+            void auth.refreshUser().catch(() => undefined);
+            plan.openRenewal();
+          } else if (problem.code === 'csrf_invalid') {
             auth.ensureCsrf().catch(() => undefined);
             notice.show('error', 'La verificación de seguridad expiró. Vuelve a intentarlo.');
           } else {

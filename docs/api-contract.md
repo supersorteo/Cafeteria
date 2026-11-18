@@ -86,6 +86,26 @@ El `slug` es inmutable. Cambiar la moneda no convierte precios.
 ## Sitio público
 GET `/public/sites/{slug}` (sin sesión): `{slug,name,currency,locale,timezone,theme,contact,hero,about,gallery,logoUrl,categories:[{id,name,items:[{id,name,description,price,tag,imageUrl}]}]}`. Solo productos activos, ordenados; categorías vacías incluidas. Sin IDs de negocio, versiones, estado de publicación ni datos de usuarios. 404 idéntico para sitio inexistente o en borrador.
 
+## Códigos de activación y plan (V6)
+
+- `POST /auth/register` ahora exige `activationCode` (acepta minúsculas y con o sin guiones). Si no es válido, no existe, está usado o deshabilitado: `400 invalid_code` (siempre igual). El código se **canjea de forma atómica** en la misma transacción que crea el negocio; si algo falla, queda disponible. El negocio nace con `plan_expires_at = ahora + duración`.
+- `GET /auth/me` añade `plan: {expiresAt|null, status: ACTIVE|EXPIRED}` (`null` = sin vencimiento).
+- `GET /public/sites/{slug}` añade `reservationsEnabled` (false con el plan vencido).
+- Con el plan **vencido**, cualquier `POST/PUT/PATCH/DELETE` de `/api/v1/admin/**` responde `403 plan_expired` (las lecturas siguen). La única escritura permitida es `POST /admin/plan/redeem`.
+- `GET /admin/plan` → `{expiresAt, status}`. `POST /admin/plan/redeem {code}` (solo OWNER) → renueva: `nuevoVencimiento = max(ahora, vencimientoActual) + duración`, vincula el código nuevo y **elimina el anterior**; `400 invalid_code` si no sirve.
+
+Superadmin (`ROLE_SUPERADMIN`):
+
+| Método y ruta | Cuerpo | Respuesta |
+|---|---|---|
+| POST `/superadmin/codes/batches` | `{label?, durationMonths: 1\|3\|6\|12, quantity: 1–500, note?}` | 201 `{id, label, durationMonths, codes[]}` |
+| GET `/superadmin/codes?status&durationMonths&batchId&query&page&size` | | página de `{id, code, durationMonths, status, batchId, batchLabel, createdAt, redeemedAt, redeemedByEmail, tenantSlug, tenantName}` (size ≤ 500) |
+| GET `/superadmin/codes/batches` · `/superadmin/codes/stats` | | lotes con disponibles/canjeados/deshabilitados · `{available, redeemed, disabled, plansExpiringSoon, plansExpired}` |
+| POST `/superadmin/codes/{id}/disable` · `/enable` | | 204; 409 si no está en el estado esperado. Sobre un código **canjeado**, `disable` suspende el negocio (cierra sesiones, sitio público 404) y `enable` lo reactiva |
+| DELETE `/superadmin/codes/{id}` | `{confirmSlug}` (solo si está canjeado) | 204. Sin canjear: borra el código. Canjeado: elimina el negocio en cascada; 400 `slug_mismatch` si la dirección no coincide |
+
+`GET /superadmin/tenants` añade `planExpiresAt` y `planStatus` a cada negocio. Eliminar un negocio borra su código canjeado. Los códigos se guardan en claro para poder reenviarlos; todo queda en `audit_log`.
+
 ## Superadmin (`/superadmin`, V5)
 
 Cadena de seguridad propia (`ROLE_SUPERADMIN`), sesión de 15 min de inactividad y CSRF igual que el resto. La sesión viaja en una cookie propia `SA_SESSION` (`Path=/api/v1/superadmin`, `HttpOnly`, `SameSite=Strict`), separada de `SESSION` de los negocios, de modo que ambas conviven sin mezclarse. Sin `SUPERADMIN_EMAIL`/`SUPERADMIN_PASSWORD` todos los endpoints de acceso responden 404.

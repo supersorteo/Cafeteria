@@ -14,7 +14,7 @@ import { MenuStore, Result } from './menu.store';
     <section aria-labelledby="categories-title" class="card p-5">
       <div class="flex items-center justify-between gap-3">
         <h2 id="categories-title" class="font-display text-xl font-black">Categorías</h2>
-        <button type="button" data-new-category (click)="openCreate()" class="btn btn-primary btn-sm">+ Nueva</button>
+        <button type="button" data-new-category (click)="openCreate()" [disabled]="store.locked()" class="btn btn-primary btn-sm">+ Nueva</button>
       </div>
 
       <ul class="mt-4 space-y-2">
@@ -23,16 +23,16 @@ import { MenuStore, Result } from './menu.store';
             <div class="flex items-center gap-0.5">
               <button type="button" (click)="store.select(category.id)" [attr.aria-current]="category.id === store.selectedId() ? 'true' : null"
                       class="flex-1 text-left px-2.5 py-2 font-bold text-sm break-words rounded-ui-sm">{{ category.name }}</button>
-              <button type="button" class="icon-btn !w-8 !h-8" (click)="move(category, -1)" [disabled]="first || busy()" [attr.aria-label]="'Subir ' + category.name">
+              <button type="button" class="icon-btn !w-8 !h-8" (click)="move(category, -1)" [disabled]="first || busy() || store.locked()" [attr.aria-label]="'Subir ' + category.name">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
               </button>
-              <button type="button" class="icon-btn !w-8 !h-8" (click)="move(category, 1)" [disabled]="last || busy()" [attr.aria-label]="'Bajar ' + category.name">
+              <button type="button" class="icon-btn !w-8 !h-8" (click)="move(category, 1)" [disabled]="last || busy() || store.locked()" [attr.aria-label]="'Bajar ' + category.name">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
               </button>
-              <button type="button" class="icon-btn !w-8 !h-8" (click)="openEdit(category)" [attr.aria-label]="'Renombrar ' + category.name">
+              <button type="button" class="icon-btn !w-8 !h-8" (click)="openEdit(category)" [disabled]="store.locked()" [attr.aria-label]="'Renombrar ' + category.name">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></svg>
               </button>
-              <button type="button" class="icon-btn !w-8 !h-8 !text-danger" (click)="deleting.set(category)" [attr.aria-label]="'Eliminar ' + category.name">
+              <button type="button" class="icon-btn !w-8 !h-8 !text-danger" (click)="deleting.set(category)" [disabled]="store.locked()" [attr.aria-label]="'Eliminar ' + category.name">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
               </button>
             </div>
@@ -40,7 +40,7 @@ import { MenuStore, Result } from './menu.store';
         } @empty {
           <li>
             <app-empty-state title="Aún no tienes categorías" text="Crea la primera para empezar tu carta.">
-              <button type="button" data-new-category (click)="openCreate()" class="btn btn-primary">Crear categoría</button>
+              <button type="button" data-new-category (click)="openCreate()" [disabled]="store.locked()" class="btn btn-primary">Crear categoría</button>
             </app-empty-state>
           </li>
         }

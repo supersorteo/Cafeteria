@@ -41,6 +41,7 @@ export function makeSite(overrides: Partial<SiteData> = {}): SiteData {
       { name: 'Happy hour', description: 'Martes a jueves', imageUrl: null, bookable: false },
     ],
     reservation: { areas: ['Terraza', 'Barra'], partySizes: ['2', '4', '+10'] },
+    reservationsEnabled: true,
     categories: [
       {
         id: 'c1',

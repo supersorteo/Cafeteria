@@ -50,5 +50,6 @@ export function buildPreviewSite(saved: SiteSettingsDetail, draft: SiteDraft, im
       partySizes: draft.partySizes.map(item => item.trim()).filter(Boolean),
     },
     categories,
+    reservationsEnabled: true,
   };
 }
