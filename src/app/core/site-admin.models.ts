@@ -48,6 +48,14 @@ export interface SiteSettingsDetail {
   timezone: string;
   primaryColor: string;
   accentColor: string;
+  businessTitleColor?: string | null;
+  backgroundColor?: string | null;
+  footerColor?: string | null;
+  headingColor?: string | null;
+  paragraphColor?: string | null;
+  whatsappColor?: string | null;
+  marqueeColor?: string | null;
+  fontFamily?: string | null;
   heroTitle: string | null;
   heroDescription: string | null;
   aboutText: string | null;

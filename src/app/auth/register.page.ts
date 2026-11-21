@@ -47,16 +47,6 @@ function notReserved(control: AbstractControl<string>): ValidationErrors | null 
       <app-auth-card title="Crea tu cuenta" subtitle="Registra tu negocio y empieza a publicar tu carta.">
         <form [formGroup]="form" (ngSubmit)="submit()" class="space-y-5" novalidate>
           <div>
-            <label for="reg-code" class="text-xs font-bold uppercase tracking-wider text-muted">Código de activación</label>
-            <input id="reg-code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="DLR-XXXX-XXXX"
-                   formControlName="activationCode" (input)="formatCode()" class="input mt-2 font-bold tracking-wider">
-            @if (showError('activationCode'); as message) {
-              <p class="mt-1.5 text-xs font-bold text-danger anim-fade-in">{{ message }}</p>
-            } @else {
-              <p class="mt-1.5 text-xs font-medium text-muted">Lo recibes al adquirir tu plan. Sin código no se puede crear el negocio.</p>
-            }
-          </div>
-          <div>
             <label for="reg-business" class="text-xs font-bold uppercase tracking-wider text-muted">Nombre del negocio</label>
             <input id="reg-business" type="text" autocomplete="organization" formControlName="businessName"
                    class="input mt-2">
@@ -68,7 +58,11 @@ function notReserved(control: AbstractControl<string>): ValidationErrors | null 
             <label for="reg-slug" class="text-xs font-bold uppercase tracking-wider text-muted">Dirección de tu sitio</label>
             <input id="reg-slug" type="text" autocomplete="off" formControlName="slug" (input)="slugEdited = true"
                    class="input mt-2">
-            <p class="mt-1.5 text-xs font-medium text-muted">{{ origin }}/{{ form.controls.slug.value || 'tu-negocio' }}</p>
+            <div class="site-url-preview mt-2" aria-live="polite">
+              <span class="site-url-icon" aria-hidden="true">↗</span>
+              <span class="site-url-label">Tu sitio</span>
+              <span class="site-url-value">{{ origin }}/{{ form.controls.slug.value || 'tu-negocio' }}</span>
+            </div>
             @if (showError('slug'); as message) {
               <p class="mt-1.5 text-xs font-bold text-danger anim-fade-in">{{ message }}</p>
             }
@@ -95,6 +89,16 @@ function notReserved(control: AbstractControl<string>): ValidationErrors | null 
           @if (error(); as message) {
             <p role="alert" class="rounded-ui-md bg-danger/10 px-4 py-3 text-sm font-bold text-danger anim-fade-in">{{ message }}</p>
           }
+          <div>
+            <label for="reg-code" class="text-xs font-bold uppercase tracking-wider text-muted">Código de activación</label>
+            <input id="reg-code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="DLR-XXXX-XXXX"
+                   formControlName="activationCode" (input)="formatCode()" class="input mt-2 font-bold tracking-wider">
+            @if (showError('activationCode'); as message) {
+              <p class="mt-1.5 text-xs font-bold text-danger anim-fade-in">{{ message }}</p>
+            } @else {
+              <p class="mt-1.5 text-xs font-medium text-muted">Lo recibes al adquirir tu plan. Sin código no se puede crear el negocio.</p>
+            }
+          </div>
           <button type="submit" [disabled]="pending()"
                   class="btn btn-primary btn-lg w-full" [class.btn-loading]="pending()">
             {{ pending() ? 'Creando cuenta…' : 'Crear cuenta' }}

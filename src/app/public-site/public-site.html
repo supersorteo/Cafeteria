@@ -1,9 +1,9 @@
-<div class="antialiased">
+<div class="antialiased public-site-root">
 <!-- ============ NAV ============ -->
 <nav class="site-nav fixed top-0 inset-x-0 z-40 backdrop-blur-md bg-[#FFF6EC]/85 border-b-2 border-[#FF5C39]/15" [class.scrolled]="scrolled()">
   <div class="site-nav-bar max-w-7xl mx-auto px-5 h-16 flex items-center justify-between">
     <a href="#inicio" (click)="scrollTo($event)" class="flex items-center gap-2.5 font-display text-xl md:text-2xl tracking-tight font-black">
-      <app-brand-mark [src]="site().logoUrl" [alt]="'Logo de ' + site().name" [size]="38" /><span><span class="text-coral">{{ site().name }}</span>@if (site().descriptor) {&ngsp;<span class="text-teal font-semibold">{{ site().descriptor }}</span>}</span>
+      <app-brand-mark [src]="site().logoUrl" [alt]="'Logo de ' + site().name" [size]="38" /><span><span class="text-coral" style="color:var(--site-business-title)">{{ site().name }}</span>@if (site().descriptor) {&ngsp;<span class="text-teal font-semibold">{{ site().descriptor }}</span>}</span>
     </a>
     <div class="hidden md:flex items-center gap-8 text-sm font-semibold uppercase tracking-widest text-[#3D1D2E]/70">
       @if (showAbout()) {
@@ -34,7 +34,7 @@
           {{ site().tagline }}
         </p>
       }
-      <h1 class="hero-title font-display font-black" style="color:var(--plum)">
+      <h1 class="hero-title font-display font-black" style="color:var(--site-heading)">
         @for (part of heroTitleParts(); track $index) {
           @if (part.lineBreak) {
             <br>
@@ -44,7 +44,7 @@
         }
       </h1>
       @if (site().hero.description) {
-        <p class="mt-8 max-w-xl mx-auto text-base md:text-lg font-medium leading-relaxed" style="color:#5b4150"
+        <p class="mt-8 max-w-xl mx-auto text-base md:text-lg font-medium leading-relaxed" style="color:var(--site-paragraph)"
            [ngClass]="{ 'lg:mx-0': site().hero.imageUrl }">
           {{ site().hero.description }}
         </p>
@@ -84,10 +84,10 @@
 
 <!-- ============ MARQUESINA ============ -->
 @if (marqueeLoop()) {
-  <div class="overflow-hidden py-4 select-none" style="background:var(--plum)">
+  <div class="overflow-hidden py-4 select-none" style="background:var(--site-marquee)">
     <div class="marquee-track flex whitespace-nowrap gap-10 w-max">
-      <span class="flex gap-10 text-sm font-bold uppercase tracking-[.3em] text-[#FFB020]" aria-hidden="true">{{ marqueeLoop() }}</span>
-      <span class="flex gap-10 text-sm font-bold uppercase tracking-[.3em] text-[#FFB020]" aria-hidden="true">{{ marqueeLoop() }}</span>
+      <span class="flex gap-10 text-sm font-bold uppercase tracking-[.3em] text-white" aria-hidden="true">{{ marqueeLoop() }}</span>
+      <span class="flex gap-10 text-sm font-bold uppercase tracking-[.3em] text-white" aria-hidden="true">{{ marqueeLoop() }}</span>
     </div>
   </div>
 }
@@ -99,7 +99,7 @@
     <div class="reveal">
       <p class="text-teal font-bold uppercase tracking-[.35em] text-xs mb-4">Nuestra esencia</p>
       @if (site().about.title) {
-        <h2 class="font-display text-4xl md:text-5xl font-black leading-tight" style="color:var(--plum)">
+        <h2 class="font-display text-4xl md:text-5xl font-black leading-tight" style="color:var(--site-heading)">
           @for (part of aboutTitleParts(); track $index) {
             @if (part.lineBreak) {
               <br>
@@ -110,7 +110,7 @@
         </h2>
       }
       @if (site().about.text) {
-        <p class="mt-6 font-medium leading-relaxed whitespace-pre-line" style="color:#5b4150">{{ site().about.text }}</p>
+        <p class="mt-6 font-medium leading-relaxed whitespace-pre-line" style="color:var(--site-paragraph)">{{ site().about.text }}</p>
       }
       @if (site().stats.length > 0) {
         <div class="mt-10 grid grid-cols-3 gap-6">
@@ -119,7 +119,7 @@
               <p class="font-display text-3xl md:text-4xl font-black"
                  [style.color]="['var(--coral)', 'var(--teal)', 'var(--mango)'][$index]"
                  [appCountUp]="stat.value"></p>
-              <p class="text-xs font-bold uppercase tracking-widest mt-1" style="color:#5b4150">{{ stat.label }}</p>
+              <p class="text-xs font-bold uppercase tracking-widest mt-1" style="color:var(--site-paragraph)">{{ stat.label }}</p>
             </div>
           }
         </div>
@@ -141,7 +141,7 @@
   <div class="max-w-7xl mx-auto px-5">
     <div class="reveal text-center mb-14">
       <p class="text-teal font-bold uppercase tracking-[.35em] text-xs mb-4">La carta</p>
-      <h2 class="font-display text-4xl md:text-5xl font-black" style="color:var(--plum)">Bebidas & <span class="italic text-coral">Platos</span></h2>
+      <h2 class="font-display text-4xl md:text-5xl font-black" style="color:var(--site-heading)">Bebidas & <span class="italic text-coral">Platos</span></h2>
     </div>
 
     @if (activeCategory(); as active) {
@@ -169,9 +169,9 @@
               @if (item.tag && !item.imageUrl) {
                 <span class="menu-tag-inline" [style.backgroundColor]="tagColor(item.tag)">{{ item.tag }}</span>
               }
-              <h3 class="font-display text-xl font-black" style="color:var(--plum)">{{ item.name }}</h3>
+              <h3 class="font-display text-xl font-black" style="color:var(--site-heading)">{{ item.name }}</h3>
               @if (item.description) {
-                <p class="text-sm font-medium mt-2 leading-relaxed" style="color:#5b4150">{{ item.description }}</p>
+                <p class="text-sm font-medium mt-2 leading-relaxed" style="color:var(--site-paragraph)">{{ item.description }}</p>
               }
               <div class="flex items-end gap-3 mt-5">
                 <span class="price-line flex-1"></span>
@@ -182,7 +182,7 @@
         }
       </div>
     } @else {
-      <p class="reveal text-center font-medium" style="color:#5b4150">
+      <p class="reveal text-center font-medium" style="color:var(--site-paragraph)">
         La carta se está preparando. Vuelve pronto o escríbenos por WhatsApp.
       </p>
     }
@@ -194,7 +194,7 @@
   <section id="galeria" class="max-w-7xl mx-auto px-5 py-24 md:py-32">
     <div class="reveal text-center mb-12">
       <p class="text-teal font-bold uppercase tracking-[.35em] text-xs mb-4">El ambiente</p>
-      <h2 class="font-display text-4xl md:text-5xl font-black" style="color:var(--plum)">Un lugar para <span class="italic text-coral">quedarse</span></h2>
+      <h2 class="font-display text-4xl md:text-5xl font-black" style="color:var(--site-heading)">Un lugar para <span class="italic text-coral">quedarse</span></h2>
     </div>
     @if (site().spaces.length > 0) {
       <div class="reveal space-grid grid sm:grid-cols-2 md:grid-cols-3 gap-6" data-spaces>
@@ -206,7 +206,7 @@
             <div class="space-body" [class.space-body-plain]="!space.imageUrl" [style.borderColor]="accentColors[index % 3]">
               <h3 class="font-display text-2xl font-black" [style.color]="accentColors[index % 3]">{{ space.name }}</h3>
               @if (space.description) {
-                <p class="text-sm font-medium mt-2" style="color:#5b4150">{{ space.description }}</p>
+                <p class="text-sm font-medium mt-2" style="color:var(--site-paragraph)">{{ space.description }}</p>
               }
               @if (space.bookable) {
                 @if (site().reservationsEnabled) { <button type="button" class="space-reserve" (click)="reserveSpace(space.name)">Reservar aquí →</button> }
@@ -233,44 +233,44 @@
   <div class="max-w-3xl mx-auto px-5">
     <div class="reveal text-center mb-12">
       <p class="text-teal font-bold uppercase tracking-[.35em] text-xs mb-4">Reserva tu mesa</p>
-      <h2 class="font-display text-4xl md:text-5xl font-black" style="color:var(--plum)">Aparta tu lugar <span class="italic text-coral">por WhatsApp</span></h2>
+      <h2 class="font-display text-4xl md:text-5xl font-black" style="color:var(--site-heading)">Aparta tu lugar <span class="italic text-coral">por WhatsApp</span></h2>
       @if (site().reservationsEnabled) {
-      <p class="mt-4 font-medium" style="color:#5b4150">Elige fecha, hora y personas, y te abriremos WhatsApp con tu reserva lista para enviar. {{ site().name }} te confirmará por ese mismo chat.</p>
+      <p class="mt-4 font-medium" style="color:var(--site-paragraph)">Elige fecha, hora y personas, y te abriremos WhatsApp con tu reserva lista para enviar. {{ site().name }} te confirmará por ese mismo chat.</p>
       }
     </div>
 
     @if (site().reservationsEnabled) {
     <div class="reveal text-center">
-      <button id="reservaOpen" type="button" class="btn btn-lg bg-[#25D366] text-white shadow-lg shadow-[#25D366]/40 hover:scale-[1.02]" (click)="openReservation()">
+      <button id="reservaOpen" type="button" class="btn btn-lg text-white shadow-lg hover:scale-[1.02]" style="background:var(--site-whatsapp)" (click)="openReservation()">
         <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 14.4c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.8.37-.27.3-1.04 1.02-1.04 2.5 0 1.47 1.07 2.9 1.22 3.1.15.2 2.1 3.2 5.1 4.49.71.31 1.27.49 1.7.63.72.23 1.37.2 1.88.12.57-.09 1.76-.72 2.01-1.42.25-.7.25-1.3.17-1.42-.07-.12-.27-.2-.57-.35M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.87 9.87 0 0 0 4.79 1.22c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2"/></svg>
         Reservar mi mesa
       </button>
       <p class="mt-4 text-xs font-medium" style="color:#5b4150">La reserva queda pendiente hasta que el negocio la confirme.</p>
     </div>
     } @else {
-    <p class="reveal text-center font-bold" data-reservations-off style="color:#5b4150">Las reservas no están disponibles por ahora.</p>
+    <p class="reveal text-center font-bold" data-reservations-off style="color:var(--site-paragraph)">Las reservas no están disponibles por ahora.</p>
     }
   </div>
 </section>
 
 <!-- ============ CONTACTO / FOOTER ============ -->
-<footer id="contacto" class="py-14" style="background:var(--plum)">
+<footer id="contacto" class="py-14" style="background:var(--site-footer)">
   <div class="max-w-7xl mx-auto px-5 grid md:grid-cols-3 gap-10 text-sm">
     <div>
       <p class="font-display text-2xl font-black"><span class="text-mango">{{ site().name }}</span>@if (site().descriptor) {&ngsp;<span class="text-white font-semibold">{{ site().descriptor }}</span>}</p>
       @if (site().footerText) {
-        <p class="mt-3 font-medium" style="color:#d9b8c8">{{ site().footerText }}</p>
+        <p class="mt-3 font-medium" style="color:var(--site-paragraph)">{{ site().footerText }}</p>
       }
     </div>
     @if (site().contact.schedule) {
       <div>
         <p class="uppercase tracking-widest text-mango text-xs font-bold mb-3">Horarios</p>
-        <p class="font-medium whitespace-pre-line" style="color:#d9b8c8">{{ site().contact.schedule }}</p>
+        <p class="font-medium whitespace-pre-line" style="color:var(--site-paragraph)">{{ site().contact.schedule }}</p>
       </div>
     }
     <div>
       <p class="uppercase tracking-widest text-mango text-xs font-bold mb-3">Contacto</p>
-      <p class="font-medium" style="color:#d9b8c8">
+      <p class="font-medium" style="color:var(--site-paragraph)">
         @if (site().contact.address) {
           {{ site().contact.address }}<br>
         }
@@ -284,19 +284,19 @@
           <a [href]="mail" class="underline underline-offset-2 hover:text-white transition-colors">{{ site().contact.email }}</a>
         }
       </p>
-      <a id="waFooter" [href]="whatsappUrl('Hola, quisiera información sobre ' + displayName() + '.')" target="_blank" rel="noopener" class="inline-flex items-center gap-2 mt-4 bg-[#25D366] text-white font-bold text-xs uppercase tracking-widest px-5 py-2.5 rounded-full hover:brightness-110 transition-all">
+      <a id="waFooter" [href]="whatsappUrl('Hola, quisiera información sobre ' + displayName() + '.')" target="_blank" rel="noopener" class="inline-flex items-center gap-2 mt-4 text-white font-bold text-xs uppercase tracking-widest px-5 py-2.5 rounded-full hover:brightness-110 transition-all" style="background:var(--site-whatsapp)">
         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 14.4c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.8.37-.27.3-1.04 1.02-1.04 2.5 0 1.47 1.07 2.9 1.22 3.1.15.2 2.1 3.2 5.1 4.49.71.31 1.27.49 1.7.63.72.23 1.37.2 1.88.12.57-.09 1.76-.72 2.01-1.42.25-.7.25-1.3.17-1.42-.07-.12-.27-.2-.57-.35M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.87 9.87 0 0 0 4.79 1.22c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2"/></svg>
         Escríbenos por WhatsApp
       </a>
     </div>
   </div>
-  <p class="text-center text-xs font-medium mt-10" style="color:#8a5f75">© {{ year }} {{ displayName() }}. Todos los derechos reservados. · <a id="adminAccess" href="/auth/login" class="underline underline-offset-2 hover:text-white transition-colors">Acceso para negocios</a></p>
+  <p class="text-center text-xs font-medium mt-10" style="color:var(--site-paragraph)">© {{ year }} {{ displayName() }}. Todos los derechos reservados. · <a id="adminAccess" href="/auth/login" class="underline underline-offset-2 hover:text-white transition-colors">Acceso para negocios</a></p>
 </footer>
 
 <!-- WhatsApp flotante -->
 @if (site().reservationsEnabled) {
 <a id="waFloat" [href]="whatsappUrl('Hola, quisiera hacer una reserva en ' + displayName() + '.')" target="_blank" rel="noopener"
-   class="wa-float fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-[#25D366] flex items-center justify-center shadow-xl hover:scale-110 transition-transform"
+   class="wa-float fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full flex items-center justify-center shadow-xl hover:scale-110 transition-transform" style="background:var(--site-whatsapp)"
    aria-label="Reservar por WhatsApp">
   <svg class="w-7 h-7 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 14.4c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.8.37-.27.3-1.04 1.02-1.04 2.5 0 1.47 1.07 2.9 1.22 3.1.15.2 2.1 3.2 5.1 4.49.71.31 1.27.49 1.7.63.72.23 1.37.2 1.88.12.57-.09 1.76-.72 2.01-1.42.25-.7.25-1.3.17-1.42-.07-.12-.27-.2-.57-.35M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.87 9.87 0 0 0 4.79 1.22c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2"/></svg>
 </a>

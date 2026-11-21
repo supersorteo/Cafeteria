@@ -306,3 +306,10 @@
     transition: none;
   }
 }
+/* Brand settings are injected by PublicSite as CSS variables. */
+.public-site-root {
+  min-height: 100%;
+  background: var(--site-bg, #fff6ec);
+  color: var(--site-paragraph, #5b4150);
+  font-family: var(--site-font, 'Fraunces Variable', 'Fraunces', Georgia, serif);
+}

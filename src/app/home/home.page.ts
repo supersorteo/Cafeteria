@@ -1,4 +1,4 @@
-import { Component, HostListener, inject, signal } from '@angular/core';
+import { Component, HostListener, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../core/auth.service';
 import { RevealDirective } from '../shared/reveal.directive';
@@ -108,6 +108,51 @@ import { ThemeToggle } from '../shared/ui/theme-toggle';
         </div>
       </section>
 
+      <section id="planes" class="plans-section py-20 bg-surface border-y border-line">
+        <div class="max-w-6xl mx-auto px-5">
+          <div class="reveal max-w-2xl mx-auto text-center">
+            <p class="badge badge-warning">Elige tu ritmo</p>
+            <h2 class="mt-4 font-display text-3xl md:text-5xl font-black">Planes para cada etapa</h2>
+            <p class="mt-3 text-lg font-medium text-muted">Empieza con el tiempo que necesitas y haz que tu negocio esté presente todos los días.</p>
+          </div>
+
+          <div class="mt-12 grid gap-5 md:grid-cols-2 xl:grid-cols-4 items-stretch">
+            @for (plan of plans; track plan.months; let i = $index) {
+              <article class="reveal plan-card card card-hover p-6 relative" [class.plan-card-featured]="plan.featured" [style.transition-delay.ms]="i * 80">
+                @if (plan.featured) {
+                  <span class="plan-ribbon">Más elegido</span>
+                }
+                <div class="flex items-start justify-between gap-3">
+                  <div>
+                    <p class="text-xs font-bold uppercase tracking-[.16em] text-primary">{{ plan.eyebrow }}</p>
+                    <h3 class="mt-2 font-display text-2xl font-black">{{ plan.title }}</h3>
+                  </div>
+                  <span class="plan-duration">{{ plan.months }} {{ plan.months === 1 ? 'mes' : 'meses' }}</span>
+                </div>
+                <p class="mt-5 font-display text-3xl font-black text-primary">{{ plan.price }} <span class="text-sm font-sans font-bold text-muted">/ período</span></p>
+                <p class="mt-3 min-h-12 text-sm font-medium text-muted">{{ plan.description }}</p>
+                <ul class="mt-6 space-y-3 text-sm font-semibold">
+                  @for (feature of plan.features; track feature) {
+                    <li class="flex items-start gap-2"><span class="plan-check" aria-hidden="true">✓</span><span>{{ feature }}</span></li>
+                  }
+                </ul>
+                <div class="mt-7 pt-5 border-t border-line">
+                  @if (plan.qr) {
+                    <button type="button" class="btn btn-primary w-full" (click)="openQrCustomizer()">Personalizar mi QR</button>
+                    <p class="mt-2 text-center text-xs font-semibold text-muted">Funcionalidad disponible en este plan</p>
+                  } @else {
+                    <a routerLink="/auth/register" class="btn btn-secondary w-full">Elegir este plan</a>
+                    <p class="mt-2 text-center text-xs font-semibold text-muted">Características ilustrativas por ahora</p>
+                  }
+                </div>
+              </article>
+            }
+          </div>
+
+          <p class="mt-8 text-center text-xs font-semibold text-muted">Los precios y diferencias de los planes son de referencia. El QR personalizable del plan trimestral sí genera un enlace utilizable.</p>
+        </div>
+      </section>
+
       <section class="px-5 pb-20">
         <div class="reveal cta-band max-w-6xl mx-auto rounded-ui-xl px-6 py-14 md:py-16 text-center text-white relative overflow-hidden">
           <div class="map-pin-visual relative mx-auto mb-4 flex h-36 w-36 justify-center md:h-44 md:w-44">
@@ -127,6 +172,27 @@ import { ThemeToggle } from '../shared/ui/theme-toggle';
       © {{ year }} Deliora ·
       <a routerLink="/auth/login" class="underline underline-offset-2 hover:text-primary">Acceso para negocios</a>
     </footer>
+
+    @if (qrOpen()) {
+      <app-modal heading="Personaliza tu QR de mesa" size="md" (closed)="closeQrCustomizer()">
+        <div class="grid gap-6 md:grid-cols-[1fr_auto] items-center">
+          <div>
+            <span class="badge badge-success">Plan de 3 meses</span>
+            <h3 class="mt-4 font-display text-2xl font-black">Un QR distinto para cada mesa</h3>
+            <p class="mt-2 text-sm font-medium text-muted">Escribe la dirección de tu página pública. El código se actualiza al instante y puedes abrirlo para imprimirlo.</p>
+            <label for="planQrUrl" class="mt-5 block text-xs font-bold uppercase tracking-wider text-muted">Enlace de destino</label>
+            <input id="planQrUrl" class="input mt-2" type="url" [value]="qrUrl()" (input)="setQrUrl($event)" placeholder="https://tusitio.com/mi-negocio" />
+            <label for="planQrLabel" class="mt-4 block text-xs font-bold uppercase tracking-wider text-muted">Nombre de la mesa (opcional)</label>
+            <input id="planQrLabel" class="input mt-2" type="text" [value]="qrLabel()" (input)="setQrLabel($event)" placeholder="Mesa 01" />
+            <a class="btn btn-primary mt-5 w-full sm:w-auto" [href]="qrImageUrl()" target="_blank" rel="noopener">Abrir QR para descargar</a>
+          </div>
+          <div class="qr-preview card p-4 text-center">
+            <img class="mx-auto h-44 w-44 rounded-ui-md" [src]="qrImageUrl()" [alt]="'Código QR para ' + (qrLabel() || 'tu mesa')" />
+            <p class="mt-3 text-xs font-bold text-muted">{{ qrLabel() || 'Tu mesa' }}</p>
+          </div>
+        </div>
+      </app-modal>
+    }
 
     @if (introOpen()) {
       <app-modal heading="El próximo paso de tu negocio empieza aquí" size="lg" (closed)="closeIntro()">
@@ -171,6 +237,58 @@ export class HomePage {
   protected readonly scrolled = signal(false);
   protected readonly introOpen = signal(true);
   protected readonly introSlide = signal(0);
+  protected readonly qrOpen = signal(false);
+  protected readonly qrUrl = signal('https://deliora.app/mi-negocio');
+  protected readonly qrLabel = signal('Mesa 01');
+  protected readonly qrImageUrl = computed(() => {
+    const label = this.qrLabel().trim();
+    const destination = this.qrUrl().trim() || 'https://deliora.app/mi-negocio';
+    const separator = destination.includes('?') ? '&' : '?';
+    const content = label ? `${destination}${separator}mesa=${encodeURIComponent(label)}` : destination;
+    return `https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=12&data=${encodeURIComponent(content)}`;
+  });
+  protected readonly plans = [
+    {
+      months: 1,
+      eyebrow: 'Para comenzar',
+      title: 'Mensual',
+      price: '$9.900',
+      description: 'La forma más flexible de poner tu negocio en marcha.',
+      features: ['Página pública', 'Carta digital editable', 'Reservas por WhatsApp'],
+      featured: false,
+      qr: false,
+    },
+    {
+      months: 3,
+      eyebrow: 'Para crecer',
+      title: 'Trimestral',
+      price: '$24.900',
+      description: 'Más tiempo para consolidar tu presencia y llevar clientes a cada mesa.',
+      features: ['Todo lo del plan mensual', 'QR personalizable por mesa', 'Diseño de QR listo para imprimir'],
+      featured: true,
+      qr: true,
+    },
+    {
+      months: 6,
+      eyebrow: 'Para avanzar',
+      title: 'Semestral',
+      price: '$44.900',
+      description: 'Un semestre completo para ordenar, publicar y hacer crecer tu propuesta.',
+      features: ['Todo lo del plan trimestral', 'Más visibilidad para tu marca', 'Acompañamiento prioritario'],
+      featured: false,
+      qr: false,
+    },
+    {
+      months: 12,
+      eyebrow: 'Para consolidar',
+      title: 'Anual',
+      price: '$79.900',
+      description: 'La tranquilidad de tener tu negocio online durante todo el año.',
+      features: ['Todo lo del plan semestral', 'Mejor valor por período', 'Planificación anual'],
+      featured: false,
+      qr: false,
+    },
+  ];
   protected readonly introScenes = [
     {
       image: '/deliora-hermes-mascot-prototype.webp',
@@ -234,5 +352,21 @@ export class HomePage {
 
   protected closeIntro(): void {
     this.introOpen.set(false);
+  }
+
+  protected openQrCustomizer(): void {
+    this.qrOpen.set(true);
+  }
+
+  protected closeQrCustomizer(): void {
+    this.qrOpen.set(false);
+  }
+
+  protected setQrUrl(event: Event): void {
+    this.qrUrl.set((event.target as HTMLInputElement).value);
+  }
+
+  protected setQrLabel(event: Event): void {
+    this.qrLabel.set((event.target as HTMLInputElement).value);
   }
 }

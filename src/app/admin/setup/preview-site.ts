@@ -1,6 +1,7 @@
 import { SiteImages, SiteSettingsDetail } from '../../core/site-admin.models';
 import { SiteCategory, SiteData } from '../../core/site.models';
 import { HEX_COLOR } from '../../shared/forms';
+import { DEFAULT_BRAND_STYLE } from '../../core/site-branding';
 import { SiteForm } from '../site/site-form';
 import { PreviewTarget } from './setup-steps';
 
@@ -28,7 +29,18 @@ export function buildPreviewSite(saved: SiteSettingsDetail, draft: SiteDraft, im
     currency: draft.currency,
     locale: draft.locale,
     timezone: draft.timezone || saved.timezone,
-    theme: { primaryColor: color(draft.primaryColor, saved.primaryColor), accentColor: color(draft.accentColor, saved.accentColor) },
+    theme: {
+      primaryColor: color(draft.primaryColor, saved.primaryColor),
+      accentColor: color(draft.accentColor, saved.accentColor),
+      businessTitleColor: color(draft.businessTitleColor, DEFAULT_BRAND_STYLE.businessTitleColor),
+      backgroundColor: color(draft.backgroundColor, DEFAULT_BRAND_STYLE.backgroundColor),
+      footerColor: color(draft.footerColor, DEFAULT_BRAND_STYLE.footerColor),
+      headingColor: color(draft.headingColor, DEFAULT_BRAND_STYLE.headingColor),
+      paragraphColor: color(draft.paragraphColor, DEFAULT_BRAND_STYLE.paragraphColor),
+      whatsappColor: color(draft.whatsappColor, DEFAULT_BRAND_STYLE.whatsappColor),
+      marqueeColor: color(draft.marqueeColor, DEFAULT_BRAND_STYLE.marqueeColor),
+      fontFamily: draft.fontFamily || DEFAULT_BRAND_STYLE.fontFamily,
+    },
     contact: {
       whatsappNumber: blank(draft.whatsappNumber),
       phone: blank(draft.phone),

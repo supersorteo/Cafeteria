@@ -1,5 +1,6 @@
 import { AbstractControl, FormArray, FormControl, FormGroup, NonNullableFormBuilder, ValidationErrors, Validators } from '@angular/forms';
 import { ImageRef, SiteSettingsDetail, SiteSettingsPayload } from '../../core/site-admin.models';
+import { DEFAULT_BRAND_STYLE } from '../../core/site-branding';
 import { HEX_COLOR, describeErrors, notBlank, timezoneValidator } from '../../shared/forms';
 
 export const CURRENCIES = [
@@ -43,6 +44,14 @@ export function createSiteForm(fb: NonNullableFormBuilder) {
     timezone: ['America/Montevideo', [Validators.required, Validators.maxLength(64), timezoneValidator]],
     primaryColor: ['#FF5C39', [Validators.required, Validators.pattern(HEX_COLOR)]],
     accentColor: ['#0E8388', [Validators.required, Validators.pattern(HEX_COLOR)]],
+    businessTitleColor: [DEFAULT_BRAND_STYLE.businessTitleColor, [Validators.required, Validators.pattern(HEX_COLOR)]],
+    backgroundColor: [DEFAULT_BRAND_STYLE.backgroundColor, [Validators.required, Validators.pattern(HEX_COLOR)]],
+    footerColor: [DEFAULT_BRAND_STYLE.footerColor, [Validators.required, Validators.pattern(HEX_COLOR)]],
+    headingColor: [DEFAULT_BRAND_STYLE.headingColor, [Validators.required, Validators.pattern(HEX_COLOR)]],
+    paragraphColor: [DEFAULT_BRAND_STYLE.paragraphColor, [Validators.required, Validators.pattern(HEX_COLOR)]],
+    whatsappColor: [DEFAULT_BRAND_STYLE.whatsappColor, [Validators.required, Validators.pattern(HEX_COLOR)]],
+    marqueeColor: [DEFAULT_BRAND_STYLE.marqueeColor, [Validators.required, Validators.pattern(HEX_COLOR)]],
+    fontFamily: [DEFAULT_BRAND_STYLE.fontFamily, [Validators.required]],
     tagline: ['', Validators.maxLength(160)],
     heroTitle: ['', Validators.maxLength(160)],
     heroDescription: ['', Validators.maxLength(600)],
@@ -94,6 +103,14 @@ export function applySettings(form: SiteForm, fb: NonNullableFormBuilder, settin
     timezone: settings.timezone,
     primaryColor: settings.primaryColor.toUpperCase(),
     accentColor: settings.accentColor.toUpperCase(),
+    businessTitleColor: settings.businessTitleColor?.toUpperCase() ?? DEFAULT_BRAND_STYLE.businessTitleColor,
+    backgroundColor: settings.backgroundColor?.toUpperCase() ?? DEFAULT_BRAND_STYLE.backgroundColor,
+    footerColor: settings.footerColor?.toUpperCase() ?? DEFAULT_BRAND_STYLE.footerColor,
+    headingColor: settings.headingColor?.toUpperCase() ?? DEFAULT_BRAND_STYLE.headingColor,
+    paragraphColor: settings.paragraphColor?.toUpperCase() ?? DEFAULT_BRAND_STYLE.paragraphColor,
+    whatsappColor: settings.whatsappColor?.toUpperCase() ?? DEFAULT_BRAND_STYLE.whatsappColor,
+    marqueeColor: settings.marqueeColor?.toUpperCase() ?? DEFAULT_BRAND_STYLE.marqueeColor,
+    fontFamily: (settings.fontFamily ?? DEFAULT_BRAND_STYLE.fontFamily) as typeof DEFAULT_BRAND_STYLE.fontFamily,
     tagline: settings.tagline ?? '',
     heroTitle: settings.heroTitle ?? '',
     heroDescription: settings.heroDescription ?? '',

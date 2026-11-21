@@ -9,6 +9,7 @@ import { CURRENCIES, LOCALES, SiteForm, StatGroup, fieldError, newStat } from '.
 import { SiteImagesEditor } from '../site/site-images-editor';
 import { SiteSettingsStore } from './site-settings.store';
 import { SpacesEditor } from './spaces-editor';
+import { BRAND_FONT_OPTIONS } from '../../core/site-branding';
 
 @Directive()
 abstract class StepForm {
@@ -82,10 +83,15 @@ export class StepBasicsForm extends StepForm {
     @if (store.imagesState(); as images) {
       <app-site-images-editor [images]="images" [blocks]="['logo']" [embedded]="true" [readonly]="!store.isOwner()" (saved)="store.onImagesSaved($event)" />
     }
-    <div class="brand-preview rounded-ui-lg p-5 text-white mt-6" [style.background]="'linear-gradient(135deg,' + form.controls.primaryColor.value + ',' + form.controls.accentColor.value + ')'" aria-hidden="true">
+    <div class="brand-preview rounded-ui-lg p-5 mt-6" [style.background]="form.controls.backgroundColor.value" [style.color]="form.controls.paragraphColor.value" [style.fontFamily]="fontFamily()" aria-hidden="true">
       <p class="text-xs font-bold uppercase tracking-widest opacity-90">Vista previa de colores</p>
-      <p class="font-display text-2xl font-black leading-tight mt-1">{{ form.controls.name.value || 'Tu negocio' }}</p>
-      <span class="inline-block mt-3 rounded-full bg-white/95 px-4 py-1.5 text-xs font-bold" [style.color]="form.controls.primaryColor.value">Reservar</span>
+      <p class="text-2xl font-black leading-tight mt-1" [style.color]="form.controls.businessTitleColor.value">{{ form.controls.name.value || 'Tu negocio' }}</p>
+      <h3 class="mt-3 text-xl font-black" [style.color]="form.controls.headingColor.value">Una experiencia con tu estilo</h3>
+      <p class="mt-1 text-sm font-medium" [style.color]="form.controls.paragraphColor.value">Así se verán los textos generales de tu página pública.</p>
+      <div class="mt-4 flex flex-wrap gap-2">
+        <span class="inline-block rounded-full px-4 py-1.5 text-xs font-bold text-white" [style.background]="form.controls.whatsappColor.value">WhatsApp</span>
+        <span class="inline-block rounded-full px-4 py-1.5 text-xs font-bold text-white" [style.background]="form.controls.marqueeColor.value">Cinta de frases</span>
+      </div>
     </div>
     <div class="mt-5 grid sm:grid-cols-2 gap-5">
       <app-field label="Color principal" forId="s-primary" [error]="err('primaryColor', 'Usa un color con el formato #FF5C39.')" hint="El color de tus botones y detalles.">
@@ -103,10 +109,50 @@ export class StepBasicsForm extends StepForm {
         </div>
       </app-field>
     </div>
+    <div class="mt-6 grid sm:grid-cols-2 gap-5">
+      <app-field label="Fuente de tu página" forId="s-font-family" hint="Elige una de las 8 combinaciones disponibles.">
+        <select id="s-font-family" [formControl]="form.controls.fontFamily" class="input">
+          @for (font of fontOptions; track font.code) { <option [value]="font.code">{{ font.label }}</option> }
+        </select>
+      </app-field>
+      <div class="brand-font-sample rounded-ui-md border border-line bg-surface-2 p-3" [style.fontFamily]="fontFamily()">
+        <p class="text-xs font-bold uppercase tracking-wider text-muted">Muestra de fuente</p>
+        <p class="mt-2 text-xl font-black">{{ form.controls.name.value || 'Tu negocio' }}</p>
+      </div>
+    </div>
+    <div class="mt-6">
+      <h3 class="text-xs font-bold uppercase tracking-wider text-muted">Colores avanzados</h3>
+      <p class="mt-1 text-xs font-medium text-muted">Personaliza cada zona de tu página. Estos valores se aplican a la vista previa frontend.</p>
+      <div class="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        @for (color of advancedColors; track color.control) {
+          <label class="brand-color-field">
+            <span>{{ color.label }}</span>
+            <div class="flex gap-2 items-center">
+              <input type="color" [value]="form.controls[color.control].value" [disabled]="form.disabled" [attr.aria-label]="'Elegir ' + color.label"
+                     (input)="setColor(color.control, $event)" class="color-swatch">
+              <input [id]="'s-' + color.control" [formControl]="form.controls[color.control]" maxlength="7" class="input flex-1">
+            </div>
+          </label>
+        }
+      </div>
+    </div>
   `,
 })
 export class StepBrandForm extends StepForm {
-  protected setColor(name: 'primaryColor' | 'accentColor', event: Event): void {
+  protected readonly fontOptions = BRAND_FONT_OPTIONS;
+  protected readonly advancedColors = [
+    { control: 'businessTitleColor', label: 'Título del negocio' },
+    { control: 'backgroundColor', label: 'Fondo general' },
+    { control: 'footerColor', label: 'Fondo del footer' },
+    { control: 'headingColor', label: 'Texto H2' },
+    { control: 'paragraphColor', label: 'Texto general' },
+    { control: 'whatsappColor', label: 'Botón de WhatsApp' },
+    { control: 'marqueeColor', label: 'Cinta de frases' },
+  ] as const;
+
+  protected readonly fontFamily = () => this.fontOptions.find(font => font.code === this.form.controls.fontFamily.value)?.family ?? this.fontOptions[0].family;
+
+  protected setColor(name: 'primaryColor' | 'accentColor' | 'businessTitleColor' | 'backgroundColor' | 'footerColor' | 'headingColor' | 'paragraphColor' | 'whatsappColor' | 'marqueeColor', event: Event): void {
     const control = this.form.controls[name];
     control.setValue((event.target as HTMLInputElement).value.toUpperCase());
     control.markAsDirty();

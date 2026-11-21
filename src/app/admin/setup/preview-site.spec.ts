@@ -25,7 +25,7 @@ describe('buildPreviewSite', () => {
     const site = buildPreviewSite(saved, draftOf(), { ...images, logo: { id: 'l1', url: '/media/l1' } }, []);
     expect(site.name).toBe('Negocio A');
     expect(site.slug).toBe('negocio-a');
-    expect(site.theme).toEqual({ primaryColor: '#FF5C39', accentColor: '#0E8388' });
+    expect(site.theme).toMatchObject({ primaryColor: '#FF5C39', accentColor: '#0E8388' });
     expect(site.hero).toEqual({ title: 'Donde la noche\n*sabe mejor*', description: 'Descripción', caption: 'Una noche', imageUrl: '/media/h1' });
     expect(site.about).toEqual({ title: 'Tradición', text: 'Texto de nosotros', imageUrls: ['/media/a1'] });
     expect(site.gallery).toEqual([{ url: '/media/g1', alt: 'Terraza' }]);
@@ -82,7 +82,7 @@ describe('buildPreviewSite', () => {
 
   it('should keep the saved color while the typed one is not a valid hex and never invent a name', () => {
     const site = buildPreviewSite(saved, draftOf({ primaryColor: 'rojo', accentColor: '#12', name: '   ' }), images, []);
-    expect(site.theme).toEqual({ primaryColor: saved.primaryColor, accentColor: saved.accentColor });
+    expect(site.theme).toMatchObject({ primaryColor: saved.primaryColor, accentColor: saved.accentColor });
     expect(site.name).toBe(saved.name);
   });
 

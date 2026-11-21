@@ -8,6 +8,7 @@ import { BrandMark } from '../shared/ui/brand-mark';
 import { AutosizeDirective } from '../shared/ui/autosize.directive';
 import { Modal } from '../shared/ui/modal';
 import { formatReservationDate, readableOn, rgbTriplet, tagColor, titleParts, todayInZone } from '../shared/site-format';
+import { DEFAULT_BRAND_STYLE, brandFontFamily } from '../core/site-branding';
 
 interface Reservation {
   name: string;
@@ -36,6 +37,14 @@ const NO_PREFERENCE = 'Sin preferencia';
     '[style.--primary]': 'primaryRgb()',
     '[style.--primary-fg]': 'primaryContrast()',
     '[style.--brand-teal]': 'accentRgb()',
+    '[style.--site-business-title]': 'site().theme.businessTitleColor ?? defaultBrandStyle.businessTitleColor',
+    '[style.--site-bg]': 'site().theme.backgroundColor ?? defaultBrandStyle.backgroundColor',
+    '[style.--site-footer]': 'site().theme.footerColor ?? defaultBrandStyle.footerColor',
+    '[style.--site-heading]': 'site().theme.headingColor ?? defaultBrandStyle.headingColor',
+    '[style.--site-paragraph]': 'site().theme.paragraphColor ?? defaultBrandStyle.paragraphColor',
+    '[style.--site-whatsapp]': 'site().theme.whatsappColor ?? defaultBrandStyle.whatsappColor',
+    '[style.--site-marquee]': 'site().theme.marqueeColor ?? defaultBrandStyle.marqueeColor',
+    '[style.--site-font]': 'fontFamily()',
   },
 })
 export class PublicSite implements AfterViewInit {
@@ -62,6 +71,8 @@ export class PublicSite implements AfterViewInit {
   protected readonly noPreference = NO_PREFERENCE;
   protected readonly accentColors = ['var(--coral)', 'var(--teal)', 'var(--mango)'];
   protected readonly heroCardClasses = HERO_CARD_CLASSES;
+  protected readonly defaultBrandStyle = DEFAULT_BRAND_STYLE;
+  protected readonly fontFamily = computed(() => brandFontFamily(this.site().theme.fontFamily));
 
   protected readonly primaryRgb = computed(() => rgbTriplet(this.site().theme.primaryColor, '214 66 38'));
   protected readonly primaryContrast = computed(() => readableOn(this.site().theme.primaryColor));

@@ -7,9 +7,10 @@ import { Modal } from '../shared/ui/modal';
 import { PlanBanner } from './plan-banner';
 import { StatusScreen } from '../shared/ui/status-screen';
 import { ThemeToggle } from '../shared/ui/theme-toggle';
+import { QrThumbnail } from '../shared/ui/qr-thumbnail';
 
 @Component({
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, Modal, ThemeToggle, StatusScreen, BrandMark, PlanBanner],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, Modal, ThemeToggle, StatusScreen, BrandMark, PlanBanner, QrThumbnail],
   selector: 'app-admin-shell',
   template: `
     @switch (auth.state().status) {
@@ -32,12 +33,16 @@ import { ThemeToggle } from '../shared/ui/theme-toggle';
                 <a routerLink="/admin/menu" routerLinkActive="active" class="nav-link" [attr.title]="collapsed() ? 'Carta' : null">
                   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h12a3 3 0 0 1 3 3v13H7a3 3 0 0 1-3-3V4z"/><path d="M8 9h7M8 13h7"/></svg>
                   <span class="side-text">Carta</span></a>
+                <a routerLink="/admin/qr" routerLinkActive="active" class="nav-link" [attr.title]="collapsed() ? 'Generar QR' : null">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><path d="M14 14h2v2h-2zM18 14h2v6h-6v-2M18 18h2"/></svg>
+                  <span class="side-text">Generar QR</span></a>
                 <a routerLink="/admin/site" routerLinkActive="active" class="nav-link" [attr.title]="collapsed() ? 'Configuración' : null">
                   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
                   <span class="side-text">Configuración</span></a>
                 <a [routerLink]="['/', user.tenant.slug]" [queryParams]="{ ref: 'panel' }" class="nav-link" [attr.title]="collapsed() ? 'Ver mi sitio' : null">
                   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M10 6H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/></svg>
                   <span class="side-text">Ver mi sitio</span></a>
+                <app-qr-thumbnail [url]="businessUrl(user.tenant.slug)" />
               </nav>
 
               <div class="mt-auto space-y-3">
@@ -75,6 +80,9 @@ import { ThemeToggle } from '../shared/ui/theme-toggle';
               <a routerLink="/admin/menu" routerLinkActive="active" class="tab-item">
                 <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h12a3 3 0 0 1 3 3v13H7a3 3 0 0 1-3-3V4z"/><path d="M8 9h7M8 13h7"/></svg>
                 <span>Carta</span></a>
+              <a routerLink="/admin/qr" routerLinkActive="active" class="tab-item">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><path d="M14 14h2v2h-2zM18 14h2v6h-6v-2M18 18h2"/></svg>
+                <span>QR</span></a>
               <a routerLink="/admin/site" routerLinkActive="active" class="tab-item">
                 <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
                 <span>Configuración</span></a>
@@ -116,6 +124,10 @@ export class AdminShell {
   protected readonly loggingOut = signal(false);
   protected readonly collapsed = signal(false);
   protected readonly accountOpen = signal(false);
+
+  protected businessUrl(slug: string): string {
+    return `${location.origin}/${slug}`;
+  }
 
   protected async logout(): Promise<void> {
     if (this.loggingOut()) {

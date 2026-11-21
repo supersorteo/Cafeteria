@@ -37,7 +37,18 @@ export interface SiteData {
   currency: string;
   locale: string;
   timezone: string;
-  theme: { primaryColor: string; accentColor: string };
+  theme: {
+    primaryColor: string;
+    accentColor: string;
+    businessTitleColor?: string;
+    backgroundColor?: string;
+    footerColor?: string;
+    headingColor?: string;
+    paragraphColor?: string;
+    whatsappColor?: string;
+    marqueeColor?: string;
+    fontFamily?: string;
+  };
   contact: SiteContact;
   hero: { title: string | null; description: string | null; caption: string | null; imageUrl: string | null };
   about: { title: string | null; text: string | null; imageUrls: string[] };

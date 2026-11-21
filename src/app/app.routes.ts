@@ -40,6 +40,7 @@ export const routes: Routes = [
     children: [
       { path: '', pathMatch: 'full', loadComponent: () => import('./admin/dashboard.page').then(m => m.DashboardPage) },
       { path: 'menu', loadComponent: () => import('./admin/menu/menu.page').then(m => m.MenuPage) },
+      { path: 'qr', loadComponent: () => import('./admin/qr-generator.page').then(m => m.QrGeneratorPage) },
       {
         path: 'setup',
         canDeactivate: [unsavedChangesGuard],
