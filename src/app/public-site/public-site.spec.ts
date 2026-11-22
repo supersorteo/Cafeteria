@@ -54,6 +54,16 @@ describe('PublicSite', () => {
     expect(host.style.getPropertyValue('--teal')).toBe('#445566');
   });
 
+  it('should pick a readable text color for the footer and the marquee from their background', async () => {
+    const dark = html(await render({ ...makeSite(), theme: { ...makeSite().theme, footerColor: '#2A1420', marqueeColor: '#3D1D2E' } }));
+    expect(dark.style.getPropertyValue('--site-footer-fg')).toBe('255 255 255');
+    expect(dark.style.getPropertyValue('--site-marquee-fg')).toBe('255 255 255');
+
+    const light = html(await render({ ...makeSite(), theme: { ...makeSite().theme, footerColor: '#FFF6EC', marqueeColor: '#FFE9A8' } }));
+    expect(light.style.getPropertyValue('--site-footer-fg')).toBe('42 20 32');
+    expect(light.style.getPropertyValue('--site-marquee-fg')).toBe('42 20 32');
+  });
+
   it('should list only categories that have items and switch between them', async () => {
     const fixture = await render(makeSite());
     const root = html(fixture);

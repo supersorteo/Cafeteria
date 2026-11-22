@@ -76,7 +76,7 @@ GET `/media/{id}` (público, fuera de `/api/v1`): sirve el archivo con `nosniff`
 | Método/ruta | Rol | Cuerpo | Respuesta |
 |---|---|---|---|
 | GET `/admin/site` | owner/editor | — | Configuración + `images:{hero,about[],gallery[],logo}` |
-| PUT `/admin/site` | **owner** | nombre, `whatsappNumber` (8–15 dígitos), phone, email, address, schedule, `currency` (UYU/USD/MXN/EUR), `locale` (es-UY/es-MX/es-ES), `timezone` (IANA), `primaryColor`/`accentColor` (#rrggbb), heroTitle, heroDescription, aboutText, `version` | 200 |
+| PUT `/admin/site` | **owner** | (marca: ver «Marca, QR y duración del plan») nombre, `whatsappNumber` (8–15 dígitos), phone, email, address, schedule, `currency` (UYU/USD/MXN/EUR), `locale` (es-UY/es-MX/es-ES), `timezone` (IANA), `primaryColor`/`accentColor` (#rrggbb), heroTitle, heroDescription, aboutText, `version` | 200 |
 | PUT `/admin/site/images` | **owner** | `{hero?, logo?, about?[≤3], gallery?[≤6]{mediaId,alt}}` (reemplaza todo; `logo` es 1 imagen, al omitirlo se quita) | 200 |
 | PUT `/admin/site/publication` | **owner** | `{published, version?}`; publicar exige `whatsappNumber` | 200 · 400 `cannot_publish` |
 | GET `/admin/dashboard` | owner/editor | — | `{slug,name,published,categories,activeItems,inactiveItems,images}` |
@@ -141,3 +141,9 @@ Un negocio suspendido (`tenants.suspended_at`): login 401, sesiones abiertas 401
 **Espacios (`V4__site_spaces.sql`).** Un espacio (Terraza, Salón, Barra…) tiene nombre, descripción, foto opcional y `bookable`. Sustituye a las tarjetas `highlights` y a `reservationAreas`: ambas se derivan de `spaces` en las respuestas (compatibilidad con clientes antiguos) y se ignoran en `PUT /admin/site`. `imageId` debe ser un medio `READY` del negocio; las fotos que dejan de usarse se limpian. La migración convierte cada tarjeta y cada zona existente en un espacio (fusionando nombres iguales) sin borrar `site_highlights` ni `tenants.reservation_areas`.
 
 **Logo.** `GET /auth/me` incluye `tenant.logoUrl` (null si el negocio no subió uno). El frontend muestra el logo por defecto de la app (`/logos/icon-192.png`) cuando `logoUrl` es null o la imagen falla al cargar. La migración `V3__site_logo.sql` permite el slot `LOGO` en `site_images`.
+
+## Marca, QR y duración del plan (`V7__site_branding_and_qr.sql`)
+
+- **Marca.** `PUT /admin/site` acepta, todos opcionales (`null` o ausente = valores por defecto del frontend): `businessTitleColor`, `backgroundColor`, `footerColor`, `headingColor`, `paragraphColor`, `whatsappColor`, `marqueeColor` (`#rrggbb`, se guardan en mayúsculas) y `fontFamily` (`fraunces|inter|georgia|garamond|trebuchet|arial|verdana|courier`). `GET /admin/site` los devuelve y `GET /public/sites/{slug}` los incluye en `theme`. Valor inválido → `400` con `fieldErrors`.
+- **Diseño del QR.** `GET /admin/qr` → `{dotType, cornerType, dotColor, backgroundMode, backgroundColor, useLogo, customizable}` (cualquier miembro). `PUT /admin/qr` (**owner**) con los seis campos: `dotType` `square|dots|rounded|classy|classy-rounded|extra-rounded`, `cornerType` `square|dot|extra-rounded`, `backgroundMode` `solid|transparent|gradient`, colores `#rrggbb`, `useLogo` boolean. El logo es el del negocio (`tenant.logoUrl`). Con un plan de 1 mes responde `403 plan_feature_unavailable`; con el plan vencido, `403 plan_expired`.
+- **Plan.** `tenants.plan_months` guarda la duración del **último código canjeado** (registro o renovación). `GET /auth/me` y `GET /admin/plan` devuelven además `months` y `qrCustomization` (`true` si `months` es 3, 6 o 12; también si es `null`, como la demo).

@@ -86,8 +86,8 @@
 @if (marqueeLoop()) {
   <div class="overflow-hidden py-4 select-none" style="background:var(--site-marquee)">
     <div class="marquee-track flex whitespace-nowrap gap-10 w-max">
-      <span class="flex gap-10 text-sm font-bold uppercase tracking-[.3em] text-white" aria-hidden="true">{{ marqueeLoop() }}</span>
-      <span class="flex gap-10 text-sm font-bold uppercase tracking-[.3em] text-white" aria-hidden="true">{{ marqueeLoop() }}</span>
+      <span class="flex gap-10 text-sm font-bold uppercase tracking-[.3em]" style="color:rgb(var(--site-marquee-fg))" aria-hidden="true">{{ marqueeLoop() }}</span>
+      <span class="flex gap-10 text-sm font-bold uppercase tracking-[.3em]" style="color:rgb(var(--site-marquee-fg))" aria-hidden="true">{{ marqueeLoop() }}</span>
     </div>
   </div>
 }
@@ -257,20 +257,20 @@
 <footer id="contacto" class="py-14" style="background:var(--site-footer)">
   <div class="max-w-7xl mx-auto px-5 grid md:grid-cols-3 gap-10 text-sm">
     <div>
-      <p class="font-display text-2xl font-black"><span class="text-mango">{{ site().name }}</span>@if (site().descriptor) {&ngsp;<span class="text-white font-semibold">{{ site().descriptor }}</span>}</p>
+      <p class="font-display text-2xl font-black"><span style="color:rgb(var(--site-footer-fg))">{{ site().name }}</span>@if (site().descriptor) {&ngsp;<span class="font-semibold" style="color:rgb(var(--site-footer-fg) / .85)">{{ site().descriptor }}</span>}</p>
       @if (site().footerText) {
-        <p class="mt-3 font-medium" style="color:var(--site-paragraph)">{{ site().footerText }}</p>
+        <p class="mt-3 font-medium" style="color:rgb(var(--site-footer-fg) / .8)">{{ site().footerText }}</p>
       }
     </div>
     @if (site().contact.schedule) {
       <div>
-        <p class="uppercase tracking-widest text-mango text-xs font-bold mb-3">Horarios</p>
-        <p class="font-medium whitespace-pre-line" style="color:var(--site-paragraph)">{{ site().contact.schedule }}</p>
+        <p class="uppercase tracking-widest text-xs font-bold mb-3" style="color:rgb(var(--site-footer-fg) / .6)">Horarios</p>
+        <p class="font-medium whitespace-pre-line" style="color:rgb(var(--site-footer-fg) / .8)">{{ site().contact.schedule }}</p>
       </div>
     }
     <div>
-      <p class="uppercase tracking-widest text-mango text-xs font-bold mb-3">Contacto</p>
-      <p class="font-medium" style="color:var(--site-paragraph)">
+      <p class="uppercase tracking-widest text-xs font-bold mb-3" style="color:rgb(var(--site-footer-fg) / .6)">Contacto</p>
+      <p class="font-medium" style="color:rgb(var(--site-footer-fg) / .8)">
         @if (site().contact.address) {
           {{ site().contact.address }}<br>
         }
@@ -281,7 +281,7 @@
           ·
         }
         @if (mailLink(); as mail) {
-          <a [href]="mail" class="underline underline-offset-2 hover:text-white transition-colors">{{ site().contact.email }}</a>
+          <a [href]="mail" class="underline underline-offset-2 hover:opacity-80 transition-opacity">{{ site().contact.email }}</a>
         }
       </p>
       <a id="waFooter" [href]="whatsappUrl('Hola, quisiera información sobre ' + displayName() + '.')" target="_blank" rel="noopener" class="inline-flex items-center gap-2 mt-4 text-white font-bold text-xs uppercase tracking-widest px-5 py-2.5 rounded-full hover:brightness-110 transition-all" style="background:var(--site-whatsapp)">
@@ -290,7 +290,7 @@
       </a>
     </div>
   </div>
-  <p class="text-center text-xs font-medium mt-10" style="color:var(--site-paragraph)">© {{ year }} {{ displayName() }}. Todos los derechos reservados. · <a id="adminAccess" href="/auth/login" class="underline underline-offset-2 hover:text-white transition-colors">Acceso para negocios</a></p>
+  <p class="text-center text-xs font-medium mt-10" style="color:rgb(var(--site-footer-fg) / .8)">© {{ year }} {{ displayName() }}. Todos los derechos reservados. · <a id="adminAccess" href="/auth/login" class="underline underline-offset-2 hover:opacity-80 transition-opacity">Acceso para negocios</a></p>
 </footer>
 
 <!-- WhatsApp flotante -->

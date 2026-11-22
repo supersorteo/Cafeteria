@@ -70,7 +70,7 @@ describe('admin panel', () => {
   it('should only link screens that exist', async () => {
     await openPanel();
     const links = Array.from(root().querySelectorAll('nav a')).map(a => a.textContent?.trim());
-    expect(links).toEqual(['Resumen', 'Carta', 'Configuración', 'Ver mi sitio']);
+    expect(links).toEqual(['Resumen', 'Carta', 'Generar QR', 'Configuración', 'Ver mi sitio']);
     const site = root().querySelector('nav a[href^="/negocio-a"]') as HTMLAnchorElement;
     expect(site.getAttribute('href')).toBe('/negocio-a?ref=panel');
     expect(site.hasAttribute('target')).toBe(false);

@@ -1,13 +1,15 @@
-import { Component, HostListener, computed, inject, signal } from '@angular/core';
+import { Component, HostListener, computed, inject, signal, viewChild } from '@angular/core';
+import type { Options } from 'qr-code-styling';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../core/auth.service';
 import { RevealDirective } from '../shared/reveal.directive';
 import { BrandMark } from '../shared/ui/brand-mark';
 import { Modal } from '../shared/ui/modal';
+import { QrCanvas } from '../shared/ui/qr-canvas';
 import { ThemeToggle } from '../shared/ui/theme-toggle';
 
 @Component({
-  imports: [RouterLink, RevealDirective, ThemeToggle, BrandMark, Modal],
+  imports: [RouterLink, RevealDirective, ThemeToggle, BrandMark, Modal, QrCanvas],
   selector: 'app-home',
   template: `
     <header class="home-header sticky top-0 z-40 transition-all" [class.scrolled]="scrolled()">
@@ -184,10 +186,11 @@ import { ThemeToggle } from '../shared/ui/theme-toggle';
             <input id="planQrUrl" class="input mt-2" type="url" [value]="qrUrl()" (input)="setQrUrl($event)" placeholder="https://tusitio.com/mi-negocio" />
             <label for="planQrLabel" class="mt-4 block text-xs font-bold uppercase tracking-wider text-muted">Nombre de la mesa (opcional)</label>
             <input id="planQrLabel" class="input mt-2" type="text" [value]="qrLabel()" (input)="setQrLabel($event)" placeholder="Mesa 01" />
-            <a class="btn btn-primary mt-5 w-full sm:w-auto" [href]="qrImageUrl()" target="_blank" rel="noopener">Abrir QR para descargar</a>
+            <button type="button" class="btn btn-primary mt-5 w-full sm:w-auto" data-demo-qr-download (click)="downloadDemoQr()">Descargar QR de muestra</button>
+            <p class="mt-3 text-xs font-medium text-muted">Es una muestra. Con tu plan creas y guardas el diseño de tu QR desde el panel.</p>
           </div>
           <div class="qr-preview card p-4 text-center">
-            <img class="mx-auto h-44 w-44 rounded-ui-md" [src]="qrImageUrl()" [alt]="'Código QR para ' + (qrLabel() || 'tu mesa')" />
+            <app-qr-canvas class="mx-auto" [options]="qrOptions()" [label]="'Código QR para ' + (qrLabel() || 'tu mesa')" />
             <p class="mt-3 text-xs font-bold text-muted">{{ qrLabel() || 'Tu mesa' }}</p>
           </div>
         </div>
@@ -240,12 +243,23 @@ export class HomePage {
   protected readonly qrOpen = signal(false);
   protected readonly qrUrl = signal('https://deliora.app/mi-negocio');
   protected readonly qrLabel = signal('Mesa 01');
-  protected readonly qrImageUrl = computed(() => {
+  private readonly demoQr = viewChild(QrCanvas);
+  protected readonly qrOptions = computed<Partial<Options>>(() => {
     const label = this.qrLabel().trim();
     const destination = this.qrUrl().trim() || 'https://deliora.app/mi-negocio';
     const separator = destination.includes('?') ? '&' : '?';
-    const content = label ? `${destination}${separator}mesa=${encodeURIComponent(label)}` : destination;
-    return `https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=12&data=${encodeURIComponent(content)}`;
+    return {
+      type: 'svg',
+      width: 176,
+      height: 176,
+      margin: 8,
+      data: label ? `${destination}${separator}mesa=${encodeURIComponent(label)}` : destination,
+      qrOptions: { errorCorrectionLevel: 'H' },
+      dotsOptions: { type: 'dots', color: '#2A1420' },
+      cornersSquareOptions: { type: 'extra-rounded', color: '#2A1420' },
+      cornersDotOptions: { type: 'dot', color: '#2A1420' },
+      backgroundOptions: { color: '#ffffff' },
+    };
   });
   protected readonly plans = [
     {
@@ -356,6 +370,10 @@ export class HomePage {
 
   protected openQrCustomizer(): void {
     this.qrOpen.set(true);
+  }
+
+  protected async downloadDemoQr(): Promise<void> {
+    await this.demoQr()?.download('qr-mesa-muestra', 'png');
   }
 
   protected closeQrCustomizer(): void {

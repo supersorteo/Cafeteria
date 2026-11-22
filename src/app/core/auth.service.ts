@@ -9,7 +9,7 @@ export interface Me {
   email: string;
   role: Role;
   tenant: { id: string; slug: string; name: string; published: boolean; logoUrl: string | null };
-  plan: { expiresAt: string | null; status: 'ACTIVE' | 'EXPIRED' };
+  plan: { expiresAt: string | null; status: 'ACTIVE' | 'EXPIRED'; months?: number | null; qrCustomization?: boolean };
 }
 
 export type AuthState =
@@ -34,6 +34,7 @@ export class AuthService {
   readonly isOwner = computed(() => this.user()?.role === 'OWNER');
   readonly planExpired = computed(() => this.user()?.plan?.status === 'EXPIRED');
   readonly canEditSite = computed(() => this.isOwner() && !this.planExpired());
+  readonly canCustomizeQr = computed(() => this.user()?.plan?.qrCustomization ?? true);
 
   ensureInitialized(): Promise<void> {
     return (this.initialization ??= this.restore());

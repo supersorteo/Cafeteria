@@ -328,6 +328,17 @@ describe('SitePage (lista numerada)', () => {
       expect(request.request.body).toMatchObject({ primaryColor: '#112233', accentColor: '#0E8388' });
     });
 
+    it('should send the brand colors and the font so they are saved with the rest of the site', async () => {
+      await start();
+      await open('brand');
+      type(root(), '#s-footerColor', '#102030');
+      type(root(), '#s-font-family', 'garamond');
+      const request = await saveWith();
+      expect(request.request.body).toMatchObject({ footerColor: '#102030', fontFamily: 'garamond' });
+      expect(request.request.body).toHaveProperty('marqueeColor');
+      expect(request.request.body).toHaveProperty('businessTitleColor');
+    });
+
     it('should send trimmed marquee phrases from the cover step', async () => {
       await start();
       await open('hero');

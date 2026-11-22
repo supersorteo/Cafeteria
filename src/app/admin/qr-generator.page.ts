@@ -1,12 +1,15 @@
-import { Component, DestroyRef, ElementRef, OnDestroy, afterNextRender, computed, effect, inject, signal, viewChild } from '@angular/core';
+import { Component, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import QRCodeStyling, { type CornerDotType, type CornerSquareType, type DotType, type Options } from 'qr-code-styling';
+import { firstValueFrom } from 'rxjs';
+import type { CornerDotType, CornerSquareType, DotType, Options } from 'qr-code-styling';
+import { toProblem } from '../core/api-error';
 import { AuthService } from '../core/auth.service';
-
-type BackgroundMode = 'solid' | 'transparent' | 'gradient';
+import { NoticeService } from '../core/notice.service';
+import { DEFAULT_QR_STYLE, QrBackgroundMode, QrCornerType, QrDotType, QrStyle, QrStyleApi } from '../core/qr-style.api';
+import { QrCanvas } from '../shared/ui/qr-canvas';
 
 @Component({
-  imports: [FormsModule],
+  imports: [FormsModule, QrCanvas],
   selector: 'app-qr-generator-page',
   template: `
     <section class="qr-page max-w-6xl mx-auto">
@@ -27,7 +30,7 @@ type BackgroundMode = 'solid' | 'transparent' | 'gradient';
           </div>
           <p class="mt-3 text-sm font-medium text-muted">Escanéalo con tu teléfono para probar el enlace antes de colocarlo en mesas, vidrieras o tarjetas.</p>
           <div class="qr-stage mt-6">
-            <div #qrContainer class="qr-canvas" aria-label="Vista previa del código QR"></div>
+            <app-qr-canvas [options]="options()" label="Vista previa del código QR" />
           </div>
           <div class="mt-5 flex flex-wrap gap-3">
             <button type="button" class="btn btn-primary" (click)="download('png')">Descargar PNG</button>
@@ -41,12 +44,19 @@ type BackgroundMode = 'solid' | 'transparent' | 'gradient';
             <h2 id="qr-controls-title" class="mt-1 font-display text-2xl font-black">Ajusta el diseño</h2>
           </div>
 
+          @if (locked()) {
+            <p class="mt-4 rounded-ui-md bg-surface-2 p-3 text-sm font-bold" data-qr-locked>
+              Personalizar el QR está disponible desde el plan de 3 meses. Mientras tanto puedes descargar el QR básico de tu sitio.
+            </p>
+          }
+
           <label class="qr-field mt-6">
             <span>Dirección del sitio</span>
             <input class="input" type="url" [ngModel]="url()" (ngModelChange)="url.set($event)" placeholder="https://tusitio.com/mi-negocio" />
             <small>Se carga automáticamente con la dirección pública de tu comercio.</small>
           </label>
 
+          <fieldset [disabled]="locked()" class="min-w-0 border-0 p-0 m-0" data-qr-style>
           <div class="grid gap-4 sm:grid-cols-2 mt-5">
             <label class="qr-field">
               <span>Estilo de puntos</span>
@@ -90,111 +100,113 @@ type BackgroundMode = 'solid' | 'transparent' | 'gradient';
           </fieldset>
 
           <div class="mt-6 pt-5 border-t border-line">
-            <div class="flex items-start justify-between gap-3">
-              <div>
-                <p class="qr-field-label">Imagen central</p>
-                <p class="mt-1 text-xs font-medium text-muted">Agrega el logo de tu comercio en el centro del QR.</p>
-              </div>
-              @if (logo()) {
-                <button type="button" class="btn btn-ghost btn-sm" (click)="clearLogo()">Quitar</button>
-              }
-            </div>
-            <label class="qr-upload mt-3">
-              <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" (change)="setLogo($event)" />
-              <span class="qr-upload-icon" aria-hidden="true">＋</span>
-              <span><strong>{{ logo() ? 'Cambiar imagen' : 'Cargar logo' }}</strong><small>PNG, JPG, WebP o SVG</small></span>
+            <label class="flex items-start gap-3">
+              <input type="checkbox" class="mt-1" [checked]="useLogo()" [disabled]="!logoUrl()" (change)="useLogo.set($any($event.target).checked)" data-qr-logo>
+              <span>
+                <span class="qr-field-label block">Logo de tu negocio en el centro</span>
+                <span class="mt-1 block text-xs font-medium text-muted">
+                  {{ logoUrl() ? 'Usa el logo que ya subiste en la configuración de tu sitio.' : 'Sube primero el logo de tu negocio en Configuración.' }}
+                </span>
+              </span>
             </label>
-            @if (logo()) {
-              <div class="mt-3 flex items-center gap-3 rounded-ui-md bg-surface-2 p-3">
-                <img class="qr-logo-thumb" [src]="logo()" alt="Vista previa del logo central" />
-                <span class="text-xs font-bold text-muted">Logo central aplicado</span>
-              </div>
-            }
           </div>
+          </fieldset>
+
+          @if (canSave()) {
+            <button type="button" class="btn btn-primary mt-6 w-full" data-qr-save [disabled]="saving()" (click)="save()">{{ saving() ? 'Guardando…' : 'Guardar diseño' }}</button>
+          } @else if (!locked()) {
+            <p class="mt-6 text-xs font-medium text-muted" data-qr-readonly>Solo el dueño puede guardar el diseño del QR con el plan vigente.</p>
+          }
         </aside>
       </div>
     </section>
   `,
 })
-export class QrGeneratorPage implements OnDestroy {
+export class QrGeneratorPage implements OnInit {
   private readonly auth = inject(AuthService);
-  private readonly destroyRef = inject(DestroyRef);
-  private readonly qrContainer = viewChild.required<ElementRef<HTMLDivElement>>('qrContainer');
-  private qr: QRCodeStyling | null = null;
-  private initializedUrl = false;
+  private readonly api = inject(QrStyleApi);
+  private readonly notices = inject(NoticeService);
+  private readonly canvas = viewChild.required(QrCanvas);
 
-  protected readonly url = signal('');
-  protected readonly dotType = signal<DotType>('dots');
-  protected readonly cornerType = signal<CornerSquareType>('dot');
-  protected readonly dotColor = signal('#111827');
-  protected readonly backgroundColor = signal('#ffffff');
-  protected readonly backgroundMode = signal<BackgroundMode>('solid');
-  protected readonly logo = signal<string | null>(null);
-  protected readonly backgroundModes: { value: BackgroundMode; label: string }[] = [
+  protected readonly url = signal(`${location.origin}/${this.auth.user()?.tenant.slug ?? ''}`);
+  protected readonly dotType = signal<QrDotType>(DEFAULT_QR_STYLE.dotType);
+  protected readonly cornerType = signal<QrCornerType>(DEFAULT_QR_STYLE.cornerType);
+  protected readonly dotColor = signal(DEFAULT_QR_STYLE.dotColor);
+  protected readonly backgroundColor = signal(DEFAULT_QR_STYLE.backgroundColor);
+  protected readonly backgroundMode = signal<QrBackgroundMode>(DEFAULT_QR_STYLE.backgroundMode);
+  protected readonly useLogo = signal(DEFAULT_QR_STYLE.useLogo);
+  protected readonly saving = signal(false);
+
+  protected readonly locked = computed(() => !this.auth.canCustomizeQr());
+  protected readonly canSave = computed(() => this.auth.canEditSite() && this.auth.canCustomizeQr());
+  protected readonly logoUrl = computed(() => this.auth.user()?.tenant.logoUrl ?? null);
+  protected readonly backgroundModes: { value: QrBackgroundMode; label: string }[] = [
     { value: 'solid', label: 'Color' },
     { value: 'transparent', label: 'Transparente' },
     { value: 'gradient', label: 'Gradiente' },
   ];
-  private readonly options = computed<Partial<Options>>(() => {
-    const background = this.backgroundMode();
+
+  protected readonly options = computed<Partial<Options>>(() => {
+    const style: QrStyle = this.locked()
+      ? DEFAULT_QR_STYLE
+      : { dotType: this.dotType(), cornerType: this.cornerType(), dotColor: this.dotColor(), backgroundMode: this.backgroundMode(), backgroundColor: this.backgroundColor(), useLogo: this.useLogo() };
+    const logo = style.useLogo ? this.logoUrl() : null;
     return {
       type: 'svg',
       width: 360,
       height: 360,
       margin: 16,
-      data: this.url().trim() || 'https://deliora.app',
-      image: this.logo() || undefined,
+      data: this.url().trim() || location.origin,
+      image: logo ?? undefined,
       qrOptions: { errorCorrectionLevel: 'H' },
       imageOptions: { hideBackgroundDots: true, imageSize: .25, margin: 8, crossOrigin: 'anonymous' },
-      dotsOptions: { type: this.dotType(), color: this.dotColor() },
-      cornersSquareOptions: { type: this.cornerType(), color: this.dotColor() },
-      cornersDotOptions: { type: this.cornerType() as CornerDotType, color: this.dotColor() },
-      backgroundOptions: background === 'transparent'
+      dotsOptions: { type: style.dotType as DotType, color: style.dotColor },
+      cornersSquareOptions: { type: style.cornerType as CornerSquareType, color: style.dotColor },
+      cornersDotOptions: { type: style.cornerType as CornerDotType, color: style.dotColor },
+      backgroundOptions: style.backgroundMode === 'transparent'
         ? { color: 'transparent' }
-        : background === 'gradient'
-          ? { gradient: { type: 'linear', rotation: 0, colorStops: [{ offset: 0, color: this.backgroundColor() }, { offset: 1, color: '#f2c46d' }] } }
-          : { color: this.backgroundColor() },
+        : style.backgroundMode === 'gradient'
+          ? { gradient: { type: 'linear', rotation: 0, colorStops: [{ offset: 0, color: style.backgroundColor }, { offset: 1, color: '#f2c46d' }] } }
+          : { color: style.backgroundColor },
     };
   });
 
-  constructor() {
-    effect(() => {
-      const user = this.auth.user();
-      if (user && !this.initializedUrl) {
-        this.url.set(`${location.origin}/${user.tenant.slug}`);
-        this.initializedUrl = true;
-      }
-    });
-    effect(() => {
-      const options = this.options();
-      if (this.qr) {
-        this.qr.update(options);
-      }
-    });
-    afterNextRender(() => {
-      this.qr = new QRCodeStyling(this.options());
-      this.qr.append(this.qrContainer().nativeElement);
-    });
-    this.destroyRef.onDestroy(() => this.qr = null);
+  async ngOnInit(): Promise<void> {
+    try {
+      const saved = await firstValueFrom(this.api.get());
+      this.dotType.set(saved.dotType ?? DEFAULT_QR_STYLE.dotType);
+      this.cornerType.set(saved.cornerType ?? DEFAULT_QR_STYLE.cornerType);
+      this.dotColor.set(saved.dotColor ?? DEFAULT_QR_STYLE.dotColor);
+      this.backgroundMode.set(saved.backgroundMode ?? DEFAULT_QR_STYLE.backgroundMode);
+      this.backgroundColor.set(saved.backgroundColor ?? DEFAULT_QR_STYLE.backgroundColor);
+      this.useLogo.set(saved.useLogo);
+    } catch {
+      this.notices.show('error', 'No pudimos cargar tu diseño guardado. Puedes seguir editando.');
+    }
   }
 
-  ngOnDestroy(): void {
-    this.qr = null;
-  }
-
-  protected setLogo(event: Event): void {
-    const file = (event.target as HTMLInputElement).files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.addEventListener('load', () => this.logo.set(typeof reader.result === 'string' ? reader.result : null), { once: true });
-    reader.readAsDataURL(file);
-  }
-
-  protected clearLogo(): void {
-    this.logo.set(null);
+  protected async save(): Promise<void> {
+    if (this.saving() || !this.canSave()) {
+      return;
+    }
+    this.saving.set(true);
+    try {
+      await firstValueFrom(this.api.save({
+        dotType: this.dotType(), cornerType: this.cornerType(), dotColor: this.dotColor(),
+        backgroundMode: this.backgroundMode(), backgroundColor: this.backgroundColor(), useLogo: this.useLogo(),
+      }));
+      this.notices.show('info', 'Diseño del QR guardado.');
+    } catch (error) {
+      const problem = toProblem(error);
+      this.notices.show('error', problem.code === 'plan_feature_unavailable'
+        ? 'Tu plan no incluye personalizar el QR.'
+        : problem.code === 'plan_expired' ? 'Tu plan venció. Renuévalo para guardar cambios.' : 'No se pudo guardar el diseño.');
+    } finally {
+      this.saving.set(false);
+    }
   }
 
   protected async download(extension: 'png' | 'svg'): Promise<void> {
-    await this.qr?.download({ name: 'qr-deliora', extension });
+    await this.canvas().download('qr-deliora', extension);
   }
 }

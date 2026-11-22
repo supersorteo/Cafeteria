@@ -2,6 +2,7 @@ import { NonNullableFormBuilder } from '@angular/forms';
 import { TestBed } from '@angular/core/testing';
 import { makeSettings } from '../../testing/site-admin.fixture';
 import { applySettings, createSiteForm, newSpace } from '../site/site-form';
+import { DEFAULT_BRAND_STYLE } from '../../core/site-branding';
 import { buildPreviewSite } from './preview-site';
 
 function draftOf(overrides: Partial<ReturnType<ReturnType<typeof createSiteForm>['getRawValue']>> = {}) {
@@ -84,6 +85,16 @@ describe('buildPreviewSite', () => {
     const site = buildPreviewSite(saved, draftOf({ primaryColor: 'rojo', accentColor: '#12', name: '   ' }), images, []);
     expect(site.theme).toMatchObject({ primaryColor: saved.primaryColor, accentColor: saved.accentColor });
     expect(site.name).toBe(saved.name);
+  });
+
+  it('should use the brand values typed in the draft and fall back to the saved ones and then to the defaults', () => {
+    const typed = buildPreviewSite(saved, draftOf({ footerColor: '#FFFFFF', fontFamily: 'inter' }), images, []);
+    expect(typed.theme).toMatchObject({ footerColor: '#FFFFFF', fontFamily: 'inter' });
+
+    const invalid = buildPreviewSite({ ...saved, headingColor: '#123456' }, draftOf({ headingColor: 'rojo', marqueeColor: '' }), images, []);
+    expect(invalid.theme.headingColor).toBe('#123456');
+    expect(invalid.theme.marqueeColor).toBe(DEFAULT_BRAND_STYLE.marqueeColor);
+    expect(invalid.theme.fontFamily).toBe(DEFAULT_BRAND_STYLE.fontFamily);
   });
 
   it('should show no logo and no hero photo when the business has none', () => {

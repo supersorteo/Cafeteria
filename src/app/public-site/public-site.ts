@@ -45,6 +45,8 @@ const NO_PREFERENCE = 'Sin preferencia';
     '[style.--site-whatsapp]': 'site().theme.whatsappColor ?? defaultBrandStyle.whatsappColor',
     '[style.--site-marquee]': 'site().theme.marqueeColor ?? defaultBrandStyle.marqueeColor',
     '[style.--site-font]': 'fontFamily()',
+    '[style.--site-footer-fg]': 'footerFg()',
+    '[style.--site-marquee-fg]': 'marqueeFg()',
   },
 })
 export class PublicSite implements AfterViewInit {
@@ -72,6 +74,8 @@ export class PublicSite implements AfterViewInit {
   protected readonly accentColors = ['var(--coral)', 'var(--teal)', 'var(--mango)'];
   protected readonly heroCardClasses = HERO_CARD_CLASSES;
   protected readonly defaultBrandStyle = DEFAULT_BRAND_STYLE;
+  protected readonly footerFg = computed(() => readableOn(this.site().theme.footerColor || DEFAULT_BRAND_STYLE.footerColor));
+  protected readonly marqueeFg = computed(() => readableOn(this.site().theme.marqueeColor || DEFAULT_BRAND_STYLE.marqueeColor));
   protected readonly fontFamily = computed(() => brandFontFamily(this.site().theme.fontFamily));
 
   protected readonly primaryRgb = computed(() => rgbTriplet(this.site().theme.primaryColor, '214 66 38'));

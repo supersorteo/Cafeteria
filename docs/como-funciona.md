@@ -139,3 +139,9 @@ Hay dos formas de recorrerlos, con los mismos formularios:
 **Vista previa en vivo, en formato teléfono:** el botón **«Vista previa»** está arriba (en la cabecera del asistente y en la cabecera de cada modal). Muestra tu página pública real dentro de un teléfono de 390 px (con un viewport de verdad, así que ves exactamente la versión móvil), desplazada y resaltada en la sección del paso. Lo que escribes aparece al instante, antes de guardar; las fotos nuevas se ven cuando las guardas. En pantallas anchas (≥ 1280 px) el teléfono queda acoplado junto al formulario y se oculta con el mismo botón; en pantallas más pequeñas se abre como un **panel lateral** que se desliza desde la derecha (en el móvil ocupa toda la pantalla). Se cierra con ✕, tocando fuera o con Escape.
 
 El resumen (`/admin`) muestra «N de 9 pasos completos» y el botón «Continuar con el asistente», que abre el primer paso pendiente. Los pasos se marcan como completos por los datos guardados (por ejemplo, el paso 1 cuando hay WhatsApp; el paso 3 cuando hay una categoría con un producto activo).
+
+## Marca y QR de tu negocio
+
+- **Tu marca** (Configuración): colores del título, fondo, pie de página, títulos, textos, botón de WhatsApp y cinta de frases, más una fuente entre 8. Se guarda en el servidor y se ve en tu sitio público. El texto del pie de página y de la cinta cambia solo entre claro y oscuro para que siempre se lea.
+- **QR de tu sitio** (`/admin/qr`): todos los negocios descargan el QR básico. Desde el plan de **3 meses** se personaliza (estilo, colores, fondo y logo) y el diseño se guarda por negocio. Con el plan de 1 mes los controles aparecen bloqueados.
+
