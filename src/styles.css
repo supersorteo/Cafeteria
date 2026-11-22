@@ -24,7 +24,7 @@
   }
   *{ -webkit-tap-highlight-color:transparent; }
   html{ overflow-x:clip; }
-  body{ font-family:var(--font-ui); background:rgb(var(--bg)); color:rgb(var(--text)); overflow-x:hidden; -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }
+  body{ font-family:var(--font-ui); background:rgb(var(--bg)); color:rgb(var(--text)); overflow-x:clip; -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }
   .theme-fade body{ transition:background-color var(--dur-3), color var(--dur-3); }
 
   /* Hero: degradado atardecer alegre */

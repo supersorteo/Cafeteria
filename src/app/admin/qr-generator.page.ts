@@ -1,10 +1,11 @@
 import { Component, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
-import type { CornerDotType, CornerSquareType, DotType, Options } from 'qr-code-styling';
+import type { Options } from 'qr-code-styling';
 import { toProblem } from '../core/api-error';
 import { AuthService } from '../core/auth.service';
 import { NoticeService } from '../core/notice.service';
+import { buildQrOptions } from '../core/qr-options';
 import { DEFAULT_QR_STYLE, QrBackgroundMode, QrCornerType, QrDotType, QrStyle, QrStyleApi } from '../core/qr-style.api';
 import { QrCanvas } from '../shared/ui/qr-canvas';
 
@@ -13,35 +14,35 @@ import { QrCanvas } from '../shared/ui/qr-canvas';
   selector: 'app-qr-generator-page',
   template: `
     <section class="qr-page max-w-6xl mx-auto">
-      <header class="mb-8">
+      <header class="mb-5 md:mb-8">
         <p class="text-xs font-bold uppercase tracking-[.18em] text-primary">Herramienta del negocio</p>
-        <h1 class="mt-2 font-display text-3xl md:text-5xl font-black">Generador QR</h1>
-        <p class="mt-3 max-w-2xl text-lg font-medium text-muted">Crea un código QR para que tus clientes entren directamente a la página pública de tu comercio.</p>
+        <h1 class="mt-1 md:mt-2 font-display text-3xl md:text-5xl font-black">Generador QR</h1>
+        <p class="mt-2 md:mt-3 max-w-2xl text-sm md:text-lg font-medium text-muted">Crea un código QR para que tus clientes entren directo a tu página pública.</p>
       </header>
 
       <div class="qr-generator-layout">
-        <section class="qr-workspace card p-5 md:p-7" aria-labelledby="qr-preview-title">
-          <div class="flex items-center justify-between gap-3">
+        <section class="qr-workspace card p-4 md:p-7" aria-labelledby="qr-preview-title">
+          <div class="qr-head flex items-center justify-between gap-3">
             <div>
               <p class="text-xs font-bold uppercase tracking-wider text-muted">Vista previa</p>
-              <h2 id="qr-preview-title" class="mt-1 font-display text-2xl font-black">Tu QR listo para imprimir</h2>
+              <h2 id="qr-preview-title" class="qr-title mt-1 font-display text-xl md:text-2xl font-black">Tu QR listo para imprimir</h2>
             </div>
-            <span class="badge badge-success">Activo</span>
+            <span class="qr-badge badge badge-success shrink-0">Activo</span>
           </div>
-          <p class="mt-3 text-sm font-medium text-muted">Escanéalo con tu teléfono para probar el enlace antes de colocarlo en mesas, vidrieras o tarjetas.</p>
-          <div class="qr-stage mt-6">
+          <p class="qr-lead mt-3 hidden md:block text-sm font-medium text-muted">Escanéalo con tu teléfono para probar el enlace antes de colocarlo en mesas, vidrieras o tarjetas.</p>
+          <div class="qr-stage mt-4 md:mt-6">
             <app-qr-canvas [options]="options()" label="Vista previa del código QR" />
           </div>
-          <div class="mt-5 flex flex-wrap gap-3">
-            <button type="button" class="btn btn-primary" (click)="download('png')">Descargar PNG</button>
-            <button type="button" class="btn btn-secondary" (click)="download('svg')">Descargar SVG</button>
+          <div class="qr-actions mt-4 md:mt-5 grid grid-cols-2 gap-3 md:flex md:flex-wrap">
+            <button type="button" class="btn btn-primary w-full md:w-auto" (click)="download('png')"><span class="hidden sm:inline">Descargar&nbsp;</span>PNG</button>
+            <button type="button" class="btn btn-secondary w-full md:w-auto" (click)="download('svg')"><span class="hidden sm:inline">Descargar&nbsp;</span>SVG</button>
           </div>
         </section>
 
-        <aside class="qr-controls card p-5 md:p-7" aria-labelledby="qr-controls-title">
+        <aside class="qr-controls card p-4 md:p-7" aria-labelledby="qr-controls-title">
           <div>
             <p class="text-xs font-bold uppercase tracking-wider text-muted">Personalización</p>
-            <h2 id="qr-controls-title" class="mt-1 font-display text-2xl font-black">Ajusta el diseño</h2>
+            <h2 id="qr-controls-title" class="mt-1 font-display text-xl md:text-2xl font-black">Ajusta el diseño</h2>
           </div>
 
           @if (locked()) {
@@ -50,14 +51,14 @@ import { QrCanvas } from '../shared/ui/qr-canvas';
             </p>
           }
 
-          <label class="qr-field mt-6">
+          <label class="qr-field mt-4 md:mt-6">
             <span>Dirección del sitio</span>
-            <input class="input" type="url" [ngModel]="url()" (ngModelChange)="url.set($event)" placeholder="https://tusitio.com/mi-negocio" />
-            <small>Se carga automáticamente con la dirección pública de tu comercio.</small>
+            <input class="input" type="url" inputmode="url" autocapitalize="off" [ngModel]="url()" (ngModelChange)="url.set($event)" placeholder="https://tusitio.com/mi-negocio" />
+            <small class="hidden md:block">Se carga automáticamente con la dirección pública de tu comercio.</small>
           </label>
 
           <fieldset [disabled]="locked()" class="min-w-0 border-0 p-0 m-0" data-qr-style>
-          <div class="grid gap-4 sm:grid-cols-2 mt-5">
+          <div class="grid grid-cols-2 gap-3 md:gap-4 mt-4 md:mt-5">
             <label class="qr-field">
               <span>Estilo de puntos</span>
               <select class="input" [ngModel]="dotType()" (ngModelChange)="dotType.set($event)">
@@ -79,7 +80,7 @@ import { QrCanvas } from '../shared/ui/qr-canvas';
             </label>
           </div>
 
-          <div class="grid gap-4 sm:grid-cols-2 mt-5">
+          <div class="grid grid-cols-2 gap-3 md:gap-4 mt-4 md:mt-5">
             <label class="qr-field">
               <span>Color de puntos</span>
               <input class="input qr-color-input" type="color" [ngModel]="dotColor()" (ngModelChange)="dotColor.set($event)" />
@@ -90,16 +91,16 @@ import { QrCanvas } from '../shared/ui/qr-canvas';
             </label>
           </div>
 
-          <fieldset class="mt-5">
+          <fieldset class="mt-4 md:mt-5">
             <legend class="qr-field-label">Tipo de fondo</legend>
-            <div class="flex flex-wrap gap-2 mt-2">
+            <div class="grid grid-cols-3 gap-2 mt-2 md:flex md:flex-wrap">
               @for (mode of backgroundModes; track mode.value) {
                 <button type="button" class="qr-choice" [class.active]="backgroundMode() === mode.value" (click)="backgroundMode.set(mode.value)">{{ mode.label }}</button>
               }
             </div>
           </fieldset>
 
-          <div class="mt-6 pt-5 border-t border-line">
+          <div class="mt-4 md:mt-6 pt-4 md:pt-5 border-t border-line">
             <label class="flex items-start gap-3">
               <input type="checkbox" class="mt-1" [checked]="useLogo()" [disabled]="!logoUrl()" (change)="useLogo.set($any($event.target).checked)" data-qr-logo>
               <span>
@@ -150,25 +151,7 @@ export class QrGeneratorPage implements OnInit {
     const style: QrStyle = this.locked()
       ? DEFAULT_QR_STYLE
       : { dotType: this.dotType(), cornerType: this.cornerType(), dotColor: this.dotColor(), backgroundMode: this.backgroundMode(), backgroundColor: this.backgroundColor(), useLogo: this.useLogo() };
-    const logo = style.useLogo ? this.logoUrl() : null;
-    return {
-      type: 'svg',
-      width: 360,
-      height: 360,
-      margin: 16,
-      data: this.url().trim() || location.origin,
-      image: logo ?? undefined,
-      qrOptions: { errorCorrectionLevel: 'H' },
-      imageOptions: { hideBackgroundDots: true, imageSize: .25, margin: 8, crossOrigin: 'anonymous' },
-      dotsOptions: { type: style.dotType as DotType, color: style.dotColor },
-      cornersSquareOptions: { type: style.cornerType as CornerSquareType, color: style.dotColor },
-      cornersDotOptions: { type: style.cornerType as CornerDotType, color: style.dotColor },
-      backgroundOptions: style.backgroundMode === 'transparent'
-        ? { color: 'transparent' }
-        : style.backgroundMode === 'gradient'
-          ? { gradient: { type: 'linear', rotation: 0, colorStops: [{ offset: 0, color: style.backgroundColor }, { offset: 1, color: '#f2c46d' }] } }
-          : { color: style.backgroundColor },
-    };
+    return buildQrOptions(style, this.url().trim() || location.origin, this.logoUrl(), 360, 16);
   });
 
   async ngOnInit(): Promise<void> {
@@ -195,6 +178,7 @@ export class QrGeneratorPage implements OnInit {
         dotType: this.dotType(), cornerType: this.cornerType(), dotColor: this.dotColor(),
         backgroundMode: this.backgroundMode(), backgroundColor: this.backgroundColor(), useLogo: this.useLogo(),
       }));
+      await this.auth.refreshUser();
       this.notices.show('info', 'Diseño del QR guardado.');
     } catch (error) {
       const problem = toProblem(error);

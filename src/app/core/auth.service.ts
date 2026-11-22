@@ -10,6 +10,10 @@ export interface Me {
   role: Role;
   tenant: { id: string; slug: string; name: string; published: boolean; logoUrl: string | null };
   plan: { expiresAt: string | null; status: 'ACTIVE' | 'EXPIRED'; months?: number | null; qrCustomization?: boolean };
+  qr?: {
+    dotType: string | null; cornerType: string | null; dotColor: string | null;
+    backgroundMode: string | null; backgroundColor: string | null; useLogo: boolean;
+  };
 }
 
 export type AuthState =

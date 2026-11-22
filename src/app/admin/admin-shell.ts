@@ -17,8 +17,8 @@ import { QrThumbnail } from '../shared/ui/qr-thumbnail';
       @case ('authenticated') {
         @if (auth.user(); as user) {
           <div class="min-h-screen bg-app md:flex">
-            <aside class="side hidden md:flex flex-col sticky top-0 h-screen shrink-0 text-white p-4 gap-6" [class.side-collapsed]="collapsed()">
-              <div class="flex items-center gap-3 min-h-12">
+            <aside class="side hidden md:flex flex-col sticky top-0 shrink-0 text-white p-4 gap-4" [class.side-collapsed]="collapsed()">
+              <div class="side-head flex items-center gap-3 min-h-12 shrink-0">
                 <app-brand-mark [src]="user.tenant.logoUrl" [alt]="'Logo de ' + user.tenant.name" [size]="44" />
                 <div class="side-text min-w-0">
                   <p class="font-display text-lg font-black text-gold leading-tight break-words">{{ user.tenant.name }}</p>
@@ -26,6 +26,7 @@ import { QrThumbnail } from '../shared/ui/qr-thumbnail';
                 </div>
               </div>
 
+              <div class="side-scroll flex-1 min-h-0">
               <nav aria-label="Panel" class="flex flex-col gap-1">
                 <a routerLink="/admin" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" class="nav-link" [attr.title]="collapsed() ? 'Resumen' : null">
                   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
@@ -42,10 +43,11 @@ import { QrThumbnail } from '../shared/ui/qr-thumbnail';
                 <a [routerLink]="['/', user.tenant.slug]" [queryParams]="{ ref: 'panel' }" class="nav-link" [attr.title]="collapsed() ? 'Ver mi sitio' : null">
                   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M10 6H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/></svg>
                   <span class="side-text">Ver mi sitio</span></a>
-                <app-qr-thumbnail [url]="businessUrl(user.tenant.slug)" />
               </nav>
+              <app-qr-thumbnail class="block mt-4" [url]="businessUrl(user.tenant.slug)" />
+              </div>
 
-              <div class="mt-auto space-y-3">
+              <div class="side-foot shrink-0 space-y-3">
                 <p class="side-text text-xs text-white/70 break-all">{{ user.email }}</p>
                 <button type="button" (click)="logout()" [disabled]="loggingOut()" class="side-btn" [attr.title]="collapsed() ? 'Cerrar sesión' : null">
                   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4M15 8l4 4-4 4M19 12H9"/></svg>
@@ -96,6 +98,7 @@ import { QrThumbnail } from '../shared/ui/qr-thumbnail';
                 <p class="font-bold">{{ user.tenant.name }}</p>
                 <p class="text-sm text-muted break-all">{{ user.email }}</p>
                 <span class="badge mt-2">{{ user.role === 'OWNER' ? 'Propietario' : 'Editor' }}</span>
+                <app-qr-thumbnail class="on-light block mt-5" [url]="businessUrl(user.tenant.slug)" />
                 <a [routerLink]="['/', user.tenant.slug]" [queryParams]="{ ref: 'panel' }" class="btn btn-secondary w-full mt-5" (click)="accountOpen.set(false)">Ver mi sitio</a>
                 <div modal-footer>
                   <button type="button" class="btn btn-danger w-full" (click)="logout()" [disabled]="loggingOut()">{{ loggingOut() ? 'Saliendo…' : 'Cerrar sesión' }}</button>

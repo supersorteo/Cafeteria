@@ -1,5 +1,8 @@
-import { Component, computed, input, viewChild } from '@angular/core';
+import { Component, computed, inject, input, viewChild } from '@angular/core';
 import type { Options } from 'qr-code-styling';
+import { AuthService } from '../../core/auth.service';
+import { buildQrOptions } from '../../core/qr-options';
+import { QrStyleStore } from '../../core/qr-style.store';
 import { QrCanvas } from './qr-canvas';
 
 @Component({
@@ -16,26 +19,18 @@ import { QrCanvas } from './qr-canvas';
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
         <span class="side-text">Descargar QR</span>
       </button>
-      <span class="side-text side-qr-hint">PNG listo para imprimir</span>
+      <span class="side-text side-qr-hint">Con el diseño que guardaste</span>
     </section>
   `,
 })
 export class QrThumbnail {
   readonly url = input.required<string>();
   private readonly canvas = viewChild.required(QrCanvas);
+  private readonly auth = inject(AuthService);
+  private readonly store = inject(QrStyleStore);
 
-  protected readonly options = computed<Partial<Options>>(() => ({
-    type: 'svg',
-    width: 118,
-    height: 118,
-    margin: 4,
-    data: this.url() || location.origin,
-    qrOptions: { errorCorrectionLevel: 'H' },
-    dotsOptions: { type: 'dots', color: '#2A1420' },
-    cornersSquareOptions: { type: 'extra-rounded', color: '#2A1420' },
-    cornersDotOptions: { type: 'dot', color: '#2A1420' },
-    backgroundOptions: { color: '#ffffff' },
-  }));
+  protected readonly options = computed<Partial<Options>>(() =>
+    buildQrOptions(this.store.style(), this.url() || location.origin, this.auth.user()?.tenant.logoUrl ?? null, 118, 4));
 
   protected async download(): Promise<void> {
     await this.canvas().download('qr-deliora', 'png');

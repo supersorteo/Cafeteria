@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
+import { vi } from 'vitest';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { AuthService } from '../core/auth.service';
 import { NoticeService } from '../core/notice.service';
@@ -16,6 +17,7 @@ describe('QrGeneratorPage', () => {
   let notices: NoticeService;
   const canCustomize = signal(true);
   const canEdit = signal(true);
+  const refreshUser = vi.fn().mockResolvedValue(undefined);
   const user = signal(makeMe({ tenant: { id: 't1', slug: 'negocio-a', name: 'Negocio A', published: true, logoUrl: '/media/logo' } }));
 
   const root = () => fixture.nativeElement as HTMLElement;
@@ -36,11 +38,12 @@ describe('QrGeneratorPage', () => {
   beforeEach(() => {
     canCustomize.set(true);
     canEdit.set(true);
+    refreshUser.mockClear();
     TestBed.configureTestingModule({
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: AuthService, useValue: { user, canCustomizeQr: canCustomize, canEditSite: canEdit } },
+        { provide: AuthService, useValue: { user, canCustomizeQr: canCustomize, canEditSite: canEdit, refreshUser } },
       ],
     });
     http = TestBed.inject(HttpTestingController);
@@ -79,6 +82,7 @@ describe('QrGeneratorPage', () => {
     expect(request.request.body).toEqual({
       dotType: 'classy', cornerType: 'square', dotColor: '#111827', backgroundMode: 'solid', backgroundColor: '#FFFFFF', useLogo: false,
     });
+    expect(refreshUser).toHaveBeenCalledTimes(1);
     expect(notices.notice()?.text).toContain('Diseño del QR guardado');
   });
 
