@@ -4,6 +4,7 @@ import { Observable, firstValueFrom } from 'rxjs';
 import { ApiProblem, isConnectionProblem, toProblem } from '../../core/api-error';
 import { CatalogApi } from '../../core/catalog.api';
 import { Category, ItemPayload, MenuItem, SiteSettings, UploadEvent } from '../../core/catalog.models';
+import { IngredientsStore } from './ingredients.store';
 import { NoticeService } from '../../core/notice.service';
 
 export type Result<T = void> = { ok: true; value: T } | { ok: false; problem: ApiProblem };
@@ -17,6 +18,7 @@ export interface ItemValues {
   price: number;
   tag: string;
   active: boolean;
+  ingredientIds: string[];
 }
 
 export const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -37,6 +39,7 @@ export class MenuStore {
   private readonly api = inject(CatalogApi);
   private readonly notices = inject(NoticeService);
   private readonly auth = inject(AuthService);
+  private readonly ingredientStore = inject(IngredientsStore);
 
   readonly locked = computed(() => this.auth.planExpired());
   private itemsRequest = 0;
@@ -57,6 +60,7 @@ export class MenuStore {
   readonly itemsState = signal<'idle' | 'loading' | 'ready' | 'error'>('idle');
 
   readonly editor = signal<{ item: MenuItem | null } | null>(null);
+  readonly ingredients = this.ingredientStore.ingredients;
 
   readonly priceFormatter = computed(() => {
     const settings = this.settings();
@@ -228,8 +232,21 @@ export class MenuStore {
         this.page.set(0);
       }
       await this.loadItems();
+      this.ingredientStore.setForItem(saved.id, values.ingredientIds);
       return saved;
     });
+  }
+
+  ingredientsFor(itemId: string): string[] {
+    return this.ingredientStore.idsForItem(itemId);
+  }
+
+  ingredientNamesFor(itemId: string): string[] {
+    return this.ingredientStore.namesForItem(itemId);
+  }
+
+  setItemIngredients(itemId: string, ingredientIds: string[]): void {
+    this.ingredientStore.setForItem(itemId, ingredientIds);
   }
 
   async toggleActive(item: MenuItem): Promise<Result<MenuItem>> {

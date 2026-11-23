@@ -4,9 +4,10 @@ import { CategoryPanel } from './category-panel';
 import { MenuStore } from './menu.store';
 import { ProductForm } from './product-form';
 import { ProductPanel } from './product-panel';
+import { IngredientsPanel } from './ingredients-panel';
 
 @Component({
-  imports: [CategoryPanel, ProductPanel, ProductForm, RouterLink],
+  imports: [CategoryPanel, ProductPanel, ProductForm, IngredientsPanel, RouterLink],
   selector: 'app-menu-page',
   providers: [MenuStore],
   template: `
@@ -14,6 +15,10 @@ import { ProductPanel } from './product-panel';
       <a routerLink="/admin/setup" [queryParams]="{ paso: 'menu' }" data-back-setup class="btn btn-secondary btn-sm mb-4">← Volver a la configuración</a>
     }
     <h1 class="font-display text-3xl md:text-4xl font-black">Carta</h1>
+
+    <div class="mt-6">
+      <app-ingredients-panel />
+    </div>
 
     @switch (store.categoriesState()) {
       @case ('ready') {
