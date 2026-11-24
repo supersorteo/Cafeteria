@@ -20,7 +20,7 @@ import { MenuStore } from './menu.store';
       <form class="mt-5 flex flex-col gap-3 sm:flex-row" (submit)="save($event)">
         <label class="sr-only" for="ingredient-name">Nombre del ingrediente</label>
         <input id="ingredient-name" class="input flex-1" maxlength="80" [value]="draftName()" (input)="draftName.set(value($event))" [placeholder]="editing() ? 'Nuevo nombre' : 'Ej. Tomate cherry'" />
-        <button type="submit" class="btn btn-primary" [disabled]="menu.locked() || !draftName().trim()">{{ editing() ? 'Guardar cambio' : 'Agregar ingrediente' }}</button>
+        <button type="submit" class="btn btn-primary" [disabled]="menu.locked() || store.busy() || !draftName().trim()">{{ editing() ? 'Guardar cambio' : 'Agregar ingrediente' }}</button>
         @if (editing()) {
           <button type="button" class="btn btn-secondary" (click)="cancelEdit()">Cancelar</button>
         }
@@ -67,8 +67,11 @@ export class IngredientsPanel {
     return (event.target as HTMLInputElement).value;
   }
 
-  protected save(event: Event): void {
+  protected async save(event: Event): Promise<void> {
     event.preventDefault();
+    if (this.store.busy()) {
+      return;
+    }
     const name = this.draftName().trim();
     if (!name) {
       this.error.set('Escribe el nombre del ingrediente.');
@@ -80,10 +83,10 @@ export class IngredientsPanel {
       return;
     }
     const current = this.editing();
-    if (current) {
-      this.store.update(current.id, name);
-    } else {
-      this.store.create(name);
+    const failure = current ? await this.store.update(current.id, name) : await this.store.create(name);
+    if (failure) {
+      this.error.set(failure);
+      return;
     }
     this.cancelEdit();
   }
@@ -100,11 +103,16 @@ export class IngredientsPanel {
     this.error.set(null);
   }
 
-  protected remove(ingredient: { id: string; name: string }): void {
-    this.store.remove(ingredient.id);
+  protected async remove(ingredient: { id: string; name: string }): Promise<void> {
+    const failure = await this.store.remove(ingredient.id);
     this.pendingDelete.set(null);
+    if (failure) {
+      this.error.set(failure);
+      return;
+    }
     if (this.editing()?.id === ingredient.id) {
       this.cancelEdit();
     }
+    void this.menu.loadItems();
   }
 }

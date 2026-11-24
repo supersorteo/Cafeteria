@@ -5,11 +5,39 @@ import { toProblem } from './api-error';
 
 export type Role = 'OWNER' | 'EDITOR';
 
+export interface PlanLimits {
+  code: string;
+  name: string;
+  maxMenuItems: number;
+  maxActiveCoupons: number;
+  maxGallery: number;
+  maxTableQr: number;
+  fullBranding: boolean;
+  advancedCoupons: boolean;
+  tableQr: boolean;
+  prioritySupport: boolean;
+  stats: boolean;
+}
+
+export interface PlanUsage {
+  menuItems: number;
+  activeCoupons: number;
+  gallery: number;
+}
+
 export interface Me {
   email: string;
   role: Role;
   tenant: { id: string; slug: string; name: string; published: boolean; logoUrl: string | null };
-  plan: { expiresAt: string | null; status: 'ACTIVE' | 'EXPIRED'; months?: number | null; qrCustomization?: boolean };
+  plan: {
+    expiresAt: string | null;
+    status: 'ACTIVE' | 'EXPIRED';
+    months?: number | null;
+    qrCustomization?: boolean;
+    planCode?: string;
+    limits?: PlanLimits;
+    usage?: PlanUsage;
+  };
   qr?: {
     dotType: string | null; cornerType: string | null; dotColor: string | null;
     backgroundMode: string | null; backgroundColor: string | null; useLogo: boolean;
@@ -38,7 +66,10 @@ export class AuthService {
   readonly isOwner = computed(() => this.user()?.role === 'OWNER');
   readonly planExpired = computed(() => this.user()?.plan?.status === 'EXPIRED');
   readonly canEditSite = computed(() => this.isOwner() && !this.planExpired());
-  readonly canCustomizeQr = computed(() => this.user()?.plan?.qrCustomization ?? true);
+  readonly limits = computed(() => this.user()?.plan?.limits ?? null);
+  readonly usage = computed(() => this.user()?.plan?.usage ?? null);
+  readonly fullBranding = computed(() => this.limits()?.fullBranding ?? true);
+  readonly advancedCoupons = computed(() => this.limits()?.advancedCoupons ?? true);
 
   ensureInitialized(): Promise<void> {
     return (this.initialization ??= this.restore());

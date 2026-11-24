@@ -1,4 +1,4 @@
-import { Component, Directive, inject } from '@angular/core';
+import { Component, Directive, computed, inject } from '@angular/core';
 import { AutosizeDirective } from '../../shared/ui/autosize.directive';
 import { HighlightTitle } from '../../shared/ui/highlight-title';
 import { FormArray, NonNullableFormBuilder, ReactiveFormsModule } from '@angular/forms';
@@ -10,6 +10,7 @@ import { SiteImagesEditor } from '../site/site-images-editor';
 import { SiteSettingsStore } from './site-settings.store';
 import { SpacesEditor } from './spaces-editor';
 import { BRAND_FONT_OPTIONS } from '../../core/site-branding';
+import { AuthService } from '../../core/auth.service';
 
 @Directive()
 abstract class StepForm {
@@ -109,6 +110,12 @@ export class StepBasicsForm extends StepForm {
         </div>
       </app-field>
     </div>
+    @if (brandLocked()) {
+      <p class="mt-6 rounded-ui-md bg-surface-2 p-3 text-sm font-bold" data-brand-locked>
+        Las fuentes y los colores avanzados son del plan Profesional. Con tu plan puedes elegir el logo y los dos colores principales.
+      </p>
+    }
+    <fieldset class="m-0 min-w-0 border-0 p-0" [disabled]="brandLocked()" data-brand-advanced>
     <div class="mt-6 grid sm:grid-cols-2 gap-5">
       <app-field label="Fuente de tu página" forId="s-font-family" hint="Elige una de las 8 combinaciones disponibles.">
         <select id="s-font-family" [formControl]="form.controls.fontFamily" class="input">
@@ -136,9 +143,12 @@ export class StepBasicsForm extends StepForm {
         }
       </div>
     </div>
+    </fieldset>
   `,
 })
 export class StepBrandForm extends StepForm {
+  private readonly auth = inject(AuthService);
+  protected readonly brandLocked = computed(() => !this.auth.fullBranding());
   protected readonly fontOptions = BRAND_FONT_OPTIONS;
   protected readonly advancedColors = [
     { control: 'businessTitleColor', label: 'Título del negocio' },

@@ -75,8 +75,8 @@ const FILTERS: { id: ItemFilter; label: string }[] = [
                       @if (item.description) {
                         <p class="mt-1.5 text-sm font-medium line-clamp-2 text-muted">{{ item.description }}</p>
                       }
-                      @if (store.ingredientNamesFor(item.id).length > 0) {
-                        <p class="mt-2 text-xs font-semibold text-muted"><span class="text-primary">Ingredientes:</span> {{ store.ingredientNamesFor(item.id).join(' · ') }}</p>
+                      @if (item.ingredients?.length) {
+                        <p class="mt-2 text-xs font-semibold text-muted" data-item-ingredients><span class="text-primary">Ingredientes:</span> {{ ingredientNames(item) }}</p>
                       }
                     </div>
                     <div class="pcard-actions">
@@ -127,6 +127,10 @@ export class ProductPanel {
   private readonly notices = inject(NoticeService);
 
   protected readonly filters = FILTERS;
+
+  protected ingredientNames(item: MenuItem): string {
+    return (item.ingredients ?? []).map(ingredient => ingredient.name).join(' · ');
+  }
   protected readonly deleting = signal<MenuItem | null>(null);
   protected readonly busy = signal(false);
   protected readonly busyId = signal<string | null>(null);

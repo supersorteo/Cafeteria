@@ -8,7 +8,7 @@ export class QrStyleStore {
 
   readonly style = computed<QrStyle>(() => {
     const saved = this.auth.user()?.qr;
-    if (!saved || !this.auth.canCustomizeQr()) {
+    if (!saved) {
       return DEFAULT_QR_STYLE;
     }
     return {

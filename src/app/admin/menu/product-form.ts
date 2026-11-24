@@ -303,7 +303,7 @@ export class ProductForm implements OnInit, OnDestroy {
       tag: item?.tag ?? '',
       active: item?.active ?? true,
     });
-    this.selectedIngredientIds.set(item ? this.store.ingredientsFor(item.id) : []);
+    this.selectedIngredientIds.set(item ? (item.ingredients ?? []).map(ingredient => ingredient.id) : []);
     if (this.pendingUploadId) {
       this.image.set({ url: this.pendingUploadUrl });
       this.removeImage.set(false);

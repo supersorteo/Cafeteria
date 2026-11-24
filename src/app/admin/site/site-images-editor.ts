@@ -1,6 +1,7 @@
 import { Component, DestroyRef, computed, effect, inject, input, output, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { isConnectionProblem, toProblem } from '../../core/api-error';
+import { AuthService } from '../../core/auth.service';
 import { CatalogApi } from '../../core/catalog.api';
 import { SiteAdminApi } from '../../core/site-admin.api';
 import { SiteImages, SiteSettingsDetail } from '../../core/site-admin.models';
@@ -98,7 +99,7 @@ export const MAX_GALLERY = 6;
 
         @if (blocks().includes('gallery')) {
         <div>
-          <h3 class="text-xs font-bold uppercase tracking-wider text-muted">Más fotos del ambiente ({{ gallery().length }}/{{ maxGallery }})</h3>
+          <h3 class="text-xs font-bold uppercase tracking-wider text-muted">Más fotos del ambiente ({{ gallery().length }}/{{ galleryLimit() }})</h3>
           <ul class="mt-3 grid sm:grid-cols-2 gap-4">
             @for (slot of gallery(); track slot.id; let index = $index; let first = $first; let last = $last) {
               <li class="flex gap-3 items-start">
@@ -120,8 +121,8 @@ export const MAX_GALLERY = 6;
           </ul>
           @if (!readonly()) {
             <label for="img-gallery" class="btn btn-secondary btn-sm mt-3"
-                   [class.opacity-40]="gallery().length >= maxGallery" [class.cursor-pointer]="gallery().length < maxGallery">+ Añadir imagen</label>
-            <input id="img-gallery" type="file" class="sr-only" [accept]="accepted" [disabled]="uploading() !== null || gallery().length >= maxGallery" (change)="choose('gallery', $event)">
+                   [class.opacity-40]="gallery().length >= galleryLimit()" [class.cursor-pointer]="gallery().length < galleryLimit()">+ Añadir imagen</label>
+            <input id="img-gallery" type="file" class="sr-only" [accept]="accepted" [disabled]="uploading() !== null || gallery().length >= galleryLimit()" (change)="choose('gallery', $event)">
           }
         </div>
         }
@@ -165,7 +166,8 @@ export class SiteImagesEditor {
 
   protected readonly accepted = ACCEPTED_IMAGE_TYPES.join(',');
   protected readonly maxAbout = MAX_ABOUT;
-  protected readonly maxGallery = MAX_GALLERY;
+  private readonly auth = inject(AuthService);
+  protected readonly galleryLimit = computed(() => this.auth.limits()?.maxGallery ?? MAX_GALLERY);
   protected readonly hero = signal<Slot | null>(null);
   protected readonly logo = signal<Slot | null>(null);
   protected readonly about = signal<Slot[]>([]);
@@ -306,7 +308,7 @@ export class SiteImagesEditor {
     } else if (block === 'about') {
       this.about.update(list => [...list, slot].slice(0, MAX_ABOUT));
     } else {
-      this.gallery.update(list => [...list, slot].slice(0, MAX_GALLERY));
+      this.gallery.update(list => [...list, slot].slice(0, this.galleryLimit()));
     }
     this.dirty.set(true);
   }

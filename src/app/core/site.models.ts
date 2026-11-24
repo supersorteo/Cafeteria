@@ -29,6 +29,19 @@ export interface SiteSpace {
   bookable: boolean;
 }
 
+export interface SiteCoupon {
+  id: string;
+  code: string;
+  type: 'DESCUENTO' | 'VIGENCIA' | 'CAMBIO' | 'REGALO' | 'OTRO';
+  title: string;
+  benefit: string;
+  validity: string | null;
+  endsOn: string | null;
+  schedule: string | null;
+  featured: boolean;
+  remaining: number | null;
+}
+
 export interface SiteData {
   slug: string;
   name: string;
@@ -61,4 +74,5 @@ export interface SiteData {
   reservation: { areas: string[]; partySizes: string[] };
   categories: SiteCategory[];
   reservationsEnabled: boolean;
+  coupons?: SiteCoupon[];
 }

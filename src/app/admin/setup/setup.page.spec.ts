@@ -63,7 +63,7 @@ describe('SetupPage (asistente)', () => {
         ]),
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: AuthService, useValue: { isOwner: owner, canEditSite: owner, planExpired: signal(false) } },
+        { provide: AuthService, useValue: { isOwner: owner, canEditSite: owner, planExpired: signal(false), fullBranding: signal(true), limits: signal(null) } },
       ],
     });
     harness = await RouterTestingHarness.create();

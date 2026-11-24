@@ -15,6 +15,7 @@ describe('MenuPage (vuelta al asistente)', () => {
   async function open(url: string) {
     await harness.navigateByUrl(url);
     await answer(http, `${ADMIN}/site`, { currency: 'UYU', locale: 'es-UY', slug: 'negocio-a' });
+    await answer(http, `${ADMIN}/ingredients`, []);
     await answer(http, `${ADMIN}/categories`, []);
     await settle();
     harness.detectChanges();

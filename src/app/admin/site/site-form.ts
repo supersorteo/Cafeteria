@@ -134,7 +134,9 @@ export function applySettings(form: SiteForm, fb: NonNullableFormBuilder, settin
   }
 }
 
-export function toPayload(form: SiteForm, version: number): SiteSettingsPayload {
+const ADVANCED_BRAND = ['businessTitleColor', 'backgroundColor', 'footerColor', 'headingColor', 'paragraphColor', 'whatsappColor', 'marqueeColor', 'fontFamily'] as const;
+
+export function toPayload(form: SiteForm, version: number, stored?: Pick<SiteSettingsPayload, (typeof ADVANCED_BRAND)[number]>): SiteSettingsPayload {
   const value = form.getRawValue();
   const blank = (text: string): string | null => text.trim() || null;
   return {
@@ -175,6 +177,7 @@ export function toPayload(form: SiteForm, version: number): SiteSettingsPayload 
       bookable: space.bookable,
     })),
     version,
+    ...(stored ? Object.fromEntries(ADVANCED_BRAND.map(key => [key, stored[key] ?? null])) : {}),
   };
 }
 

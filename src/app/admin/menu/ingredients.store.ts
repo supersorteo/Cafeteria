@@ -1,42 +1,71 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
+import { isConnectionProblem, toProblem } from '../../core/api-error';
 import { Ingredient } from '../../core/catalog.models';
+import { IngredientsApi } from '../../core/ingredients.api';
 
-@Injectable({ providedIn: 'root' })
+@Injectable()
 export class IngredientsStore {
+  private readonly api = inject(IngredientsApi);
+
   readonly ingredients = signal<Ingredient[]>([]);
-  private readonly itemIngredientIds = signal<Record<string, string[]>>({});
+  readonly state = signal<'loading' | 'ready' | 'error'>('loading');
+  readonly busy = signal(false);
 
-  create(name: string): Ingredient {
-    const ingredient = { id: `ingredient-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name: name.trim() };
-    this.ingredients.update(list => [...list, ingredient]);
-    return ingredient;
+  async load(): Promise<void> {
+    this.state.set('loading');
+    try {
+      this.ingredients.set(await firstValueFrom(this.api.list()));
+      this.state.set('ready');
+    } catch {
+      this.state.set('error');
+    }
   }
 
-  update(id: string, name: string): void {
-    this.ingredients.update(list => list.map(ingredient => ingredient.id === id ? { ...ingredient, name: name.trim() } : ingredient));
-  }
-
-  remove(id: string): void {
-    this.ingredients.update(list => list.filter(ingredient => ingredient.id !== id));
-    this.itemIngredientIds.update(items => {
-      const next = { ...items };
-      for (const [itemId, ids] of Object.entries(next)) {
-        next[itemId] = ids.filter(ingredientId => ingredientId !== id);
-      }
-      return next;
+  async create(name: string): Promise<string | null> {
+    return this.run(async () => {
+      const created = await firstValueFrom(this.api.create(name));
+      this.ingredients.update(list => this.sorted([...list, created]));
     });
   }
 
-  setForItem(itemId: string, ingredientIds: string[]): void {
-    this.itemIngredientIds.update(items => ({ ...items, [itemId]: [...ingredientIds] }));
+  async update(id: string, name: string): Promise<string | null> {
+    return this.run(async () => {
+      const updated = await firstValueFrom(this.api.update(id, name));
+      this.ingredients.update(list => this.sorted(list.map(item => (item.id === id ? updated : item))));
+    });
   }
 
-  idsForItem(itemId: string): string[] {
-    return this.itemIngredientIds()[itemId] ?? [];
+  async remove(id: string): Promise<string | null> {
+    return this.run(async () => {
+      await firstValueFrom(this.api.remove(id));
+      this.ingredients.update(list => list.filter(item => item.id !== id));
+    });
   }
 
-  namesForItem(itemId: string): string[] {
-    const byId = new Map(this.ingredients().map(ingredient => [ingredient.id, ingredient.name]));
-    return this.idsForItem(itemId).map(id => byId.get(id)).filter((name): name is string => !!name);
+  private async run(action: () => Promise<void>): Promise<string | null> {
+    this.busy.set(true);
+    try {
+      await action();
+      return null;
+    } catch (error) {
+      const problem = toProblem(error);
+      if (problem.code === 'duplicate_ingredient') {
+        return 'Ese ingrediente ya existe.';
+      }
+      if (problem.code === 'limit_reached') {
+        return 'Alcanzaste el máximo de 100 ingredientes.';
+      }
+      if (problem.code === 'plan_expired') {
+        return 'Tu plan venció. Renuévalo para hacer cambios.';
+      }
+      return isConnectionProblem(problem) ? 'Problema de conexión. Inténtalo de nuevo.' : 'No se pudo completar la acción.';
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  private sorted(list: Ingredient[]): Ingredient[] {
+    return [...list].sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
   }
 }

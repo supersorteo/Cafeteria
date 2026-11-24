@@ -1,5 +1,6 @@
 import { Component, ElementRef, OnDestroy, afterNextRender, effect, input, viewChild } from '@angular/core';
-import QRCodeStyling, { type FileExtension, type Options } from 'qr-code-styling';
+import type QRCodeStyling from 'qr-code-styling';
+import type { FileExtension, Options } from 'qr-code-styling';
 
 @Component({
   selector: 'app-qr-canvas',
@@ -11,10 +12,15 @@ export class QrCanvas implements OnDestroy {
   readonly label = input('Código QR');
   private readonly container = viewChild.required<ElementRef<HTMLDivElement>>('container');
   private qr: QRCodeStyling | null = null;
+  private destroyed = false;
 
   constructor() {
-    afterNextRender(() => {
-      this.qr = new QRCodeStyling(this.options());
+    afterNextRender(async () => {
+      const { default: Styling } = await import('qr-code-styling');
+      if (this.destroyed) {
+        return;
+      }
+      this.qr = new Styling(this.options());
       this.qr.append(this.container().nativeElement);
     });
     effect(() => {
@@ -24,6 +30,7 @@ export class QrCanvas implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
     this.qr = null;
   }
 

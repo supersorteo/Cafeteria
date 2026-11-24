@@ -59,6 +59,7 @@ describe('MenuPage', () => {
     fixture = TestBed.createComponent(MenuPage);
     fixture.detectChanges();
     await answer(http, `${ADMIN}/site`, { currency: 'UYU', locale: 'es-UY', slug: 'negocio-a' });
+    await answer(http, `${ADMIN}/ingredients`, []);
     await answer(http, `${ADMIN}/categories`, categories);
     if (categories.length > 0) {
       await answerItems(categories[0].id, pageOf(items));
@@ -98,6 +99,7 @@ describe('MenuPage', () => {
       fixture = TestBed.createComponent(MenuPage);
       fixture.detectChanges();
       await answer(http, `${ADMIN}/site`, {}, { status: 500, statusText: 'Error' });
+      await answer(http, `${ADMIN}/ingredients`, []);
       await answer(http, `${ADMIN}/categories`, {}, { status: 500, statusText: 'Error' });
       await ui();
       expect(root().querySelector('[role="alert"]')?.textContent).toContain('No pudimos cargar tu carta');
@@ -113,6 +115,7 @@ describe('MenuPage', () => {
       fixture = TestBed.createComponent(MenuPage);
       fixture.detectChanges();
       await answer(http, `${ADMIN}/site`, { currency: 'UYU', locale: 'es-UY', slug: 'a' });
+      await answer(http, `${ADMIN}/ingredients`, []);
       await answer(http, `${ADMIN}/categories`, [C1]);
       await answerMatching(http, itemsUrl('c1'), 'items', {}, { status: 500, statusText: 'Error' });
       await ui();
@@ -422,7 +425,7 @@ describe('MenuPage', () => {
       await ui();
 
       expect(request.request.body).toEqual({
-        categoryId: 'c1', name: 'Negroni', description: null, price: 180.5, tag: null, active: true, version: null,
+        categoryId: 'c1', name: 'Negroni', description: null, price: 180.5, tag: null, active: true, version: null, ingredientIds: [],
       });
       expect(root().querySelector('[role="dialog"]')).toBeNull();
       expect(text()).toContain('Negroni');

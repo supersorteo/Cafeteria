@@ -65,6 +65,8 @@ describe('PlanBanner', () => {
           provide: AuthService,
           useValue: {
             user,
+            limits: () => user()?.plan?.limits ?? null,
+            usage: () => user()?.plan?.usage ?? null,
             isOwner: () => user()?.role === 'OWNER',
             planExpired: () => user()?.plan.status === 'EXPIRED',
             ensureCsrf: () => fetch('/api/v1/auth/csrf').catch(() => undefined),
@@ -169,5 +171,11 @@ describe('PlanBanner', () => {
     expect((dialog()!.querySelector('[data-confirm]') as HTMLButtonElement).disabled).toBe(true);
     http.expectNone('/api/v1/admin/plan/redeem');
     await answerCsrf(http).catch(() => undefined);
+  });
+  it('should warn when the dishes or active coupons are near the plan limit', async () => {
+    const limits = { code: 'EMPRENDEDOR', name: 'Emprendedor', maxMenuItems: 50, maxActiveCoupons: 15, maxGallery: 6, maxTableQr: 0, fullBranding: false, advancedCoupons: false, tableQr: false, prioritySupport: false, stats: false };
+    const fixture = await render(makeMe({ plan: { expiresAt: null, status: 'ACTIVE', limits, usage: { menuItems: 41, activeCoupons: 2, gallery: 0 } } }));
+    await ui(fixture);
+    expect(el(fixture).querySelector('[data-plan-near-limit]')?.textContent).toContain('41 de 50 platos de tu plan Emprendedor');
   });
 });

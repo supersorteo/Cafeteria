@@ -221,6 +221,7 @@ export class MenuStore {
       tag: values.tag.trim() || null,
       active: values.active,
       version: editing?.version ?? null,
+      ingredientIds: values.ingredientIds,
       ...image,
     };
     return this.run(async () => {
@@ -232,21 +233,8 @@ export class MenuStore {
         this.page.set(0);
       }
       await this.loadItems();
-      this.ingredientStore.setForItem(saved.id, values.ingredientIds);
       return saved;
     });
-  }
-
-  ingredientsFor(itemId: string): string[] {
-    return this.ingredientStore.idsForItem(itemId);
-  }
-
-  ingredientNamesFor(itemId: string): string[] {
-    return this.ingredientStore.namesForItem(itemId);
-  }
-
-  setItemIngredients(itemId: string, ingredientIds: string[]): void {
-    this.ingredientStore.setForItem(itemId, ingredientIds);
   }
 
   async toggleActive(item: MenuItem): Promise<Result<MenuItem>> {

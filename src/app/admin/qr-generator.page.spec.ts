@@ -15,7 +15,6 @@ describe('QrGeneratorPage', () => {
   let http: HttpTestingController;
   let fixture: ComponentFixture<QrGeneratorPage>;
   let notices: NoticeService;
-  const canCustomize = signal(true);
   const canEdit = signal(true);
   const refreshUser = vi.fn().mockResolvedValue(undefined);
   const user = signal(makeMe({ tenant: { id: 't1', slug: 'negocio-a', name: 'Negocio A', published: true, logoUrl: '/media/logo' } }));
@@ -36,14 +35,13 @@ describe('QrGeneratorPage', () => {
   }
 
   beforeEach(() => {
-    canCustomize.set(true);
     canEdit.set(true);
     refreshUser.mockClear();
     TestBed.configureTestingModule({
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: AuthService, useValue: { user, canCustomizeQr: canCustomize, canEditSite: canEdit, refreshUser } },
+        { provide: AuthService, useValue: { user, canEditSite: canEdit, refreshUser } },
       ],
     });
     http = TestBed.inject(HttpTestingController);
@@ -62,7 +60,6 @@ describe('QrGeneratorPage', () => {
     expect(selects[0].value).toBe('rounded');
     expect(selects[1].value).toBe('extra-rounded');
     expect((root().querySelector('[data-qr-logo]') as HTMLInputElement).checked).toBe(true);
-    expect(root().querySelector('[data-qr-locked]')).toBeNull();
   });
 
   it('should keep the defaults when nothing was saved yet', async () => {
@@ -84,15 +81,6 @@ describe('QrGeneratorPage', () => {
     });
     expect(refreshUser).toHaveBeenCalledTimes(1);
     expect(notices.notice()?.text).toContain('Diseño del QR guardado');
-  });
-
-  it('should explain it when the plan does not include customizing, lock the controls and offer no save', async () => {
-    canCustomize.set(false);
-    await open({ useLogo: false, customizable: false });
-
-    expect(root().querySelector('[data-qr-locked]')?.textContent).toContain('desde el plan de 3 meses');
-    expect((root().querySelector('[data-qr-style]') as HTMLFieldSetElement).disabled).toBe(true);
-    expect(root().querySelector('[data-qr-save]')).toBeNull();
   });
 
   it('should let an editor try the design but not save it', async () => {

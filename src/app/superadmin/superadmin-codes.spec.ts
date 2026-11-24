@@ -246,7 +246,7 @@ describe('SuperAdminCodes', () => {
 
   it('should generate a batch, show the codes and refresh the list', async () => {
     await open();
-    (root().querySelector('#gen-duration') as HTMLSelectElement).value = '12';
+    (root().querySelector('#gen-duration') as HTMLSelectElement).value = '1';
     (root().querySelector('#gen-duration') as HTMLSelectElement).dispatchEvent(new Event('change'));
     set('#gen-quantity', '2');
     set('#gen-label', 'Promo anual');
@@ -256,15 +256,15 @@ describe('SuperAdminCodes', () => {
     await ui();
     (dialog()!.querySelector('[data-confirm]') as HTMLElement).click();
     const request = await answerMatching(http, r => r.url === `${API}/batches` && r.method === 'POST', 'POST batch',
-      { id: 'b9', label: 'Promo anual', durationMonths: 12, codes: ['DLR-AAAA-1111', 'DLR-BBBB-2222'] });
+      { id: 'b9', label: 'Promo anual', durationMonths: 1, codes: ['DLR-AAAA-1111', 'DLR-BBBB-2222'] });
     await answerMatching(http, r => r.url === API, 'reload', page([code()]));
     await answer(http, `${API}/stats`, stats);
     await answer(http, `${API}/batches`, batches);
     await ui();
 
-    expect(request.request.body).toEqual({ label: 'Promo anual', durationMonths: 12, quantity: 2, note: '' });
+    expect(request.request.body).toEqual({ label: 'Promo anual', durationMonths: 1, quantity: 2, note: '', planCode: 'PROFESIONAL' });
     expect(root().querySelector('[data-generated-codes]')?.textContent).toContain('DLR-AAAA-1111');
-    expect(root().querySelector('[data-generated]')?.textContent).toContain('2 códigos de 1 año');
+    expect(root().querySelector('[data-generated]')?.textContent).toContain('2 códigos Profesional de 1 mes');
   });
 
   it('should not send a batch with an invalid quantity', async () => {
@@ -305,9 +305,9 @@ describe('SuperAdminCodes', () => {
     await ui();
 
     const duration = root().querySelector('[data-code-duration]') as HTMLSelectElement;
-    duration.value = '6';
+    duration.value = '1';
     duration.dispatchEvent(new Event('change'));
-    await answerMatching(http, r => r.url === API && r.params.get('durationMonths') === '6', 'duration', page([]));
+    await answerMatching(http, r => r.url === API && r.params.get('durationMonths') === '1', 'duration', page([]));
     await ui();
     expect(root().textContent).toContain('Sin códigos');
 

@@ -5,7 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { isConnectionProblem, toProblem } from '../core/api-error';
 import { NoticeService } from '../core/notice.service';
 import {
-  ActivationCode, CodeBatch, CodeFilters, CodePage, CodeStats, CodeStatusFilter, DURATIONS, GeneratedBatch, SuperAdminApi,
+  ActivationCode, CodeBatch, CodeFilters, CodePage, CodeStats, CodeStatusFilter, DURATIONS, DURATION_LABELS, GeneratedBatch, PLAN_OPTIONS, SuperAdminApi,
 } from '../core/superadmin.api';
 import { ConfirmDialog } from '../shared/confirm-dialog';
 import { EmptyState } from '../shared/ui/empty-state';
@@ -34,7 +34,13 @@ const STATUS_LABELS: Record<string, string> = { AVAILABLE: 'Disponible', REDEEME
     <section aria-label="Generar lote" class="card p-4 sm:p-5 mt-6" data-generate>
       <h2 class="font-display text-xl font-black">Generar un lote de códigos</h2>
       <p class="text-sm font-medium text-muted mt-1">Cada código sirve una sola vez. El plazo empieza cuando el cliente lo canjea.</p>
-      <form class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 items-end" (ngSubmit)="askGenerate()" #batchForm="ngForm">
+      <form class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5 items-end" (ngSubmit)="askGenerate()" #batchForm="ngForm">
+        <div>
+          <label for="gen-plan" class="text-xs font-bold uppercase tracking-wider text-muted">Plan</label>
+          <select id="gen-plan" name="plan" class="input mt-2" data-gen-plan [ngModel]="genPlan()" (ngModelChange)="genPlan.set($event)">
+            @for (p of plans; track p.code) { <option [value]="p.code">{{ p.label }}</option> }
+          </select>
+        </div>
         <div>
           <label for="gen-duration" class="text-xs font-bold uppercase tracking-wider text-muted">Duración</label>
           <select id="gen-duration" name="duration" class="input mt-2" [ngModel]="genDuration()" (ngModelChange)="genDuration.set(+$event)">
@@ -56,7 +62,7 @@ const STATUS_LABELS: Record<string, string> = { AVAILABLE: 'Disponible', REDEEME
       @if (generated(); as batch) {
         <div class="mt-5 rounded-ui-lg border border-line p-4" data-generated>
           <div class="flex flex-wrap items-center justify-between gap-3">
-            <p class="font-bold">Lote «{{ batch.label }}»: {{ batch.codes.length }} código{{ batch.codes.length === 1 ? '' : 's' }} de {{ durationLabel(batch.durationMonths) }}</p>
+            <p class="font-bold">Lote «{{ batch.label }}»: {{ batch.codes.length }} código{{ batch.codes.length === 1 ? '' : 's' }} {{ planLabel(batch.planCode) }} de {{ durationLabel(batch.durationMonths) }}</p>
             <div class="flex gap-2">
               <button type="button" class="btn btn-secondary btn-sm" data-copy-all (click)="copyAll(batch)">Copiar todos</button>
               <button type="button" class="btn btn-secondary btn-sm" data-download (click)="download(batch)">Descargar CSV</button>
@@ -89,7 +95,7 @@ const STATUS_LABELS: Record<string, string> = { AVAILABLE: 'Disponible', REDEEME
         </select>
         <select class="input" aria-label="Filtrar por lote" data-code-batch [ngModel]="filters().batchId" (ngModelChange)="setBatch($event)">
           <option value="">Todos los lotes</option>
-          @for (b of batches(); track b.id) { <option [value]="b.id">{{ b.label }} · {{ durationLabel(b.durationMonths) }} · {{ b.available }}/{{ b.quantity }} libres</option> }
+          @for (b of batches(); track b.id) { <option [value]="b.id">{{ b.label }} · {{ planLabel(b.planCode) }} · {{ durationLabel(b.durationMonths) }} · {{ b.available }}/{{ b.quantity }} libres</option> }
         </select>
       </div>
 
@@ -113,7 +119,7 @@ const STATUS_LABELS: Record<string, string> = { AVAILABLE: 'Disponible', REDEEME
                   <p class="min-w-0 truncate font-bold tracking-wider" [title]="code.code">{{ code.code }}</p>
                   <ng-container *ngTemplateOutlet="badge; context: { $implicit: code }" />
                 </div>
-                <p class="mt-1 truncate text-xs text-muted" [title]="durationLabel(code.durationMonths) + ' · ' + code.batchLabel">{{ durationLabel(code.durationMonths) }} · {{ code.batchLabel }}</p>
+                <p class="mt-1 truncate text-xs text-muted" [title]="durationLabel(code.durationMonths) + ' · ' + code.batchLabel">{{ planLabel(code.planCode) }} · {{ durationLabel(code.durationMonths) }} · {{ code.batchLabel }}</p>
                 <div class="mt-3 min-w-0 flex-1 space-y-0.5 text-sm" data-code-detail>
                   @if (code.tenantSlug) {
                     <div data-code-business>
@@ -172,7 +178,7 @@ const STATUS_LABELS: Record<string, string> = { AVAILABLE: 'Disponible', REDEEME
 
     @if (confirmingGenerate()) {
       <app-confirm-dialog title="Generar códigos"
-        [message]="'Se crearán ' + genQuantity() + ' código' + (genQuantity() === 1 ? '' : 's') + ' de ' + durationLabel(genDuration()) + '. Cada uno da acceso a crear un negocio.'"
+        [message]="'Se crearán ' + genQuantity() + ' código' + (genQuantity() === 1 ? '' : 's') + ' ' + planLabel(genPlan()) + ' de ' + durationLabel(genDuration()) + '. Cada uno da acceso a crear un negocio.'"
         confirmLabel="Generar" busyLabel="Generando…" tone="primary" [busy]="generating()" (confirmed)="generate()" (cancelled)="confirmingGenerate.set(false)" />
     }
 
@@ -206,6 +212,7 @@ export class SuperAdminCodes implements OnInit, OnDestroy {
   private searchTimer?: ReturnType<typeof setTimeout>;
 
   protected readonly durations = DURATIONS;
+  protected readonly plans = PLAN_OPTIONS;
   protected readonly statusOptions: { id: CodeStatusFilter; label: string }[] = [
     { id: 'all', label: 'Todos' },
     { id: 'AVAILABLE', label: 'Disponibles' },
@@ -222,7 +229,8 @@ export class SuperAdminCodes implements OnInit, OnDestroy {
   private poll?: ReturnType<typeof setInterval>;
   protected readonly filters = signal<CodeFilters>({ status: 'all', durationMonths: null, batchId: '', query: '' });
 
-  protected readonly genDuration = signal(3);
+  protected readonly genDuration = signal(1);
+  protected readonly genPlan = signal<string>('PROFESIONAL');
   protected readonly genQuantity = signal(1);
   protected readonly genLabel = signal('');
   protected readonly generating = signal(false);
@@ -266,8 +274,12 @@ export class SuperAdminCodes implements OnInit, OnDestroy {
     ];
   }
 
+  protected planLabel(code: string | null | undefined): string {
+    return PLAN_OPTIONS.find(p => p.code === code)?.label ?? 'Profesional';
+  }
+
   protected durationLabel(months: number): string {
-    return DURATIONS.find(d => d.months === months)?.label ?? `${months} meses`;
+    return DURATION_LABELS[months] ?? `${months} meses`;
   }
 
   protected pageItems(current: number, total: number): (number | null)[] {
@@ -341,7 +353,7 @@ export class SuperAdminCodes implements OnInit, OnDestroy {
       this.confirmingGenerate.set(true);
       this.generated.set(
         await firstValueFrom(
-          this.api.createBatch({ label: this.genLabel().trim(), durationMonths: this.genDuration(), quantity: this.genQuantity(), note: '' }),
+          this.api.createBatch({ label: this.genLabel().trim(), durationMonths: this.genDuration(), quantity: this.genQuantity(), note: '', planCode: this.genPlan() }),
         ),
       );
       this.notices.show('info', 'Lote generado.');

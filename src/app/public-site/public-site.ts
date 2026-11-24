@@ -1,5 +1,5 @@
 import { NgClass } from '@angular/common';
-import { AfterViewInit, Component, HostListener, computed, effect, inject, input, signal } from '@angular/core';
+import { AfterViewInit, Component, HostListener, computed, effect, input, signal } from '@angular/core';
 import { FormsModule, NgForm } from '@angular/forms';
 import { SiteData } from '../core/site.models';
 import { CountUpDirective } from '../shared/count-up.directive';
@@ -9,8 +9,6 @@ import { AutosizeDirective } from '../shared/ui/autosize.directive';
 import { Modal } from '../shared/ui/modal';
 import { formatReservationDate, readableOn, rgbTriplet, tagColor, titleParts, todayInZone } from '../shared/site-format';
 import { DEFAULT_BRAND_STYLE, brandFontFamily } from '../core/site-branding';
-import { IngredientsStore } from '../admin/menu/ingredients.store';
-import { CouponsStore } from '../admin/coupons/coupons.store';
 
 interface Reservation {
   name: string;
@@ -78,9 +76,7 @@ export class PublicSite implements AfterViewInit {
   protected readonly defaultBrandStyle = DEFAULT_BRAND_STYLE;
   protected readonly footerFg = computed(() => readableOn(this.site().theme.footerColor || DEFAULT_BRAND_STYLE.footerColor));
   protected readonly marqueeFg = computed(() => readableOn(this.site().theme.marqueeColor || DEFAULT_BRAND_STYLE.marqueeColor));
-  private readonly ingredientDrafts = inject(IngredientsStore);
-  private readonly coupons = inject(CouponsStore);
-  protected readonly activeCoupons = this.coupons.activeCoupons;
+  protected readonly activeCoupons = computed(() => this.site().coupons ?? []);
   protected readonly fontFamily = computed(() => brandFontFamily(this.site().theme.fontFamily));
 
   protected readonly primaryRgb = computed(() => rgbTriplet(this.site().theme.primaryColor, '214 66 38'));
@@ -95,13 +91,6 @@ export class PublicSite implements AfterViewInit {
     return descriptor ? `${name} ${descriptor}` : name;
   });
   protected readonly visibleCategories = computed(() => this.site().categories
-    .map(category => ({
-      ...category,
-      items: category.items.map(item => ({
-        ...item,
-        ingredients: item.ingredients?.length ? item.ingredients : this.ingredientDrafts.namesForItem(item.id),
-      })),
-    }))
     .filter(category => category.items.length > 0));
   protected readonly activeCategory = computed(() => {
     const categories = this.visibleCategories();

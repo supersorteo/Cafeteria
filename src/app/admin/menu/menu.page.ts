@@ -1,6 +1,7 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { CategoryPanel } from './category-panel';
+import { IngredientsStore } from './ingredients.store';
 import { MenuStore } from './menu.store';
 import { ProductForm } from './product-form';
 import { ProductPanel } from './product-panel';
@@ -9,7 +10,7 @@ import { IngredientsPanel } from './ingredients-panel';
 @Component({
   imports: [CategoryPanel, ProductPanel, ProductForm, IngredientsPanel, RouterLink],
   selector: 'app-menu-page',
-  providers: [MenuStore],
+  providers: [IngredientsStore, MenuStore],
   template: `
     @if (fromSetup) {
       <a routerLink="/admin/setup" [queryParams]="{ paso: 'menu' }" data-back-setup class="btn btn-secondary btn-sm mb-4">← Volver a la configuración</a>
@@ -49,9 +50,11 @@ import { IngredientsPanel } from './ingredients-panel';
 })
 export class MenuPage implements OnInit {
   protected readonly store = inject(MenuStore);
+  private readonly ingredients = inject(IngredientsStore);
   protected readonly fromSetup = inject(ActivatedRoute, { optional: true })?.snapshot.queryParamMap.get('from') === 'setup';
 
   ngOnInit(): void {
     void this.store.init();
+    void this.ingredients.load();
   }
 }

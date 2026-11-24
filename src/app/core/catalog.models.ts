@@ -17,6 +17,7 @@ export interface MenuItem {
   version: number;
   imageId: string | null;
   imageUrl: string | null;
+  ingredients?: Ingredient[];
 }
 
 export interface Ingredient {
@@ -42,6 +43,7 @@ export interface ItemPayload {
   version: number | null;
   imageId?: string;
   removeImage?: boolean;
+  ingredientIds?: string[];
 }
 
 export interface MediaAsset {

@@ -33,6 +33,11 @@ import { Modal } from '../shared/ui/modal';
           }
         </div>
       }
+      @if (nearLimit(); as warning) {
+        <div class="plan-banner plan-banner-soon mt-3" data-plan-near-limit>
+          <p class="min-w-0 text-sm font-bold">{{ warning }}</p>
+        </div>
+      }
     }
 
     @if (plan.renewalOpen()) {
@@ -62,6 +67,20 @@ export class PlanBanner {
   protected soon(): number | null {
     const days = daysLeft(this.auth.user()?.plan?.expiresAt ?? null);
     return days !== null && days > 0 && days <= PLAN_WARNING_DAYS ? days : null;
+  }
+
+  protected nearLimit(): string | null {
+    const limits = this.auth.limits();
+    const usage = this.auth.usage();
+    if (!limits || !usage || this.auth.planExpired()) {
+      return null;
+    }
+    const checks = [
+      { used: usage.menuItems, max: limits.maxMenuItems, label: 'platos' },
+      { used: usage.activeCoupons, max: limits.maxActiveCoupons, label: 'cupones activos' },
+    ];
+    const hit = checks.find(check => check.max > 0 && check.used >= Math.ceil(check.max * 0.8));
+    return hit ? `Usas ${hit.used} de ${hit.max} ${hit.label} de tu plan ${limits.name}.` : null;
   }
 
   protected onCode(value: string): void {

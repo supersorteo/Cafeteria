@@ -47,12 +47,20 @@ export type TenantStatusFilter = 'all' | 'active' | 'suspended';
 
 export type CodeStatus = 'AVAILABLE' | 'REDEEMED' | 'DISABLED';
 export type CodeStatusFilter = 'all' | CodeStatus;
+export const PLAN_OPTIONS = [
+  { code: 'EMPRENDEDOR', label: 'Emprendedor' },
+  { code: 'PROFESIONAL', label: 'Profesional' },
+] as const;
+
 export const DURATIONS = [
   { months: 1, label: '1 mes' },
-  { months: 3, label: '3 meses' },
-  { months: 6, label: '6 meses' },
-  { months: 12, label: '1 año' },
+  // Por ahora solo se venden planes de 1 mes; reactivar estas opciones cuando se ofrezcan.
+  // { months: 3, label: '3 meses' },
+  // { months: 6, label: '6 meses' },
+  // { months: 12, label: '1 año' },
 ] as const;
+
+export const DURATION_LABELS: Record<number, string> = { 1: '1 mes', 3: '3 meses', 6: '6 meses', 12: '1 año' };
 
 export interface ActivationCode {
   id: string;
@@ -69,6 +77,7 @@ export interface ActivationCode {
   tenantCreatedAt: string | null;
   planExpiresAt: string | null;
   planStatus: 'ACTIVE' | 'EXPIRED' | null;
+  planCode?: string | null;
 }
 
 export interface CodePage {
@@ -90,6 +99,7 @@ export interface CodeBatch {
   available: number;
   redeemed: number;
   disabled: number;
+  planCode?: string | null;
 }
 
 export interface CodeStats {
@@ -104,6 +114,7 @@ export interface GeneratedBatch {
   id: string;
   label: string;
   durationMonths: number;
+  planCode?: string | null;
   codes: string[];
 }
 
@@ -169,7 +180,7 @@ export class SuperAdminApi {
     return this.http.get<CodePage>(`${API}/codes`, { params });
   }
 
-  createBatch(body: { label: string; durationMonths: number; quantity: number; note: string }): Observable<GeneratedBatch> {
+  createBatch(body: { label: string; durationMonths: number; quantity: number; note: string; planCode?: string }): Observable<GeneratedBatch> {
     return this.http.post<GeneratedBatch>(`${API}/codes/batches`, body);
   }
 

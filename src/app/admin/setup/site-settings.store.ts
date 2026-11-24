@@ -164,7 +164,7 @@ export class SiteSettingsStore {
     this.saving.set(true);
     this.conflict.set(false);
     try {
-      const saved = await firstValueFrom(this.api.update(toPayload(this.form, current.version)));
+      const saved = await firstValueFrom(this.api.update(toPayload(this.form, current.version, this.auth.fullBranding() ? undefined : current)));
       this.apply(saved);
       this.notices.show('info', 'Cambios guardados.');
       return true;

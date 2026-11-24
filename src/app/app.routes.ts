@@ -3,7 +3,6 @@ import { authGuard, guestGuard } from './core/auth.guards';
 import { superAdminGuard, superAdminGuestGuard } from './core/superadmin.guard';
 import { unsavedChangesGuard } from './core/unsaved-changes.guard';
 import { NotFound } from './not-found/not-found';
-import { PublicSitePage } from './public-site/public-site.page';
 
 export const routes: Routes = [
   {
@@ -63,6 +62,6 @@ export const routes: Routes = [
       { path: '**', redirectTo: '' },
     ],
   },
-  { path: ':slug', component: PublicSitePage },
+  { path: ':slug', loadComponent: () => import('./public-site/public-site.page').then(m => m.PublicSitePage) },
   { path: '**', component: NotFound },
 ];

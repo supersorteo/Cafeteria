@@ -45,19 +45,13 @@ import { QrCanvas } from '../shared/ui/qr-canvas';
             <h2 id="qr-controls-title" class="mt-1 font-display text-xl md:text-2xl font-black">Ajusta el diseño</h2>
           </div>
 
-          @if (locked()) {
-            <p class="mt-4 rounded-ui-md bg-surface-2 p-3 text-sm font-bold" data-qr-locked>
-              Personalizar el QR está disponible desde el plan de 3 meses. Mientras tanto puedes descargar el QR básico de tu sitio.
-            </p>
-          }
-
           <label class="qr-field mt-4 md:mt-6">
             <span>Dirección del sitio</span>
             <input class="input" type="url" inputmode="url" autocapitalize="off" [ngModel]="url()" (ngModelChange)="url.set($event)" placeholder="https://tusitio.com/mi-negocio" />
             <small class="hidden md:block">Se carga automáticamente con la dirección pública de tu comercio.</small>
           </label>
 
-          <fieldset [disabled]="locked()" class="min-w-0 border-0 p-0 m-0" data-qr-style>
+          <fieldset class="min-w-0 border-0 p-0 m-0" data-qr-style>
           <div class="grid grid-cols-2 gap-3 md:gap-4 mt-4 md:mt-5">
             <label class="qr-field">
               <span>Estilo de puntos</span>
@@ -115,7 +109,7 @@ import { QrCanvas } from '../shared/ui/qr-canvas';
 
           @if (canSave()) {
             <button type="button" class="btn btn-primary mt-6 w-full" data-qr-save [disabled]="saving()" (click)="save()">{{ saving() ? 'Guardando…' : 'Guardar diseño' }}</button>
-          } @else if (!locked()) {
+          } @else {
             <p class="mt-6 text-xs font-medium text-muted" data-qr-readonly>Solo el dueño puede guardar el diseño del QR con el plan vigente.</p>
           }
         </aside>
@@ -129,7 +123,7 @@ export class QrGeneratorPage implements OnInit {
   private readonly notices = inject(NoticeService);
   private readonly canvas = viewChild.required(QrCanvas);
 
-  protected readonly url = signal(`${location.origin}/${this.auth.user()?.tenant.slug ?? ''}`);
+  protected readonly url = signal(`${location.origin}/${this.auth.user()?.tenant.slug ?? ''}?src=qr`);
   protected readonly dotType = signal<QrDotType>(DEFAULT_QR_STYLE.dotType);
   protected readonly cornerType = signal<QrCornerType>(DEFAULT_QR_STYLE.cornerType);
   protected readonly dotColor = signal(DEFAULT_QR_STYLE.dotColor);
@@ -138,8 +132,7 @@ export class QrGeneratorPage implements OnInit {
   protected readonly useLogo = signal(DEFAULT_QR_STYLE.useLogo);
   protected readonly saving = signal(false);
 
-  protected readonly locked = computed(() => !this.auth.canCustomizeQr());
-  protected readonly canSave = computed(() => this.auth.canEditSite() && this.auth.canCustomizeQr());
+  protected readonly canSave = computed(() => this.auth.canEditSite());
   protected readonly logoUrl = computed(() => this.auth.user()?.tenant.logoUrl ?? null);
   protected readonly backgroundModes: { value: QrBackgroundMode; label: string }[] = [
     { value: 'solid', label: 'Color' },
@@ -148,9 +141,7 @@ export class QrGeneratorPage implements OnInit {
   ];
 
   protected readonly options = computed<Partial<Options>>(() => {
-    const style: QrStyle = this.locked()
-      ? DEFAULT_QR_STYLE
-      : { dotType: this.dotType(), cornerType: this.cornerType(), dotColor: this.dotColor(), backgroundMode: this.backgroundMode(), backgroundColor: this.backgroundColor(), useLogo: this.useLogo() };
+    const style: QrStyle = { dotType: this.dotType(), cornerType: this.cornerType(), dotColor: this.dotColor(), backgroundMode: this.backgroundMode(), backgroundColor: this.backgroundColor(), useLogo: this.useLogo() };
     return buildQrOptions(style, this.url().trim() || location.origin, this.logoUrl(), 360, 16);
   });
 

@@ -7,12 +7,10 @@ import { makeMe } from '../../testing/http';
 
 describe('QrStyleStore', () => {
   const user = signal(makeMe());
-  const customizable = signal(true);
 
   beforeEach(() => {
     user.set(makeMe());
-    customizable.set(true);
-    TestBed.configureTestingModule({ providers: [{ provide: AuthService, useValue: { user, canCustomizeQr: customizable } }] });
+    TestBed.configureTestingModule({ providers: [{ provide: AuthService, useValue: { user } }] });
   });
 
   it('should use the saved design so the sidebar QR matches the generator', () => {
@@ -29,10 +27,4 @@ describe('QrStyleStore', () => {
     expect(TestBed.inject(QrStyleStore).style()).toEqual(DEFAULT_QR_STYLE);
   });
 
-  it('should show the basic design when the plan does not allow customizing', () => {
-    user.set(makeMe({ qr: { dotType: 'rounded', cornerType: 'dot', dotColor: '#AA0000', backgroundMode: 'solid', backgroundColor: '#FFFFFF', useLogo: true } }));
-    customizable.set(false);
-
-    expect(TestBed.inject(QrStyleStore).style()).toEqual(DEFAULT_QR_STYLE);
-  });
 });
