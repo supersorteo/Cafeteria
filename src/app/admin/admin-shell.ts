@@ -91,9 +91,9 @@ import { QrThumbnail } from '../shared/ui/qr-thumbnail';
               <a routerLink="/admin/coupons" routerLinkActive="active" class="tab-item">
                 <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7a3 3 0 0 0 0 6 3 3 0 0 0 0 6h16v-5a3 3 0 0 1 0-6V3H4a3 3 0 0 0 0 4z"/><path d="M8 7h.01M8 12h.01M8 17h.01"/></svg>
                 <span>Cupones</span></a>
-              <a routerLink="/admin/site" routerLinkActive="active" class="tab-item">
+              <a routerLink="/admin/site" routerLinkActive="active" class="tab-item" aria-label="Configuración">
                 <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
-                <span>Configuración</span></a>
+                <span>Ajustes</span></a>
               <button type="button" class="tab-item" (click)="accountOpen.set(true)" aria-haspopup="dialog">
                 <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
                 <span>Cuenta</span></button>

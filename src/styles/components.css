@@ -199,7 +199,7 @@ html:has(dialog.modal[open]){ overflow:hidden; }
   .on-light .side-btn{ color:rgb(var(--text)); border-color:rgb(var(--line)); background:rgb(var(--surface)); }
   .on-light .side-qr-hint{ color:rgb(var(--muted)); }
 
-  .tabbar{ display:grid; grid-template-columns:repeat(6,1fr); padding:.25rem .5rem calc(.25rem + env(safe-area-inset-bottom)); }
+  .tabbar{ display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); padding:.25rem .5rem calc(.25rem + env(safe-area-inset-bottom)); }
 .tab-item{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.2rem; min-height:3.5rem; border-radius:var(--r-md); font-size:.7rem; font-weight:700; color:rgb(var(--muted)); transition:color var(--dur-2), background-color var(--dur-2); }
 .tab-item.active{ color:rgb(var(--primary)); }
 .tab-item.active svg{ transform:translateY(-2px) scale(1.08); }
