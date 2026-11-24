@@ -13,6 +13,7 @@ export interface SiteItem {
   price: number;
   tag: string | null;
   imageUrl: string | null;
+  ingredients?: string[];
 }
 
 export interface SiteCategory {

@@ -64,6 +64,23 @@ function twoDecimals(control: AbstractControl<number | null>): ValidationErrors 
             </div>
           </div>
 
+          <fieldset class="rounded-ui-lg border border-line p-4">
+            <legend class="px-2 text-xs font-bold uppercase tracking-wider text-muted">Ingredientes (opcional)</legend>
+            @if (store.ingredients().length > 0) {
+              <div class="grid gap-2 sm:grid-cols-2">
+                @for (ingredient of store.ingredients(); track ingredient.id) {
+                  <label class="flex items-center gap-2 rounded-ui-md border border-line px-3 py-2 text-sm font-semibold">
+                    <input type="checkbox" [checked]="isIngredientSelected(ingredient.id)" (change)="toggleIngredient(ingredient.id, $event)" class="h-4 w-4 accent-[rgb(var(--primary))]">
+                    <span>{{ ingredient.name }}</span>
+                  </label>
+                }
+              </div>
+              <p class="mt-3 text-xs font-medium text-muted">Se mostrarán como texto en la carta pública.</p>
+            } @else {
+              <p class="text-sm font-medium text-muted">Primero crea ingredientes en el catálogo de la carta.</p>
+            }
+          </fieldset>
+
           <label class="flex items-center gap-3 text-sm font-bold text-ink">
             <input type="checkbox" formControlName="active" class="w-5 h-5 accent-[rgb(var(--primary))]"> Visible en el sitio (activo)
           </label>
@@ -139,6 +156,7 @@ export class ProductForm implements OnInit, OnDestroy {
   protected readonly conflict = signal(false);
   protected readonly serverError = signal<string | null>(null);
   protected readonly uploadError = signal<string | null>(null);
+  protected readonly selectedIngredientIds = signal<string[]>([]);
 
   private pendingUploadId: string | null = null;
   private pendingUploadUrl: string | null = null;
@@ -237,7 +255,7 @@ export class ProductForm implements OnInit, OnDestroy {
         ? { removeImage: true }
         : {};
     this.saving.set(true);
-    const result = await this.store.saveItem(this.base(), { ...values, price: values.price ?? 0 }, image);
+    const result = await this.store.saveItem(this.base(), { ...values, price: values.price ?? 0, ingredientIds: this.selectedIngredientIds() }, image);
     this.saving.set(false);
     if (result.ok) {
       this.pendingUploadId = null;
@@ -267,6 +285,15 @@ export class ProductForm implements OnInit, OnDestroy {
     this.closed.emit();
   }
 
+  protected isIngredientSelected(id: string): boolean {
+    return this.selectedIngredientIds().includes(id);
+  }
+
+  protected toggleIngredient(id: string, event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    this.selectedIngredientIds.update(ids => checked ? [...ids, id] : ids.filter(current => current !== id));
+  }
+
   private fill(item: MenuItem | null): void {
     this.form.reset({
       categoryId: item?.categoryId ?? this.store.selectedId() ?? this.store.categories()[0]?.id ?? '',
@@ -276,6 +303,7 @@ export class ProductForm implements OnInit, OnDestroy {
       tag: item?.tag ?? '',
       active: item?.active ?? true,
     });
+    this.selectedIngredientIds.set(item ? this.store.ingredientsFor(item.id) : []);
     if (this.pendingUploadId) {
       this.image.set({ url: this.pendingUploadUrl });
       this.removeImage.set(false);

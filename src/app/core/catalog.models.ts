@@ -19,6 +19,11 @@ export interface MenuItem {
   imageUrl: string | null;
 }
 
+export interface Ingredient {
+  id: string;
+  name: string;
+}
+
 export interface Page<T> {
   content: T[];
   page: number;

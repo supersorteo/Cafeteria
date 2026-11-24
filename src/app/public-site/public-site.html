@@ -10,6 +10,9 @@
         <a href="#nosotros" (click)="scrollTo($event)" class="hover:text-coral transition-colors">Nosotros</a>
       }
       <a href="#menu" (click)="scrollTo($event)" class="hover:text-coral transition-colors">Menú</a>
+      @if (activeCoupons().length > 0) {
+        <a href="#cupones" (click)="scrollTo($event)" class="hover:text-coral transition-colors">Cupones</a>
+      }
       @if (showAmbience()) {
         <a href="#galeria" (click)="scrollTo($event)" class="hover:text-coral transition-colors">Ambiente</a>
       }
@@ -173,6 +176,9 @@
               @if (item.description) {
                 <p class="text-sm font-medium mt-2 leading-relaxed" style="color:var(--site-paragraph)">{{ item.description }}</p>
               }
+              @if (item.ingredients?.length) {
+                <p class="mt-3 text-xs font-semibold leading-relaxed" style="color:var(--site-paragraph)"><span class="font-black" style="color:var(--site-heading)">Ingredientes:</span> {{ item.ingredients?.join(' · ') }}</p>
+              }
               <div class="flex items-end gap-3 mt-5">
                 <span class="price-line flex-1"></span>
                 <span class="font-display text-2xl font-black text-coral">{{ formatPrice(item.price) }}</span>
@@ -188,6 +194,37 @@
     }
   </div>
 </section>
+
+@if (activeCoupons().length > 0) {
+<section id="cupones" class="py-24 md:py-32" style="background:var(--site-bg)">
+  <div class="max-w-7xl mx-auto px-5">
+    <div class="reveal text-center mb-14">
+      <p class="text-teal font-bold uppercase tracking-[.35em] text-xs mb-4">Beneficios especiales</p>
+      <h2 class="font-display text-4xl md:text-5xl font-black" style="color:var(--site-heading)">Cupones para <span class="italic text-coral">disfrutar</span></h2>
+      <p class="mt-4 text-base font-medium" style="color:var(--site-paragraph)">Presenta tu código al momento de realizar tu compra.</p>
+    </div>
+    <div class="grid gap-6 md:grid-cols-2">
+      @for (coupon of activeCoupons(); track coupon.id) {
+        <article class="coupon-ticket public-coupon-ticket">
+          <div class="coupon-ticket-main">
+            <span class="coupon-ticket-type">{{ coupon.type }}</span>
+            <h3 class="mt-3 font-display text-2xl font-black">{{ coupon.title }}</h3>
+            <p class="mt-3 text-sm font-semibold opacity-80">{{ coupon.benefit }}</p>
+            <div class="coupon-ticket-code-wrap mt-6">
+              <span class="text-xs font-bold uppercase tracking-widest opacity-70">Código cupón</span>
+              <strong class="coupon-ticket-code">{{ coupon.code }}</strong>
+            </div>
+            @if (coupon.validity) {
+              <p class="mt-4 text-xs font-bold uppercase tracking-wider opacity-70">{{ coupon.validity }}</p>
+            }
+          </div>
+          <div class="coupon-ticket-seal" aria-hidden="true">%</div>
+        </article>
+      }
+    </div>
+  </div>
+</section>
+}
 
 <!-- ============ AMBIENTE ============ -->
 @if (showAmbience()) {

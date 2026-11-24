@@ -75,6 +75,9 @@ const FILTERS: { id: ItemFilter; label: string }[] = [
                       @if (item.description) {
                         <p class="mt-1.5 text-sm font-medium line-clamp-2 text-muted">{{ item.description }}</p>
                       }
+                      @if (store.ingredientNamesFor(item.id).length > 0) {
+                        <p class="mt-2 text-xs font-semibold text-muted"><span class="text-primary">Ingredientes:</span> {{ store.ingredientNamesFor(item.id).join(' · ') }}</p>
+                      }
                     </div>
                     <div class="pcard-actions">
                       <button type="button" role="switch" class="switch" [attr.aria-checked]="item.active" [attr.aria-label]="'Activo: ' + item.name"
