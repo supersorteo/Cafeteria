@@ -31,6 +31,7 @@ const STATUS_LABELS: Record<string, string> = { AVAILABLE: 'Disponible', REDEEME
       }
     </section>
 
+    @if (api.scope() === 'mine') {
     <section aria-label="Generar lote" class="card p-4 sm:p-5 mt-6" data-generate>
       <h2 class="font-display text-xl font-black">Generar un lote de códigos</h2>
       <p class="text-sm font-medium text-muted mt-1">Cada código sirve una sola vez. El plazo empieza cuando el cliente lo canjea.</p>
@@ -72,6 +73,7 @@ const STATUS_LABELS: Record<string, string> = { AVAILABLE: 'Disponible', REDEEME
         </div>
       }
     </section>
+    }
 
     <section aria-label="Códigos" class="mt-6 space-y-4" data-code-list>
       <div class="flex items-center justify-between gap-3 flex-wrap">
@@ -207,7 +209,7 @@ const STATUS_LABELS: Record<string, string> = { AVAILABLE: 'Disponible', REDEEME
   `,
 })
 export class SuperAdminCodes implements OnInit, OnDestroy {
-  private readonly api = inject(SuperAdminApi);
+  protected readonly api = inject(SuperAdminApi);
   private readonly notices = inject(NoticeService);
   private searchTimer?: ReturnType<typeof setTimeout>;
 

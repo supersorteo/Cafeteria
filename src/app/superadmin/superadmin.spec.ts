@@ -93,6 +93,25 @@ describe('superadmin', () => {
       expect(root().querySelector('[data-change-password]')).toBeNull();
     });
 
+    it('should let only the owner switch to the other administrator and request that scope from the server', async () => {
+      await openAs({ ...admin, owner: true }, [tenant()]);
+      expect(root().querySelector('[data-scope-note]')).toBeNull();
+
+      const other = Array.from(root().querySelectorAll('[data-scope] [role="tab"], app-tabs [role="tab"]')).find(tab => tab.textContent?.includes('Otro administrador')) as HTMLElement;
+      other.click();
+      await answerMatching(http, r => r.url === `${API}/tenants` && r.params.get('scope') === 'others', 'GET tenants others', page([tenant({ slug: 'de-danilo', name: 'De Danilo' })]));
+      await answerMatching(http, r => r.url === `${API}/stats` && r.params.get('scope') === 'others', 'GET stats others', stats);
+      await ui();
+
+      expect(root().querySelector('[data-scope-note]')).not.toBeNull();
+      expect(text()).toContain('De Danilo');
+    });
+
+    it('should not offer the other administrator to an account that is not the owner', async () => {
+      await openAs({ ...admin, email: 'danilo@ejemplo.test', owner: false, canChangePassword: true }, [tenant()]);
+      expect(text()).not.toContain('Otro administrador');
+    });
+
     it('should give an operator a read-only panel without the codes tab or any destructive action', async () => {
       await openAs(operator, [tenant(), tenant({ id: 't2', slug: 'bar-b', name: 'Bar B', suspended: true })]);
 

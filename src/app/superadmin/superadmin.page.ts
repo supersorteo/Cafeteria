@@ -63,6 +63,12 @@ const ACTION_LABELS: Record<string, string> = {
           }
         </section>
 
+        @if (auth.owner()) {
+          <app-tabs [tabs]="scopeItems" label="Cuenta que estás revisando" [selected]="api.scope()" (selectedChange)="selectScope($event)" data-scope />
+          @if (api.scope() === 'others') {
+            <p class="rounded-ui-md bg-surface-2 px-4 py-3 text-sm font-bold" data-scope-note>Estás viendo lo que gestiona el otro administrador: sus negocios, códigos y actividad. Esto no se mezcla con lo tuyo.</p>
+          }
+        }
         <app-tabs [tabs]="tabItems()" label="Secciones del panel" [selected]="tab()" (selectedChange)="selectTab($event)" />
 
         @if (tab() === 'tenants') {
@@ -260,7 +266,7 @@ const ACTION_LABELS: Record<string, string> = {
 })
 export class SuperAdminPage implements OnInit, OnDestroy {
   protected readonly auth = inject(SuperAdminAuth);
-  private readonly api = inject(SuperAdminApi);
+  protected readonly api = inject(SuperAdminApi);
   private readonly router = inject(Router);
   private readonly notices = inject(NoticeService);
   private searchTimer?: ReturnType<typeof setTimeout>;
@@ -275,6 +281,7 @@ export class SuperAdminPage implements OnInit, OnDestroy {
     { id: 'suspended', label: 'Suspendidos' },
   ];
 
+  protected readonly scopeItems = [{ id: 'mine', label: 'Mi cuenta' }, { id: 'others', label: 'Otro administrador' }];
   protected readonly tab = signal<'tenants' | 'codes' | 'activity'>('tenants');
   protected readonly stats = signal<SuperAdminStats | null>(null);
   protected readonly page = signal<SuperAdminTenantPage | null>(null);
@@ -376,6 +383,19 @@ export class SuperAdminPage implements OnInit, OnDestroy {
     this.pwNext.set('');
     this.pwRepeat.set('');
     this.passwordError.set(null);
+  }
+
+  protected selectScope(id: string): void {
+    const next = id === 'others' ? 'others' : 'mine';
+    if (!this.auth.owner() || next === this.api.scope()) {
+      return;
+    }
+    this.api.scope.set(next);
+    this.tab.set('tenants');
+    this.audit.set(null);
+    this.page.set(null);
+    void this.load(0);
+    void this.loadStats();
   }
 
   protected selectTab(id: string): void {

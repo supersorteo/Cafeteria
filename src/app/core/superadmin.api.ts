@@ -1,5 +1,5 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { Observable } from 'rxjs';
 
 export interface SuperAdminTenant {
@@ -130,9 +130,14 @@ const API = '/api/v1/superadmin';
 @Injectable({ providedIn: 'root' })
 export class SuperAdminApi {
   private readonly http = inject(HttpClient);
+  readonly scope = signal<'mine' | 'others'>('mine');
+
+  private scoped(params = new HttpParams()): HttpParams {
+    return this.scope() === 'others' ? params.set('scope', 'others') : params;
+  }
 
   stats(): Observable<SuperAdminStats> {
-    return this.http.get<SuperAdminStats>(`${API}/stats`);
+    return this.http.get<SuperAdminStats>(`${API}/stats`, { params: this.scoped() });
   }
 
   tenants(query: string, status: TenantStatusFilter, page: number, size = 10): Observable<SuperAdminTenantPage> {
@@ -140,7 +145,7 @@ export class SuperAdminApi {
     if (query.trim()) {
       params = params.set('query', query.trim());
     }
-    return this.http.get<SuperAdminTenantPage>(`${API}/tenants`, { params });
+    return this.http.get<SuperAdminTenantPage>(`${API}/tenants`, { params: this.scoped(params) });
   }
 
   suspend(id: string): Observable<void> {
@@ -156,11 +161,11 @@ export class SuperAdminApi {
   }
 
   codeStats(): Observable<CodeStats> {
-    return this.http.get<CodeStats>(`${API}/codes/stats`);
+    return this.http.get<CodeStats>(`${API}/codes/stats`, { params: this.scoped() });
   }
 
   codeBatches(): Observable<CodeBatch[]> {
-    return this.http.get<CodeBatch[]>(`${API}/codes/batches`);
+    return this.http.get<CodeBatch[]>(`${API}/codes/batches`, { params: this.scoped() });
   }
 
   codes(filters: CodeFilters, page: number, size = 12): Observable<CodePage> {
@@ -177,7 +182,7 @@ export class SuperAdminApi {
     if (filters.query.trim()) {
       params = params.set('query', filters.query.trim());
     }
-    return this.http.get<CodePage>(`${API}/codes`, { params });
+    return this.http.get<CodePage>(`${API}/codes`, { params: this.scoped(params) });
   }
 
   createBatch(body: { label: string; durationMonths: number; quantity: number; note: string; planCode?: string }): Observable<GeneratedBatch> {
@@ -197,6 +202,6 @@ export class SuperAdminApi {
   }
 
   audit(limit = 50): Observable<SuperAdminAudit[]> {
-    return this.http.get<SuperAdminAudit[]>(`${API}/audit`, { params: { limit } });
+    return this.http.get<SuperAdminAudit[]>(`${API}/audit`, { params: this.scoped(new HttpParams().set('limit', limit)) });
   }
 }

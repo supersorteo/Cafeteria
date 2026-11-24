@@ -13,6 +13,7 @@ interface MeResponse {
   regions?: string[];
   mustChangePassword?: boolean;
   canChangePassword?: boolean;
+  owner?: boolean;
 }
 
 interface LoginResponse {
@@ -35,6 +36,7 @@ export class SuperAdminAuth {
   readonly regions = signal<string[]>([]);
   readonly mustChangePassword = signal(false);
   readonly canChangePassword = signal(false);
+  readonly owner = signal(false);
   readonly isAdmin = computed(() => this.role() === 'ADMIN');
   readonly step = signal<SuperAdminStep>('credentials');
   readonly maskedEmail = signal('');
@@ -87,6 +89,7 @@ export class SuperAdminAuth {
     this.regions.set([]);
     this.mustChangePassword.set(false);
     this.canChangePassword.set(false);
+    this.owner.set(false);
     this.step.set('credentials');
     this.state.set('anonymous');
   }
@@ -107,5 +110,6 @@ export class SuperAdminAuth {
     this.regions.set(me.regions ?? []);
     this.mustChangePassword.set(!!me.mustChangePassword);
     this.canChangePassword.set(!!me.canChangePassword);
+    this.owner.set(!!me.owner);
   }
 }
