@@ -1,10 +1,19 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { AuthService } from './auth.service';
 
 export type SuperAdminState = 'initializing' | 'anonymous' | 'authenticated';
 export type SuperAdminStep = 'credentials' | 'code';
+export type SuperAdminRole = 'ADMIN' | 'OPERATOR';
+
+interface MeResponse {
+  email: string;
+  role?: SuperAdminRole;
+  regions?: string[];
+  mustChangePassword?: boolean;
+  canChangePassword?: boolean;
+}
 
 interface LoginResponse {
   step: string;
@@ -22,6 +31,11 @@ export class SuperAdminAuth {
 
   readonly state = signal<SuperAdminState>('initializing');
   readonly email = signal<string | null>(null);
+  readonly role = signal<SuperAdminRole>('ADMIN');
+  readonly regions = signal<string[]>([]);
+  readonly mustChangePassword = signal(false);
+  readonly canChangePassword = signal(false);
+  readonly isAdmin = computed(() => this.role() === 'ADMIN');
   readonly step = signal<SuperAdminStep>('credentials');
   readonly maskedEmail = signal('');
   readonly codeExpiresAt = signal(0);
@@ -41,10 +55,15 @@ export class SuperAdminAuth {
   async verify(code: string): Promise<void> {
     await this.auth.ensureCsrf();
     await firstValueFrom(this.http.post(`${API}/verify`, { code: code.trim() }));
-    const me = await firstValueFrom(this.http.get<{ email: string }>(`${API}/me`));
-    this.email.set(me.email);
+    this.applyMe(await firstValueFrom(this.http.get<MeResponse>(`${API}/me`)));
     this.state.set('authenticated');
     this.step.set('credentials');
+  }
+
+  async changePassword(current: string, next: string): Promise<void> {
+    await this.auth.ensureCsrf();
+    await firstValueFrom(this.http.post(`${API}/password`, { current, next }));
+    this.mustChangePassword.set(false);
   }
 
   backToCredentials(): void {
@@ -64,6 +83,10 @@ export class SuperAdminAuth {
 
   expire(): void {
     this.email.set(null);
+    this.role.set('ADMIN');
+    this.regions.set([]);
+    this.mustChangePassword.set(false);
+    this.canChangePassword.set(false);
     this.step.set('credentials');
     this.state.set('anonymous');
   }
@@ -71,11 +94,18 @@ export class SuperAdminAuth {
   private async restore(): Promise<void> {
     try {
       await this.auth.ensureCsrf();
-      const me = await firstValueFrom(this.http.get<{ email: string }>(`${API}/me`));
-      this.email.set(me.email);
+      this.applyMe(await firstValueFrom(this.http.get<MeResponse>(`${API}/me`)));
       this.state.set('authenticated');
     } catch {
       this.state.set('anonymous');
     }
+  }
+
+  private applyMe(me: MeResponse): void {
+    this.email.set(me.email);
+    this.role.set(me.role ?? 'ADMIN');
+    this.regions.set(me.regions ?? []);
+    this.mustChangePassword.set(!!me.mustChangePassword);
+    this.canChangePassword.set(!!me.canChangePassword);
   }
 }

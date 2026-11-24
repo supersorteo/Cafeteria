@@ -1,5 +1,5 @@
 import { DatePipe, NgTemplateOutlet } from '@angular/common';
-import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -20,6 +20,8 @@ const ACTION_LABELS: Record<string, string> = {
   TENANT_SUSPENDED: 'Suspendido',
   TENANT_ACTIVATED: 'Reactivado',
   TENANT_DELETED: 'Eliminado',
+  SUPERADMIN_ACCOUNT_CREATED: 'Cuenta creada',
+  SUPERADMIN_PASSWORD_CHANGED: 'Contraseña cambiada',
 };
 
 @Component({
@@ -29,11 +31,17 @@ const ACTION_LABELS: Record<string, string> = {
     <div class="min-h-screen bg-app">
       <header class="glass sticky top-0 z-30 flex items-center justify-between gap-3 px-4 md:px-8 py-2.5 !border-x-0 !border-t-0">
         <div class="min-w-0">
-          <p class="font-display text-lg font-black leading-tight">Superadmin</p>
+          <p class="font-display text-lg font-black leading-tight">Superadmin <span class="badge ml-1 align-middle" data-role>{{ auth.isAdmin() ? 'Administrador' : 'Operador' }}</span></p>
           <p class="text-xs font-medium text-muted truncate">{{ auth.email() }}</p>
         </div>
         <div class="flex items-center gap-1">
           <app-theme-toggle />
+          @if (auth.canChangePassword() && !auth.mustChangePassword()) {
+            <button type="button" class="btn btn-secondary btn-sm" data-change-password (click)="passwordOpen.set(true)" title="Cambiar mi contraseña" aria-label="Cambiar mi contraseña">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+              <span class="hidden sm:inline">Contraseña</span>
+            </button>
+          }
           <a routerLink="/" class="btn btn-secondary btn-sm" data-exit title="Salir del panel sin cerrar la sesión" aria-label="Salir del panel sin cerrar la sesión">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11l8-7 8 7M6 10v10h12V10"/></svg>
             <span class="hidden sm:inline">Ir al inicio</span>
@@ -55,7 +63,7 @@ const ACTION_LABELS: Record<string, string> = {
           }
         </section>
 
-        <app-tabs [tabs]="tabItems" label="Secciones del panel" [selected]="tab()" (selectedChange)="selectTab($event)" />
+        <app-tabs [tabs]="tabItems()" label="Secciones del panel" [selected]="tab()" (selectedChange)="selectTab($event)" />
 
         @if (tab() === 'tenants') {
           <section aria-label="Negocios" class="space-y-4">
@@ -181,7 +189,9 @@ const ACTION_LABELS: Record<string, string> = {
     </ng-template>
 
     <ng-template #actions let-tenant>
-      @if (tenant.suspended) {
+      @if (!auth.isAdmin()) {
+        <span class="text-xs font-medium text-muted" data-read-only>Solo lectura</span>
+      } @else if (tenant.suspended) {
         <button type="button" class="btn btn-secondary btn-sm" data-activate (click)="ask('activate', tenant)">Reactivar</button>
         <button type="button" class="btn btn-danger btn-sm" data-delete (click)="ask('delete', tenant)">Eliminar</button>
       } @else {
@@ -189,6 +199,38 @@ const ACTION_LABELS: Record<string, string> = {
         <button type="button" class="btn btn-secondary btn-sm opacity-50" disabled data-delete-locked title="Suspende el negocio antes de eliminarlo">Eliminar</button>
       }
     </ng-template>
+
+    @if (auth.mustChangePassword() || passwordOpen()) {
+      <app-modal [heading]="auth.mustChangePassword() ? 'Crea tu contraseña' : 'Cambiar contraseña'" size="sm"
+                 [dismissable]="!auth.mustChangePassword() && !passwordBusy()" (closed)="closePassword()">
+        <form id="sa-password-form" class="space-y-4" (submit)="changePassword($event)" data-password-form>
+          @if (auth.mustChangePassword()) {
+            <p class="font-medium text-muted">Tu contraseña es temporal. Elige una nueva para entrar al panel.</p>
+          }
+          <div>
+            <label for="sa-pw-current" class="text-xs font-bold uppercase tracking-wider text-muted">Contraseña actual</label>
+            <input id="sa-pw-current" type="password" class="input mt-2" autocomplete="current-password" data-pw-current [ngModel]="pwCurrent()" (ngModelChange)="pwCurrent.set($event)" name="current">
+          </div>
+          <div>
+            <label for="sa-pw-next" class="text-xs font-bold uppercase tracking-wider text-muted">Contraseña nueva (mínimo 10 caracteres)</label>
+            <input id="sa-pw-next" type="password" class="input mt-2" autocomplete="new-password" data-pw-next [ngModel]="pwNext()" (ngModelChange)="pwNext.set($event)" name="next">
+          </div>
+          <div>
+            <label for="sa-pw-repeat" class="text-xs font-bold uppercase tracking-wider text-muted">Repite la contraseña nueva</label>
+            <input id="sa-pw-repeat" type="password" class="input mt-2" autocomplete="new-password" data-pw-repeat [ngModel]="pwRepeat()" (ngModelChange)="pwRepeat.set($event)" name="repeat">
+          </div>
+          @if (passwordError()) { <p role="alert" class="text-sm font-bold text-danger" data-pw-error>{{ passwordError() }}</p> }
+        </form>
+        <div modal-footer class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+          @if (!auth.mustChangePassword()) {
+            <button type="button" class="btn btn-secondary" data-cancel [disabled]="passwordBusy()" (click)="closePassword()">Cancelar</button>
+          } @else {
+            <button type="button" class="btn btn-secondary" data-logout-forced [disabled]="passwordBusy()" (click)="logout()">Salir</button>
+          }
+          <button type="submit" form="sa-password-form" class="btn btn-primary" data-pw-save [disabled]="passwordBusy()">{{ passwordBusy() ? 'Guardando…' : 'Guardar contraseña' }}</button>
+        </div>
+      </app-modal>
+    }
 
     @if (action(); as current) {
       @if (current.kind === 'delete') {
@@ -224,11 +266,9 @@ export class SuperAdminPage implements OnInit, OnDestroy {
   private searchTimer?: ReturnType<typeof setTimeout>;
   private poll?: ReturnType<typeof setInterval>;
 
-  protected readonly tabItems = [
-    { id: 'tenants', label: 'Negocios' },
-    { id: 'codes', label: 'Códigos' },
-    { id: 'activity', label: 'Actividad' },
-  ];
+  protected readonly tabItems = computed(() => this.auth.isAdmin()
+    ? [{ id: 'tenants', label: 'Negocios' }, { id: 'codes', label: 'Códigos' }, { id: 'activity', label: 'Actividad' }]
+    : [{ id: 'tenants', label: 'Negocios' }, { id: 'activity', label: 'Actividad' }]);
   protected readonly filters: { id: TenantStatusFilter; label: string }[] = [
     { id: 'all', label: 'Todos' },
     { id: 'active', label: 'Activos' },
@@ -247,12 +287,21 @@ export class SuperAdminPage implements OnInit, OnDestroy {
   protected readonly busy = signal(false);
   protected readonly typed = signal('');
   protected readonly actionError = signal<string | null>(null);
+  protected readonly passwordOpen = signal(false);
+  protected readonly passwordBusy = signal(false);
+  protected readonly passwordError = signal<string | null>(null);
+  protected readonly pwCurrent = signal('');
+  protected readonly pwNext = signal('');
+  protected readonly pwRepeat = signal('');
 
   ngOnInit(): void {
-    void this.load();
-    void this.loadStats();
+    if (!this.auth.mustChangePassword()) {
+      void this.load();
+      void this.loadStats();
+    }
     this.poll = setInterval(() => {
-      if (this.tab() === 'tenants' && document.visibilityState === 'visible' && !this.action() && !this.loading()) {
+      if (this.tab() === 'tenants' && document.visibilityState === 'visible' && !this.action() && !this.loading()
+          && !this.auth.mustChangePassword()) {
         void this.load(undefined, true);
         void this.loadStats();
       }
@@ -279,7 +328,60 @@ export class SuperAdminPage implements OnInit, OnDestroy {
     return ACTION_LABELS[action] ?? action;
   }
 
+  protected closePassword(): void {
+    if (this.auth.mustChangePassword() || this.passwordBusy()) {
+      return;
+    }
+    this.passwordOpen.set(false);
+    this.resetPasswordForm();
+  }
+
+  protected async changePassword(event: Event): Promise<void> {
+    event.preventDefault();
+    if (this.passwordBusy()) {
+      return;
+    }
+    if (this.pwNext().length < 10) {
+      this.passwordError.set('La contraseña nueva debe tener al menos 10 caracteres.');
+      return;
+    }
+    if (this.pwNext() !== this.pwRepeat()) {
+      this.passwordError.set('Las contraseñas nuevas no coinciden.');
+      return;
+    }
+    this.passwordBusy.set(true);
+    this.passwordError.set(null);
+    const wasForced = this.auth.mustChangePassword();
+    try {
+      await this.auth.changePassword(this.pwCurrent(), this.pwNext());
+      this.passwordOpen.set(false);
+      this.resetPasswordForm();
+      this.notices.show('info', 'Contraseña actualizada.');
+      if (wasForced) {
+        void this.load();
+        void this.loadStats();
+      }
+    } catch (error) {
+      const problem = toProblem(error);
+      this.passwordError.set(problem.code === 'wrong_password' ? 'La contraseña actual no es correcta.'
+        : problem.code === 'weak_password' ? 'Usa al menos 10 caracteres y una contraseña distinta de la actual.'
+        : isConnectionProblem(problem) ? 'Problema de conexión. Inténtalo de nuevo.' : 'No se pudo cambiar la contraseña.');
+    } finally {
+      this.passwordBusy.set(false);
+    }
+  }
+
+  private resetPasswordForm(): void {
+    this.pwCurrent.set('');
+    this.pwNext.set('');
+    this.pwRepeat.set('');
+    this.passwordError.set(null);
+  }
+
   protected selectTab(id: string): void {
+    if (id === 'codes' && !this.auth.isAdmin()) {
+      return;
+    }
     this.tab.set(id === 'activity' ? 'activity' : id === 'codes' ? 'codes' : 'tenants');
     if (this.tab() === 'activity') {
       void this.loadAudit();

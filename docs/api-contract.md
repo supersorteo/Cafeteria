@@ -147,3 +147,10 @@ Un negocio suspendido (`tenants.suspended_at`): login 401, sesiones abiertas 401
 - **Marca.** `PUT /admin/site` acepta, todos opcionales (`null` o ausente = valores por defecto del frontend): `businessTitleColor`, `backgroundColor`, `footerColor`, `headingColor`, `paragraphColor`, `whatsappColor`, `marqueeColor` (`#rrggbb`, se guardan en mayúsculas) y `fontFamily` (`fraunces|inter|georgia|garamond|trebuchet|arial|verdana|courier`). `GET /admin/site` los devuelve y `GET /public/sites/{slug}` los incluye en `theme`. Valor inválido → `400` con `fieldErrors`.
 - **Diseño del QR.** `GET /admin/qr` → `{dotType, cornerType, dotColor, backgroundMode, backgroundColor, useLogo, customizable}` (cualquier miembro). `PUT /admin/qr` (**owner**) con los seis campos: `dotType` `square|dots|rounded|classy|classy-rounded|extra-rounded`, `cornerType` `square|dot|extra-rounded`, `backgroundMode` `solid|transparent|gradient`, colores `#rrggbb`, `useLogo` boolean. El logo es el del negocio (`tenant.logoUrl`). Con un plan de 1 mes responde `403 plan_feature_unavailable`; con el plan vencido, `403 plan_expired`.
 - **Plan.** `tenants.plan_months` guarda la duración del **último código canjeado** (registro o renovación). `GET /auth/me` y `GET /admin/plan` devuelven además `months` y `qrCustomization` (`true` si `months` es 3, 6 o 12; también si es `null`, como la demo).
+
+## Cuentas de superadmin (`V8__superadmin_accounts.sql`)
+
+- `GET /superadmin/auth/me` devuelve además `role` (`ADMIN` u `OPERATOR`), `regions`, `mustChangePassword` y `canChangePassword`.
+- `POST /superadmin/auth/password` `{current, next}` (204) cambia la contraseña de una cuenta de la base de datos (mínimo 10 caracteres, distinta de la actual); `400 wrong_password`, `400 weak_password`, `400 primary_account` si es la cuenta de las variables de entorno.
+- Con `mustChangePassword` verdadero solo funcionan `me`, `password` y `logout`; el resto responde `403`.
+- **Operador:** solo `GET` de negocios, estadísticas y actividad. `403` en códigos (lectura y escritura), lotes, suspender, reactivar y eliminar. **Administrador:** todo.

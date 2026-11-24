@@ -68,6 +68,112 @@ describe('superadmin', () => {
     await ui();
   }
 
+  async function openAs(me: object, tenants = [tenant()], loadsData = true) {
+    const navigation = harness.navigateByUrl('/superadmin');
+    await answerCsrf(http);
+    await answer(http, `${API}/auth/me`, me);
+    await navigation;
+    if (loadsData) {
+      await answerMatching(http, r => r.url === `${API}/tenants`, 'GET tenants', page(tenants));
+      await answer(http, `${API}/stats`, stats);
+    }
+    await ui();
+  }
+
+  describe('cuentas y roles', () => {
+    const operator = { email: 'operador@ejemplo.test', role: 'OPERATOR', regions: ['AR'], mustChangePassword: false, canChangePassword: true };
+    const admin = { email: 'root@plataforma.test', role: 'ADMIN', regions: [], mustChangePassword: false, canChangePassword: false };
+
+    it('should show the role and keep the full panel for an administrator', async () => {
+      await openAs(admin, [tenant({ suspended: true })]);
+
+      expect(root().querySelector('[data-role]')?.textContent).toContain('Administrador');
+      expect(text()).toContain('Códigos');
+      expect(root().querySelector('table [data-activate]')).not.toBeNull();
+      expect(root().querySelector('[data-change-password]')).toBeNull();
+    });
+
+    it('should give an operator a read-only panel without the codes tab or any destructive action', async () => {
+      await openAs(operator, [tenant(), tenant({ id: 't2', slug: 'bar-b', name: 'Bar B', suspended: true })]);
+
+      expect(root().querySelector('[data-role]')?.textContent).toContain('Operador');
+      expect(Array.from(root().querySelectorAll('[role="tab"]')).map(tab => tab.textContent?.trim())).toEqual(['Negocios', 'Actividad']);
+      expect(root().querySelector('table [data-suspend]')).toBeNull();
+      expect(root().querySelector('table [data-activate]')).toBeNull();
+      expect(root().querySelector('table [data-delete]')).toBeNull();
+      expect(root().querySelector('table [data-read-only]')).not.toBeNull();
+      expect(text()).toContain('Negocio A');
+    });
+
+    it('should offer an operator to change their own password', async () => {
+      await openAs(operator);
+
+      expect(root().querySelector('[data-change-password]')).not.toBeNull();
+    });
+
+    it('should force a temporary password to be replaced before loading anything', async () => {
+      await openAs({ ...operator, mustChangePassword: true }, [], false);
+
+      expect(dialog()?.textContent).toContain('Crea tu contraseña');
+      expect(dialog()?.querySelector('[data-cancel]')).toBeNull();
+      expect(root().querySelector('[data-change-password]')).toBeNull();
+      http.expectNone(r => r.url === `${API}/tenants` || r.url === `${API}/stats`);
+
+      const form = dialog()!;
+      const set = (selector: string, value: string) => {
+        const field = form.querySelector(selector) as HTMLInputElement;
+        field.value = value;
+        field.dispatchEvent(new Event('input'));
+      };
+      set('[data-pw-current]', 'Temporal.123');
+      set('[data-pw-next]', 'corta');
+      set('[data-pw-repeat]', 'corta');
+      (form.querySelector('[data-password-form]') as HTMLFormElement).dispatchEvent(new Event('submit'));
+      await ui();
+      expect(form.querySelector('[data-pw-error]')?.textContent).toContain('al menos 10 caracteres');
+
+      set('[data-pw-next]', 'Clave-Nueva-Segura-9');
+      set('[data-pw-repeat]', 'Clave-Distinta-9999');
+      (form.querySelector('[data-password-form]') as HTMLFormElement).dispatchEvent(new Event('submit'));
+      await ui();
+      expect(form.querySelector('[data-pw-error]')?.textContent).toContain('no coinciden');
+
+      set('[data-pw-repeat]', 'Clave-Nueva-Segura-9');
+      (form.querySelector('[data-password-form]') as HTMLFormElement).dispatchEvent(new Event('submit'));
+      await answerCsrf(http);
+      const request = await answer(http, `${API}/auth/password`, null, { status: 204, statusText: 'No Content' }, 'POST');
+      await answerMatching(http, r => r.url === `${API}/tenants`, 'GET tenants', page([tenant()]));
+      await answer(http, `${API}/stats`, stats);
+      await ui();
+
+      expect(request.request.body).toEqual({ current: 'Temporal.123', next: 'Clave-Nueva-Segura-9' });
+      expect(dialog()).toBeNull();
+      expect(text()).toContain('Negocio A');
+    });
+
+    it('should explain a wrong current password and keep the form open', async () => {
+      await openAs(operator);
+      click('[data-change-password]');
+      await ui();
+      const form = dialog()!;
+      const set = (selector: string, value: string) => {
+        const field = form.querySelector(selector) as HTMLInputElement;
+        field.value = value;
+        field.dispatchEvent(new Event('input'));
+      };
+      set('[data-pw-current]', 'equivocada');
+      set('[data-pw-next]', 'Clave-Nueva-Segura-9');
+      set('[data-pw-repeat]', 'Clave-Nueva-Segura-9');
+      (form.querySelector('[data-password-form]') as HTMLFormElement).dispatchEvent(new Event('submit'));
+      await answerCsrf(http);
+      await fail(http, `${API}/auth/password`, 400, { code: 'wrong_password' });
+      await ui();
+
+      expect(form.querySelector('[data-pw-error]')?.textContent).toContain('actual no es correcta');
+      expect(dialog()).not.toBeNull();
+    });
+  });
+
   describe('acceso', () => {
     it('should send an anonymous visitor of the panel to the login page', async () => {
       const navigation = harness.navigateByUrl('/superadmin');
