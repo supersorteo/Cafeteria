@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { AbstractControl, NonNullableFormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { isConnectionProblem, toProblem } from '../core/api-error';
 import { AuthService } from '../core/auth.service';
@@ -118,6 +118,7 @@ export class RegisterPage {
   private readonly crossTab = inject(CrossTab);
   private readonly notices = inject(NoticeService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   private readonly devPassword = inject(REMEMBER_PASSWORD_IN_DEV);
   private stopListening: (() => void) | null = null;
 
@@ -138,6 +139,11 @@ export class RegisterPage {
   protected slugEdited = false;
 
   constructor() {
+    const prefilled = formatActivationCode(this.route.snapshot.queryParamMap.get('code') ?? '');
+    if (prefilled) {
+      this.form.controls.activationCode.setValue(prefilled);
+      void this.router.navigate([], { queryParams: { code: null }, queryParamsHandling: 'merge', replaceUrl: true });
+    }
     effect(() => {
       if (this.done() && !this.stopListening) {
         this.stopListening = this.crossTab.listen(message => {

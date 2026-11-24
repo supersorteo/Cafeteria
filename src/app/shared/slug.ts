@@ -1,6 +1,6 @@
 export const SLUG_PATTERN = /^[a-z0-9]([a-z0-9]|-[a-z0-9])*$/;
 
-export const RESERVED_SLUGS = ['admin', 'api', 'media', 'assets', 'images', 'auth', 'www', 'support', 'status', 'la-terraza'];
+export const RESERVED_SLUGS = ['admin', 'api', 'media', 'assets', 'images', 'auth', 'www', 'support', 'status', 'la-terraza', 'precios', 'comprar', 'pago'];
 
 export function slugify(value: string): string {
   return value

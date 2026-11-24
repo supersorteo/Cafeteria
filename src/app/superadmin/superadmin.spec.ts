@@ -47,6 +47,7 @@ describe('superadmin', () => {
   afterEach(() => {
     notices.dismiss();
     document.querySelectorAll('dialog').forEach(d => d.remove());
+    http.match('/api/v1/public/billing/options').forEach(request => request.flush({ plans: [], regions: [] }));
     http.verify();
   });
 
@@ -54,6 +55,7 @@ describe('superadmin', () => {
     for (let i = 0; i < 6; i++) {
       await settle();
       http.match('/api/v1/auth/csrf').forEach(request => request.flush({ headerName: 'X-XSRF-TOKEN' }));
+      http.match('/api/v1/public/billing/options').forEach(request => request.flush({ plans: [], regions: [] }));
       http.match('/api/v1/auth/me').forEach(request => request.flush({ code: 'unauthenticated' }, { status: 401, statusText: 'Unauthorized' }));
     }
   }
@@ -116,7 +118,7 @@ describe('superadmin', () => {
       await openAs(operator, [tenant(), tenant({ id: 't2', slug: 'bar-b', name: 'Bar B', suspended: true })]);
 
       expect(root().querySelector('[data-role]')?.textContent).toContain('Operador');
-      expect(Array.from(root().querySelectorAll('[role="tab"]')).map(tab => tab.textContent?.trim())).toEqual(['Negocios', 'Actividad']);
+      expect(Array.from(root().querySelectorAll('[role="tab"]')).map(tab => tab.textContent?.trim())).toEqual(['Negocios', 'Pedidos', 'Actividad']);
       expect(root().querySelector('table [data-suspend]')).toBeNull();
       expect(root().querySelector('table [data-activate]')).toBeNull();
       expect(root().querySelector('table [data-delete]')).toBeNull();

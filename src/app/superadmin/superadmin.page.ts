@@ -11,6 +11,8 @@ import { ConfirmDialog } from '../shared/confirm-dialog';
 import { EmptyState } from '../shared/ui/empty-state';
 import { Modal } from '../shared/ui/modal';
 import { Tabs } from '../shared/ui/tabs';
+import { SuperAdminOrders } from './superadmin-orders';
+import { SuperAdminPrices } from './superadmin-prices';
 import { POLL_MS, SuperAdminCodes } from './superadmin-codes';
 import { ThemeToggle } from '../shared/ui/theme-toggle';
 
@@ -25,7 +27,7 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 @Component({
-  imports: [DatePipe, NgTemplateOutlet, FormsModule, RouterLink, SuperAdminCodes, Tabs, ThemeToggle, ConfirmDialog, Modal, EmptyState],
+  imports: [DatePipe, NgTemplateOutlet, FormsModule, RouterLink, SuperAdminCodes, SuperAdminOrders, SuperAdminPrices, Tabs, ThemeToggle, ConfirmDialog, Modal, EmptyState],
   selector: 'app-superadmin-page',
   template: `
     <div class="min-h-screen bg-app">
@@ -160,6 +162,10 @@ const ACTION_LABELS: Record<string, string> = {
           </section>
         } @else if (tab() === 'codes') {
           <app-superadmin-codes />
+        } @else if (tab() === 'orders') {
+          <app-superadmin-orders />
+        } @else if (tab() === 'plans') {
+          <app-superadmin-prices />
         } @else {
           <section aria-label="Actividad" class="space-y-3" data-activity>
             @if (audit(); as entries) {
@@ -272,9 +278,18 @@ export class SuperAdminPage implements OnInit, OnDestroy {
   private searchTimer?: ReturnType<typeof setTimeout>;
   private poll?: ReturnType<typeof setInterval>;
 
-  protected readonly tabItems = computed(() => this.auth.isAdmin()
-    ? [{ id: 'tenants', label: 'Negocios' }, { id: 'codes', label: 'Códigos' }, { id: 'activity', label: 'Actividad' }]
-    : [{ id: 'tenants', label: 'Negocios' }, { id: 'activity', label: 'Actividad' }]);
+  protected readonly tabItems = computed(() => {
+    const items = [{ id: 'tenants', label: 'Negocios' }];
+    if (this.auth.isAdmin()) {
+      items.push({ id: 'codes', label: 'Códigos' });
+    }
+    items.push({ id: 'orders', label: 'Pedidos' });
+    if (this.auth.owner() && this.api.scope() === 'mine') {
+      items.push({ id: 'plans', label: 'Planes y precios' });
+    }
+    items.push({ id: 'activity', label: 'Actividad' });
+    return items;
+  });
   protected readonly filters: { id: TenantStatusFilter; label: string }[] = [
     { id: 'all', label: 'Todos' },
     { id: 'active', label: 'Activos' },
@@ -282,7 +297,7 @@ export class SuperAdminPage implements OnInit, OnDestroy {
   ];
 
   protected readonly scopeItems = [{ id: 'mine', label: 'Mi cuenta' }, { id: 'others', label: 'Otro administrador' }];
-  protected readonly tab = signal<'tenants' | 'codes' | 'activity'>('tenants');
+  protected readonly tab = signal<'tenants' | 'codes' | 'orders' | 'plans' | 'activity'>('tenants');
   protected readonly stats = signal<SuperAdminStats | null>(null);
   protected readonly page = signal<SuperAdminTenantPage | null>(null);
   protected readonly audit = signal<SuperAdminAudit[] | null>(null);
@@ -402,7 +417,10 @@ export class SuperAdminPage implements OnInit, OnDestroy {
     if (id === 'codes' && !this.auth.isAdmin()) {
       return;
     }
-    this.tab.set(id === 'activity' ? 'activity' : id === 'codes' ? 'codes' : 'tenants');
+    if (id === 'plans' && !this.auth.owner()) {
+      return;
+    }
+    this.tab.set(id === 'activity' ? 'activity' : id === 'codes' ? 'codes' : id === 'orders' ? 'orders' : id === 'plans' ? 'plans' : 'tenants');
     if (this.tab() === 'activity') {
       void this.loadAudit();
     }

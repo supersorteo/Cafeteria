@@ -62,6 +62,9 @@ export const routes: Routes = [
       { path: '**', redirectTo: '' },
     ],
   },
+  { path: 'precios', loadComponent: () => import('./billing/pricing.page').then(m => m.PricingPage) },
+  { path: 'comprar', loadComponent: () => import('./billing/buy.page').then(m => m.BuyPage) },
+  { path: 'pago/resultado', loadComponent: () => import('./billing/order-result.page').then(m => m.OrderResultPage) },
   { path: ':slug', loadComponent: () => import('./public-site/public-site.page').then(m => m.PublicSitePage) },
   { path: '**', component: NotFound },
 ];

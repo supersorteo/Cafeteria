@@ -1,6 +1,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { Observable } from 'rxjs';
+import type { BillingOptions, OrderStatus } from './billing.api';
 
 export interface SuperAdminTenant {
   id: string;
@@ -125,6 +126,32 @@ export interface CodeFilters {
   query: string;
 }
 
+export interface AdminOrder {
+  id: string;
+  reference: string;
+  planCode: string;
+  planName: string;
+  months: number;
+  region: string;
+  buyerName: string | null;
+  buyerEmail: string;
+  usdCents: number;
+  status: OrderStatus;
+  confirmedBy: string | null;
+  confirmedAt: string | null;
+  createdAt: string;
+  expiresAt: string;
+  activationCode: string | null;
+}
+
+export interface AdminOrderPage {
+  content: AdminOrder[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
 const API = '/api/v1/superadmin';
 
 @Injectable({ providedIn: 'root' })
@@ -199,6 +226,33 @@ export class SuperAdminApi {
 
   deleteCode(id: string, confirmSlug?: string): Observable<void> {
     return this.http.request<void>('DELETE', `${API}/codes/${id}`, confirmSlug ? { body: { confirmSlug } } : {});
+  }
+
+  orders(status: OrderStatus | 'all', query: string, page: number, size = 10): Observable<AdminOrderPage> {
+    let params = new HttpParams().set('page', page).set('size', size);
+    if (status !== 'all') {
+      params = params.set('status', status);
+    }
+    if (query.trim()) {
+      params = params.set('query', query.trim());
+    }
+    return this.http.get<AdminOrderPage>(`${API}/orders`, { params: this.scoped(params) });
+  }
+
+  confirmOrder(id: string): Observable<AdminOrder> {
+    return this.http.post<AdminOrder>(`${API}/orders/${id}/confirm`, null);
+  }
+
+  cancelOrder(id: string): Observable<void> {
+    return this.http.post<void>(`${API}/orders/${id}/cancel`, null);
+  }
+
+  billingOptions(): Observable<BillingOptions> {
+    return this.http.get<BillingOptions>(`${API}/billing/options`);
+  }
+
+  setPrice(planCode: string, months: number, usdCents: number): Observable<void> {
+    return this.http.put<void>(`${API}/billing/prices`, { planCode, months, usdCents });
   }
 
   audit(limit = 50): Observable<SuperAdminAudit[]> {
