@@ -6,7 +6,7 @@ import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { AuthService } from '../core/auth.service';
 import { vi } from 'vitest';
-import { BillingOptions, OrderReceipt, guessRegion } from '../core/billing.api';
+import { BillingOptions, OrderReceipt } from '../core/billing.api';
 import { answer, settle } from '../testing/http';
 import { BuyPage } from './buy.page';
 import { OrderResultPage } from './order-result.page';
@@ -105,6 +105,11 @@ describe('billing', () => {
 
   describe('buy page', () => {
     const submit = () => (root().querySelector('[data-buy-form]') as HTMLFormElement).dispatchEvent(new Event('submit'));
+    const choose = async (selector: string) => {
+      (root().querySelector(selector) as HTMLInputElement).dispatchEvent(new Event('change'));
+      await ui();
+    };
+    const button = () => root().querySelector('[data-submit]') as HTMLButtonElement;
 
     async function open(url = '/comprar') {
       await harness.navigateByUrl(url);
@@ -112,67 +117,84 @@ describe('billing', () => {
       await ui();
     }
 
-    it('should start by asking for the plan, with the most popular one preselected', async () => {
+    it('should start with nothing selected and not let the customer continue until choosing a plan', async () => {
       await open();
       expect(root().querySelectorAll('[data-steps] li').length).toBe(3);
-      expect((root().querySelector('[data-plan="PROFESIONAL"]') as HTMLInputElement).checked).toBe(true);
+      expect(root().querySelectorAll('[data-plan]:checked').length).toBe(0);
+      expect(button().disabled).toBe(true);
+
+      await choose('[data-plan="PROFESIONAL"]');
+      expect(button().disabled).toBe(false);
     });
 
-    it('should skip the plan step when it comes from a pricing link and preselect a country', async () => {
+    it('should preselect only the plan that comes from a pricing link and skip to the country', async () => {
       await open('/comprar?plan=EMPRENDEDOR');
       expect(root().querySelector('[data-plan]')).toBeNull();
-      expect(root().querySelectorAll('[data-region]:checked').length).toBe(1);
+      expect(root().querySelectorAll('[data-region]:checked').length).toBe(0);
+      expect(button().disabled).toBe(true);
     });
 
-    it('should guess the country from the time zone', () => {
-      const zone = vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions');
-      zone.mockReturnValue({ timeZone: 'America/Montevideo' } as Intl.ResolvedDateTimeFormatOptions);
-      expect(guessRegion()).toBe('UY');
-      zone.mockReturnValue({ timeZone: 'America/Argentina/Buenos_Aires' } as Intl.ResolvedDateTimeFormatOptions);
-      expect(guessRegion()).toBe('AR');
-      zone.mockRestore();
+    it('should not choose a country or a payment method by itself', async () => {
+      await open('/comprar?plan=EMPRENDEDOR');
+      await choose('[data-region="UY"]');
+      expect(button().disabled).toBe(false);
+      submit();
+      await ui();
+
+      expect(root().querySelectorAll('[data-method]:checked').length).toBe(0);
+      expect(button().disabled).toBe(true);
+      expect(button().textContent).toContain('Continuar');
     });
 
     it('should go back to the previous step', async () => {
       await open('/comprar?plan=EMPRENDEDOR');
-      (root().querySelector('[data-back]') as HTMLElement).click();
-      await ui();
-      expect(root().querySelector('[data-plan="EMPRENDEDOR"]')).not.toBeNull();
-    });
-
-    it('should ask how to pay after the country, with WhatsApp available and the online methods marked as coming soon', async () => {
-      await open('/comprar?plan=EMPRENDEDOR');
+      await choose('[data-region="UY"]');
       submit();
       await ui();
-      expect((root().querySelector('[data-method="WHATSAPP"]') as HTMLInputElement).checked).toBe(true);
-      expect((root().querySelector('[data-method="PAYPAL"]') as HTMLInputElement).disabled).toBe(true);
-      expect(root().querySelectorAll('[data-soon]').length).toBeGreaterThan(0);
-      expect(root().querySelector('[data-submit]')?.textContent).toContain('Abrir WhatsApp');
+      (root().querySelector('[data-back]') as HTMLElement).click();
+      await ui();
+      expect((root().querySelector('[data-region="UY"]') as HTMLInputElement).checked).toBe(true);
     });
 
-    it('should show Mercado Pago only for Argentina', async () => {
+    it('should offer WhatsApp and show the online methods as coming soon', async () => {
       await open('/comprar?plan=EMPRENDEDOR');
-      (root().querySelector('[data-region="AR"]') as HTMLInputElement).dispatchEvent(new Event('change'));
+      await choose('[data-region="UY"]');
+      submit();
+      await ui();
+      expect((root().querySelector('[data-method="WHATSAPP"]') as HTMLInputElement).disabled).toBe(false);
+      expect((root().querySelector('[data-method="PAYPAL"]') as HTMLInputElement).disabled).toBe(true);
+      expect(root().querySelectorAll('[data-soon]').length).toBeGreaterThan(0);
+
+      await choose('[data-method="WHATSAPP"]');
+      expect(button().disabled).toBe(false);
+      expect(button().textContent).toContain('Abrir WhatsApp');
+    });
+
+    it('should show Mercado Pago only for Argentina and forget the method when the country changes', async () => {
+      await open('/comprar?plan=EMPRENDEDOR');
+      await choose('[data-region="AR"]');
       submit();
       await ui();
       expect(root().querySelector('[data-method="MERCADOPAGO"]')).not.toBeNull();
+      await choose('[data-method="WHATSAPP"]');
 
       (root().querySelector('[data-back]') as HTMLElement).click();
       await ui();
-      (root().querySelector('[data-region="UY"]') as HTMLInputElement).dispatchEvent(new Event('change'));
+      await choose('[data-region="UY"]');
       submit();
       await ui();
       expect(root().querySelector('[data-method="MERCADOPAGO"]')).toBeNull();
+      expect(root().querySelectorAll('[data-method]:checked').length).toBe(1);
     });
 
     it('should open WhatsApp with a ready message and take the customer to the registration without creating any order', async () => {
       const open$ = vi.spyOn(window, 'open').mockReturnValue(null);
       await open('/comprar?plan=EMPRENDEDOR');
-      (root().querySelector('[data-region="UY"]') as HTMLInputElement).dispatchEvent(new Event('change'));
-      await ui();
+      await choose('[data-region="UY"]');
       submit();
       await ui();
       expect(root().querySelector('[data-summary]')?.textContent).toContain('Plan Emprendedor · US$ 9 al mes · Uruguay');
+      await choose('[data-method="WHATSAPP"]');
       submit();
       await ui();
 

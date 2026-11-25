@@ -1,7 +1,7 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { BillingApi, BillingOptions, RegionOption, formatUsd, guessRegion, whatsappMessage, whatsappUrl } from '../core/billing.api';
+import { BillingApi, BillingOptions, RegionOption, formatUsd, whatsappMessage, whatsappUrl } from '../core/billing.api';
 import { BillingShell } from './billing-shell';
 
 const STEPS = ['Plan', 'País', 'Pago'];
@@ -135,7 +135,7 @@ const METHOD_TEXT: Record<string, string> = {
             @if (step() > 1) {
               <button type="button" class="btn btn-secondary" data-back (click)="back()">Atrás</button>
             } @else { <span></span> }
-            <button type="submit" class="btn btn-primary btn-lg" data-submit>
+            <button type="submit" class="btn btn-primary btn-lg" data-submit [disabled]="!canContinue()">
               {{ step() < 3 ? 'Continuar' : (methodCode() === 'WHATSAPP' ? 'Abrir WhatsApp' : 'Continuar') }}
             </button>
           </div>
@@ -189,10 +189,9 @@ export class BuyPage implements OnInit {
       const data = await firstValueFrom(this.api.options());
       this.options.set(data);
       const wanted = this.route.snapshot.queryParamMap.get('plan');
-      this.planCode.set(data.plans.find(plan => plan.code === wanted)?.code ?? data.plans.find(plan => plan.code === 'PROFESIONAL')?.code ?? data.plans[0]?.code ?? '');
-      const available = data.regions.filter(region => this.usable(region));
-      this.pickRegion(available.find(region => region.code === guessRegion())?.code ?? available[0]?.code ?? '');
-      if (wanted && data.plans.some(plan => plan.code === wanted)) {
+      const chosen = data.plans.find(plan => plan.code === wanted)?.code;
+      if (chosen) {
+        this.planCode.set(chosen);
         this.step.set(2);
       }
     } catch {
@@ -204,15 +203,18 @@ export class BuyPage implements OnInit {
     return region.methods.some(method => method.available);
   }
 
+  protected canContinue(): boolean {
+    return this.step() === 1 ? !!this.planCode() : this.step() === 2 ? !!this.regionCode() : !!this.methodCode();
+  }
+
   protected methodText(code: string): string {
     return METHOD_TEXT[code] ?? '';
   }
 
   protected pickRegion(code: string): void {
     this.regionCode.set(code);
-    const methods = this.methods();
-    if (!methods.some(method => method.code === this.methodCode() && method.available)) {
-      this.methodCode.set(methods.find(method => method.available)?.code ?? '');
+    if (!this.methods().some(method => method.code === this.methodCode() && method.available)) {
+      this.methodCode.set('');
     }
   }
 
@@ -224,6 +226,10 @@ export class BuyPage implements OnInit {
   protected next(event: Event): void {
     event.preventDefault();
     this.error.set(null);
+    if (!this.canContinue()) {
+      this.error.set(this.step() === 1 ? 'Elige un plan para continuar.' : this.step() === 2 ? 'Elige tu país para continuar.' : 'Elige cómo quieres pagar.');
+      return;
+    }
     if (this.step() === 1) {
       this.step.set(2);
       return;

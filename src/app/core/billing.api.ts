@@ -60,22 +60,6 @@ export interface OrderReceipt {
   emailHint: string;
 }
 
-export function guessRegion(): string {
-  try {
-    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone ?? '';
-    if (zone.includes('Montevideo')) {
-      return 'UY';
-    }
-    if (zone.includes('Argentina') || zone.includes('Buenos_Aires')) {
-      return 'AR';
-    }
-    const language = (navigator.language ?? '').toUpperCase();
-    return language.endsWith('-UY') ? 'UY' : language.endsWith('-AR') ? 'AR' : '';
-  } catch {
-    return '';
-  }
-}
-
 export function formatUsd(cents: number): string {
   const value = cents / 100;
   return `US$ ${Number.isInteger(value) ? value : value.toFixed(2)}`;
