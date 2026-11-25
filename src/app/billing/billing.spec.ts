@@ -8,7 +8,7 @@ import { AuthService } from '../core/auth.service';
 import { vi } from 'vitest';
 import { BillingOptions, OrderReceipt } from '../core/billing.api';
 import { answer, settle } from '../testing/http';
-import { BuyPage } from './buy.page';
+import { BuyPage, WHATSAPP_TIMINGS } from './buy.page';
 import { OrderResultPage } from './order-result.page';
 import { PricingPage } from './pricing.page';
 
@@ -64,6 +64,7 @@ describe('billing', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: AuthService, useValue: { ensureCsrf: () => Promise.resolve() } },
+        { provide: WHATSAPP_TIMINGS, useValue: { waitMs: 80, minAwayMs: 30 } },
       ],
     });
     harness = await RouterTestingHarness.create();
@@ -187,31 +188,108 @@ describe('billing', () => {
       expect(root().querySelectorAll('[data-method]:checked').length).toBe(1);
     });
 
-    it('should open the native WhatsApp app with a ready message and take the customer to the registration without creating any order', async () => {
-      const opened: string[] = [];
-      const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
-        opened.push(this.getAttribute('href') ?? '');
-      });
-      await open('/comprar?plan=EMPRENDEDOR');
-      await choose('[data-region="UY"]');
-      submit();
-      await ui();
-      expect(root().querySelector('[data-summary]')?.textContent).toContain('Plan Emprendedor · US$ 9 al mes · Uruguay');
-      await choose('[data-method="WHATSAPP"]');
-      submit();
-      await ui();
+    describe('opening WhatsApp', () => {
+      const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+      let opened: string[];
+      let click: ReturnType<typeof vi.spyOn>;
+      const status = () => root().querySelector('[data-wa-status]')?.getAttribute('data-wa-status');
 
-      expect(opened.length).toBe(1);
-      expect(opened[0].startsWith('whatsapp://send?phone=59899000002&text=')).toBe(true);
-      expect(decodeURIComponent(opened[0].split('text=')[1])).toBe(
-        'Hola, quiero contratar el plan *Emprendedor* de Deliora (US$ 9 por mes).' + String.fromCharCode(10)
-        + 'Estoy en Uruguay. ¿Me indican cómo realizar el pago para recibir mi código de activación?' + String.fromCharCode(10) + 'Gracias.');
-      expect(opened[0]).not.toContain('PED-');
-      expect(sessionStorage.getItem('deliora.whatsappWeb')?.startsWith('https://wa.me/59899000002?text=')).toBe(true);
-      expect(router.url).toBe('/auth/register?from=whatsapp&plan=EMPRENDEDOR');
-      http.expectNone(`${API}/orders`);
-      click.mockRestore();
-      sessionStorage.removeItem('deliora.whatsappWeb');
+      async function toPayment() {
+        await open('/comprar?plan=EMPRENDEDOR');
+        await choose('[data-region="UY"]');
+        submit();
+        await ui();
+        await choose('[data-method="WHATSAPP"]');
+      }
+
+      beforeEach(() => {
+        opened = [];
+        click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+          opened.push(this.getAttribute('href') ?? '');
+        });
+      });
+
+      afterEach(() => {
+        click.mockRestore();
+        sessionStorage.removeItem('deliora.whatsappWeb');
+      });
+
+      it('should open the native app with a ready message but stay on the page, without creating any order', async () => {
+        await toPayment();
+        expect(root().querySelector('[data-summary]')?.textContent).toContain('Plan Emprendedor · US$ 9 al mes · Uruguay');
+        submit();
+        await ui();
+
+        expect(opened.length).toBe(1);
+        expect(opened[0].startsWith('whatsapp://send?phone=59899000002&text=')).toBe(true);
+        expect(decodeURIComponent(opened[0].split('text=')[1])).toBe(
+          'Hola, quiero contratar el plan *Emprendedor* de Deliora (US$ 9 por mes).' + String.fromCharCode(10)
+          + 'Estoy en Uruguay. ¿Me indican cómo realizar el pago para recibir mi código de activación?' + String.fromCharCode(10) + 'Gracias.');
+        expect(opened[0]).not.toContain('PED-');
+        expect(status()).toBe('opening');
+        expect(router.url).toBe('/comprar?plan=EMPRENDEDOR');
+        http.expectNone(`${API}/orders`);
+      });
+
+      it('should not go to the registration until WhatsApp was really opened and the customer comes back', async () => {
+        await toPayment();
+        submit();
+        await ui();
+        await pause(40);
+        expect(router.url).toBe('/comprar?plan=EMPRENDEDOR');
+
+        window.dispatchEvent(new Event('blur'));
+        await ui();
+        expect(status()).toBe('opened');
+        expect(root().querySelector('[data-wa-continue]')).not.toBeNull();
+        expect(router.url).toBe('/comprar?plan=EMPRENDEDOR');
+
+        await pause(50);
+        window.dispatchEvent(new Event('focus'));
+        await ui();
+        expect(router.url).toBe('/auth/register?from=whatsapp&plan=EMPRENDEDOR');
+      });
+
+      it('should ignore a quick blur and focus, like closing the browser permission prompt', async () => {
+        await toPayment();
+        submit();
+        await ui();
+        window.dispatchEvent(new Event('blur'));
+        window.dispatchEvent(new Event('focus'));
+        await ui();
+
+        expect(router.url).toBe('/comprar?plan=EMPRENDEDOR');
+        expect(status()).toBe('opening');
+      });
+
+      it('should let the customer continue by hand once WhatsApp is open', async () => {
+        await toPayment();
+        submit();
+        await ui();
+        window.dispatchEvent(new Event('blur'));
+        await ui();
+        (root().querySelector('[data-wa-continue]') as HTMLElement).click();
+        await ui();
+
+        expect(router.url).toBe('/auth/register?from=whatsapp&plan=EMPRENDEDOR');
+      });
+
+      it('should say WhatsApp was not detected and offer to retry or use WhatsApp Web', async () => {
+        await toPayment();
+        submit();
+        await ui();
+        await pause(120);
+        await ui();
+
+        expect(status()).toBe('notOpened');
+        expect(router.url).toBe('/comprar?plan=EMPRENDEDOR');
+        expect(root().querySelector('[data-wa-web]')?.getAttribute('href')?.startsWith('https://wa.me/59899000002?text=')).toBe(true);
+
+        (root().querySelector('[data-wa-retry]') as HTMLElement).click();
+        await ui();
+        expect(opened.length).toBe(2);
+        expect(status()).toBe('opening');
+      });
     });
   });
 

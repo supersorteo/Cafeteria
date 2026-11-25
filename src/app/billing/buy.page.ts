@@ -1,10 +1,16 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, InjectionToken, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { BillingApi, BillingOptions, RegionOption, formatUsd, openWhatsApp, whatsappMessage } from '../core/billing.api';
+import { BillingApi, BillingOptions, RegionOption, formatUsd, openWhatsApp, whatsappMessage, whatsappUrl } from '../core/billing.api';
 import { BillingShell } from './billing-shell';
 
 const STEPS = ['Plan', 'País', 'Pago'];
+
+export const WHATSAPP_TIMINGS = new InjectionToken('whatsapp-open-timings', {
+  factory: () => ({ waitMs: 5000, minAwayMs: 1500 }),
+});
+
+type WhatsappState = 'idle' | 'opening' | 'opened' | 'notOpened';
 
 const METHOD_TEXT: Record<string, string> = {
   WHATSAPP: 'Te escribimos por WhatsApp, coordinamos el pago y te enviamos tu código de activación.',
@@ -123,8 +129,28 @@ const METHOD_TEXT: Record<string, string> = {
                 </div>
                 @if (methodCode() === 'WHATSAPP') {
                   <p class="mt-4 rounded-ui-md bg-surface-2 px-4 py-3 text-sm font-medium" data-whatsapp-hint>
-                    Se abrirá la aplicación de WhatsApp con un mensaje listo para enviar. Mientras tanto, te llevamos al registro: ahí pegas el código que te enviemos.
+                    Se abrirá la aplicación de WhatsApp con un mensaje listo para enviar. Cuando lo envíes, te llevamos al registro: ahí pegas el código que te enviemos.
                   </p>
+                }
+                @switch (waState()) {
+                  @case ('opening') {
+                    <p class="mt-3 text-sm font-bold" role="status" data-wa-status="opening">Abriendo WhatsApp… Envía el mensaje y vuelve aquí.</p>
+                  }
+                  @case ('opened') {
+                    <div class="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-ui-md border border-primary/30 bg-primary/10 px-4 py-3" role="status" data-wa-status="opened">
+                      <p class="text-sm font-bold">WhatsApp abierto. Envía el mensaje y vuelve aquí: te llevamos al registro.</p>
+                      <button type="button" class="btn btn-primary btn-sm" data-wa-continue (click)="goToRegister()">Ya lo envié, continuar</button>
+                    </div>
+                  }
+                  @case ('notOpened') {
+                    <div class="mt-3 rounded-ui-md border border-warning/40 bg-warning/10 px-4 py-3" role="alert" data-wa-status="notOpened">
+                      <p class="text-sm font-bold">No detectamos que se abriera WhatsApp.</p>
+                      <div class="mt-2 flex flex-wrap gap-2">
+                        <button type="button" class="btn btn-secondary btn-sm" data-wa-retry (click)="pay()">Intentar de nuevo</button>
+                        <a [href]="webUrl()" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" data-wa-web>Abrir WhatsApp Web</a>
+                      </div>
+                    </div>
+                  }
                 }
               </fieldset>
             }
@@ -135,7 +161,7 @@ const METHOD_TEXT: Record<string, string> = {
             @if (step() > 1) {
               <button type="button" class="btn btn-secondary" data-back (click)="back()">Atrás</button>
             } @else { <span></span> }
-            <button type="submit" class="btn btn-primary btn-lg" data-submit [disabled]="!canContinue()">
+            <button type="submit" class="btn btn-primary btn-lg" data-submit [disabled]="!canContinue() || waState() === 'opening' || waState() === 'opened'">
               {{ step() < 3 ? 'Continuar' : (methodCode() === 'WHATSAPP' ? 'Abrir WhatsApp' : 'Continuar') }}
             </button>
           </div>
@@ -151,6 +177,9 @@ export class BuyPage implements OnInit {
   private readonly api = inject(BillingApi);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly timings = inject(WHATSAPP_TIMINGS);
+  private stopWatching: (() => void) | null = null;
 
   protected readonly steps = STEPS;
   protected readonly options = signal<BillingOptions | null>(null);
@@ -160,7 +189,14 @@ export class BuyPage implements OnInit {
   protected readonly regionCode = signal('');
   protected readonly methodCode = signal('');
   protected readonly error = signal<string | null>(null);
+  protected readonly waState = signal<WhatsappState>('idle');
   protected readonly usd = formatUsd;
+  protected readonly webUrl = computed(() => {
+    const data = this.options();
+    const plan = data?.plans.find(item => item.code === this.planCode());
+    const region = data?.regions.find(item => item.code === this.regionCode());
+    return plan && region ? whatsappUrl(region.whatsappNumber, whatsappMessage(plan, region)) : '';
+  });
   protected readonly methods = computed(() => this.options()?.regions.find(item => item.code === this.regionCode())?.methods ?? []);
   protected readonly summary = computed(() => {
     const data = this.options();
@@ -181,6 +217,7 @@ export class BuyPage implements OnInit {
 
   ngOnInit(): void {
     void this.load();
+    this.destroyRef.onDestroy(() => this.stopWatching?.());
   }
 
   protected async load(): Promise<void> {
@@ -245,7 +282,7 @@ export class BuyPage implements OnInit {
     this.pay();
   }
 
-  private pay(): void {
+  protected pay(): void {
     const data = this.options();
     const plan = data?.plans.find(item => item.code === this.planCode());
     const region = data?.regions.find(item => item.code === this.regionCode());
@@ -254,10 +291,58 @@ export class BuyPage implements OnInit {
       return;
     }
     if (this.methodCode() === 'WHATSAPP') {
+      this.watchWhatsapp();
       openWhatsApp(region.whatsappNumber, whatsappMessage(plan, region));
-      void this.router.navigate(['/auth/register'], { queryParams: { from: 'whatsapp', plan: plan.code } });
       return;
     }
     this.error.set('Esta forma de pago estará disponible muy pronto.');
+  }
+
+  protected goToRegister(): void {
+    this.stopWatching?.();
+    this.stopWatching = null;
+    void this.router.navigate(['/auth/register'], { queryParams: { from: 'whatsapp', plan: this.planCode() } });
+  }
+
+  private watchWhatsapp(): void {
+    this.stopWatching?.();
+    this.waState.set('opening');
+    let leftAt = 0;
+    const onBlur = (): void => {
+      leftAt = Date.now();
+      this.waState.set('opened');
+    };
+    let onBack = (): void => undefined;
+    const onHidden = (): void => {
+      if (document.visibilityState === 'hidden') {
+        onBlur();
+      } else {
+        onBack();
+      }
+    };
+    onBack = (): void => {
+      if (this.waState() !== 'opened') {
+        return;
+      }
+      if (Date.now() - leftAt >= this.timings.minAwayMs) {
+        this.goToRegister();
+      } else {
+        this.waState.set('opening');
+      }
+    };
+    const timer = setTimeout(() => {
+      if (this.waState() === 'opening') {
+        this.waState.set('notOpened');
+      }
+    }, this.timings.waitMs);
+    window.addEventListener('blur', onBlur);
+    window.addEventListener('focus', onBack);
+    document.addEventListener('visibilitychange', onHidden);
+    this.stopWatching = () => {
+      clearTimeout(timer);
+      window.removeEventListener('blur', onBlur);
+      window.removeEventListener('focus', onBack);
+      document.removeEventListener('visibilitychange', onHidden);
+    };
   }
 }
