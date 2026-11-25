@@ -1,7 +1,7 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { BillingApi, BillingOptions, RegionOption, formatUsd, whatsappMessage, whatsappUrl } from '../core/billing.api';
+import { BillingApi, BillingOptions, RegionOption, formatUsd, openWhatsApp, whatsappMessage } from '../core/billing.api';
 import { BillingShell } from './billing-shell';
 
 const STEPS = ['Plan', 'País', 'Pago'];
@@ -123,7 +123,7 @@ const METHOD_TEXT: Record<string, string> = {
                 </div>
                 @if (methodCode() === 'WHATSAPP') {
                   <p class="mt-4 rounded-ui-md bg-surface-2 px-4 py-3 text-sm font-medium" data-whatsapp-hint>
-                    Se abrirá WhatsApp con un mensaje listo para enviar. Mientras tanto, te llevamos al registro: ahí pegas el código que te enviemos.
+                    Se abrirá la aplicación de WhatsApp con un mensaje listo para enviar. Mientras tanto, te llevamos al registro: ahí pegas el código que te enviemos.
                   </p>
                 }
               </fieldset>
@@ -254,7 +254,7 @@ export class BuyPage implements OnInit {
       return;
     }
     if (this.methodCode() === 'WHATSAPP') {
-      window.open(whatsappUrl(region.whatsappNumber, whatsappMessage(plan, region)), '_blank', 'noopener');
+      openWhatsApp(region.whatsappNumber, whatsappMessage(plan, region));
       void this.router.navigate(['/auth/register'], { queryParams: { from: 'whatsapp', plan: plan.code } });
       return;
     }

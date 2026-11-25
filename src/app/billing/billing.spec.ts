@@ -187,8 +187,11 @@ describe('billing', () => {
       expect(root().querySelectorAll('[data-method]:checked').length).toBe(1);
     });
 
-    it('should open WhatsApp with a ready message and take the customer to the registration without creating any order', async () => {
-      const open$ = vi.spyOn(window, 'open').mockReturnValue(null);
+    it('should open the native WhatsApp app with a ready message and take the customer to the registration without creating any order', async () => {
+      const opened: string[] = [];
+      const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+        opened.push(this.getAttribute('href') ?? '');
+      });
       await open('/comprar?plan=EMPRENDEDOR');
       await choose('[data-region="UY"]');
       submit();
@@ -198,16 +201,17 @@ describe('billing', () => {
       submit();
       await ui();
 
-      const url = open$.mock.calls[0][0] as string;
-      expect(url.startsWith('https://wa.me/59899000002?text=')).toBe(true);
-      expect(decodeURIComponent(url.split('text=')[1])).toBe(
+      expect(opened.length).toBe(1);
+      expect(opened[0].startsWith('whatsapp://send?phone=59899000002&text=')).toBe(true);
+      expect(decodeURIComponent(opened[0].split('text=')[1])).toBe(
         'Hola, quiero contratar el plan *Emprendedor* de Deliora (US$ 9 por mes).' + String.fromCharCode(10)
         + 'Estoy en Uruguay. ¿Me indican cómo realizar el pago para recibir mi código de activación?' + String.fromCharCode(10) + 'Gracias.');
-      expect(decodeURIComponent(url)).not.toContain('PED-');
-      expect(open$.mock.calls[0][1]).toBe('_blank');
+      expect(opened[0]).not.toContain('PED-');
+      expect(sessionStorage.getItem('deliora.whatsappWeb')?.startsWith('https://wa.me/59899000002?text=')).toBe(true);
       expect(router.url).toBe('/auth/register?from=whatsapp&plan=EMPRENDEDOR');
       http.expectNone(`${API}/orders`);
-      open$.mockRestore();
+      click.mockRestore();
+      sessionStorage.removeItem('deliora.whatsappWeb');
     });
   });
 

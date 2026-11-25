@@ -7,6 +7,7 @@ import { firstValueFrom } from 'rxjs';
 import { isConnectionProblem, toProblem } from '../core/api-error';
 import { AuthService } from '../core/auth.service';
 import { CrossTab } from '../core/cross-tab.service';
+import { WHATSAPP_WEB_KEY } from '../core/billing.api';
 import { formatActivationCode } from '../core/plan.service';
 import { NoticeService } from '../core/notice.service';
 import { RESERVED_SLUGS, SLUG_PATTERN, slugify } from '../shared/slug';
@@ -49,6 +50,9 @@ function notReserved(control: AbstractControl<string>): ValidationErrors | null 
           <div class="mb-5 rounded-ui-lg border border-primary/30 bg-primary/10 p-4 text-sm font-medium" data-waiting-code role="status">
             <p class="font-bold">Te abrimos WhatsApp para coordinar el pago.</p>
             <p class="mt-1">Cuando te enviemos tu código de activación, pégalo en el último campo. Si te mandamos un enlace, ábrelo: el código ya viene escrito.</p>
+            @if (webLink()) {
+              <p class="mt-2 text-xs">¿No se abrió la aplicación? <a [href]="webLink()" target="_blank" rel="noopener noreferrer" class="font-bold underline" data-whatsapp-web>Abre WhatsApp Web</a>.</p>
+            }
           </div>
         }
         <form [formGroup]="form" (ngSubmit)="submit()" class="space-y-5" novalidate>
@@ -146,6 +150,7 @@ export class RegisterPage {
 
   protected readonly paid = signal(false);
   protected readonly waiting = signal(false);
+  protected readonly webLink = signal<string | null>(null);
 
   constructor() {
     const prefilled = formatActivationCode(this.route.snapshot.queryParamMap.get('code') ?? '');
@@ -159,6 +164,11 @@ export class RegisterPage {
       void this.router.navigate([], { queryParams: { code: null, email: null }, queryParamsHandling: 'merge', replaceUrl: true });
     } else if (this.route.snapshot.queryParamMap.get('from') === 'whatsapp') {
       this.waiting.set(true);
+      try {
+        this.webLink.set(sessionStorage.getItem(WHATSAPP_WEB_KEY));
+      } catch {
+        this.webLink.set(null);
+      }
       void this.router.navigate([], { queryParams: { from: null, plan: null }, queryParamsHandling: 'merge', replaceUrl: true });
     }
     effect(() => {

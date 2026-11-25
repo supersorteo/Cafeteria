@@ -75,6 +75,26 @@ export function whatsappUrl(number: string, message: string): string {
   return `https://wa.me/${number}?text=${encodeURIComponent(message)}`;
 }
 
+export const WHATSAPP_WEB_KEY = 'deliora.whatsappWeb';
+
+export function nativeWhatsappUrl(number: string, message: string): string {
+  return `whatsapp://send?phone=${number}&text=${encodeURIComponent(message)}`;
+}
+
+export function openWhatsApp(number: string, message: string): void {
+  try {
+    sessionStorage.setItem(WHATSAPP_WEB_KEY, whatsappUrl(number, message));
+  } catch {
+    // sin almacenamiento solo se pierde el enlace de respaldo
+  }
+  const link = document.createElement('a');
+  link.href = nativeWhatsappUrl(number, message);
+  link.style.display = 'none';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
 export function whatsappLink(receipt: Pick<OrderReceipt, 'whatsappNumber' | 'message'>): string {
   return `https://wa.me/${receipt.whatsappNumber}?text=${encodeURIComponent(receipt.message)}`;
 }
