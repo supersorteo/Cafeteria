@@ -131,14 +131,14 @@ describe('billing', () => {
       expect(router.url).toBe('/pago/resultado?ref=PED-ABCD2345');
     });
 
-    it('should explain when there are too many pending orders', async () => {
+    it('should explain when the country has no payment method available', async () => {
       await open();
       set('[data-email]', 'ana@ejemplo.test');
       await ui();
       (root().querySelector('[data-buy-form]') as HTMLFormElement).dispatchEvent(new Event('submit'));
-      await answer(http, `${API}/orders`, { code: 'too_many_orders' }, { status: 429, statusText: 'Too Many Requests' }, 'POST');
+      await answer(http, `${API}/orders`, { code: 'method_unavailable' }, { status: 409, statusText: 'Conflict' }, 'POST');
       await ui();
-      expect(root().querySelector('[data-error]')?.textContent).toContain('pedidos pendientes');
+      expect(root().querySelector('[data-error]')?.textContent).toContain('no está disponible en tu país');
     });
   });
 

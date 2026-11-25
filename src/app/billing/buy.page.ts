@@ -128,8 +128,7 @@ export class BuyPage implements OnInit {
     } catch (error) {
       const problem = toProblem(error);
       this.error.set(
-        problem.code === 'too_many_orders' ? 'Ya tienes pedidos pendientes. Espera a que los confirmemos o escríbenos por WhatsApp.'
-          : problem.code === 'method_unavailable' ? 'Este método no está disponible en tu país por ahora.'
+        problem.code === 'method_unavailable' ? 'Este método no está disponible en tu país por ahora.'
           : problem.code === 'too_many_attempts' ? 'Demasiados intentos. Inténtalo más tarde.'
           : problem.fieldErrors[0]?.message ?? (isConnectionProblem(problem) ? 'Problema de conexión. Inténtalo de nuevo.' : 'No pudimos registrar tu pedido.'),
       );
