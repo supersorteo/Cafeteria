@@ -1,36 +1,26 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { isConnectionProblem, toProblem } from '../core/api-error';
-import { AuthService } from '../core/auth.service';
-import { BillingApi, BillingOptions, OrderReceipt, RegionOption, formatUsd, guessRegion, lastOrderReference, rememberOrder } from '../core/billing.api';
+import { BillingApi, BillingOptions, RegionOption, formatUsd, guessRegion, whatsappMessage, whatsappUrl } from '../core/billing.api';
 import { BillingShell } from './billing-shell';
 
-const STEPS = ['Plan', 'País', 'Pago', 'Tus datos'];
+const STEPS = ['Plan', 'País', 'Pago'];
 
 const METHOD_TEXT: Record<string, string> = {
-  WHATSAPP: 'Coordinas el pago con nosotros por WhatsApp. Cuando lo confirmamos, recibes tu código por correo.',
+  WHATSAPP: 'Te escribimos por WhatsApp, coordinamos el pago y te enviamos tu código de activación.',
   MERCADOPAGO: 'Tarjeta o saldo en pesos argentinos. Tu código llega al instante.',
   PAYPAL: 'Tarjeta o cuenta PayPal, en dólares. Tu código llega al instante.',
 };
 
 @Component({
-  imports: [BillingShell, FormsModule, RouterLink],
+  imports: [BillingShell, RouterLink],
   selector: 'app-buy-page',
   template: `
     <app-billing-shell>
       <header class="max-w-2xl">
         <h1 class="font-display text-3xl md:text-4xl font-black">Contratar tu plan</h1>
-        <p class="mt-2 font-medium text-muted">Cuatro pasos rápidos. Eliges cómo pagar y recibes tu código por correo.</p>
+        <p class="mt-2 font-medium text-muted">Tres pasos rápidos. Eliges cómo pagar y recibes tu código para crear tu negocio.</p>
       </header>
-
-      @if (pendingOrder(); as pending) {
-        <div class="card mt-6 flex max-w-2xl flex-wrap items-center justify-between gap-3 p-4" data-resume>
-          <p class="text-sm font-bold">Tienes un pedido pendiente: <span class="tracking-wider">{{ pending.reference }}</span> · Plan {{ pending.planName }}</p>
-          <a routerLink="/pago/resultado" [queryParams]="{ ref: pending.reference }" class="btn btn-secondary btn-sm" data-resume-link>Retomarlo</a>
-        </div>
-      }
 
       @if (failed()) {
         <div class="card mt-8 p-6 text-center" role="alert">
@@ -74,7 +64,7 @@ const METHOD_TEXT: Record<string, string> = {
             @case (2) {
               <fieldset>
                 <legend class="font-display text-xl font-black">¿Desde qué país pagas?</legend>
-                <p class="mt-1 text-sm font-medium text-muted">Te atiende la persona de tu país por WhatsApp. Elegimos uno por tu zona horaria; puedes cambiarlo.</p>
+                <p class="mt-1 text-sm font-medium text-muted">Te atiende la persona de tu país. Elegimos uno por tu zona horaria; puedes cambiarlo.</p>
                 <div class="mt-4 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="País">
                   @for (region of data.regions; track region.code) {
                     <label [class]="card(regionCode() === region.code) + (usable(region) ? '' : ' opacity-50 cursor-not-allowed')" [attr.data-selected]="regionCode() === region.code">
@@ -101,10 +91,10 @@ const METHOD_TEXT: Record<string, string> = {
                 <p class="mt-3 text-xs font-medium text-muted">Si tu país no aparece, elige el más cercano: coordinamos el pago por WhatsApp.</p>
               </fieldset>
             }
-            @case (3) {
+            @default {
               <fieldset>
                 <legend class="font-display text-xl font-black">¿Cómo quieres pagar?</legend>
-                <p class="mt-1 text-sm font-medium text-muted">Estas son las formas de pago de {{ regionName() }}.</p>
+                <p class="mt-1 text-sm font-medium text-muted" data-summary>{{ summary() }}</p>
                 <div class="mt-4 space-y-3" role="radiogroup" aria-label="Forma de pago">
                   @for (method of methods(); track method.code) {
                     <label [class]="card(methodCode() === method.code) + (method.available ? '' : ' cursor-not-allowed bg-surface-2')" [attr.data-selected]="methodCode() === method.code">
@@ -131,17 +121,11 @@ const METHOD_TEXT: Record<string, string> = {
                     </label>
                   }
                 </div>
-              </fieldset>
-            }
-            @default {
-              <fieldset class="space-y-4">
-                <legend class="font-display text-xl font-black">¿Dónde te enviamos tu código?</legend>
-                <p class="rounded-ui-md bg-surface-2 px-4 py-3 text-sm font-bold" data-summary>{{ summary() }}</p>
-                <label class="block"><span class="text-sm font-bold">Correo</span>
-                  <input class="input mt-1" type="email" maxlength="254" autocomplete="email" inputmode="email" data-email [ngModel]="email()" (ngModelChange)="email.set($event)" name="email">
-                  <small class="mt-1 block text-xs font-medium text-muted">Usa el correo con el que crearás tu cuenta: así no tendrás que confirmarlo otra vez.</small></label>
-                <label class="block"><span class="text-sm font-bold">Nombre (opcional)</span>
-                  <input class="input mt-1" maxlength="120" autocomplete="name" data-name [ngModel]="name()" (ngModelChange)="name.set($event)" name="name"></label>
+                @if (methodCode() === 'WHATSAPP') {
+                  <p class="mt-4 rounded-ui-md bg-surface-2 px-4 py-3 text-sm font-medium" data-whatsapp-hint>
+                    Se abrirá WhatsApp con un mensaje listo para enviar. Mientras tanto, te llevamos al registro: ahí pegas el código que te enviemos.
+                  </p>
+                }
               </fieldset>
             }
           }
@@ -151,8 +135,8 @@ const METHOD_TEXT: Record<string, string> = {
             @if (step() > 1) {
               <button type="button" class="btn btn-secondary" data-back (click)="back()">Atrás</button>
             } @else { <span></span> }
-            <button type="submit" class="btn btn-primary btn-lg" data-submit [disabled]="pending()">
-              {{ step() < 4 ? 'Continuar' : (pending() ? 'Registrando…' : 'Crear mi pedido') }}
+            <button type="submit" class="btn btn-primary btn-lg" data-submit>
+              {{ step() < 3 ? 'Continuar' : (methodCode() === 'WHATSAPP' ? 'Abrir WhatsApp' : 'Continuar') }}
             </button>
           </div>
           <p class="text-xs font-medium text-muted">¿Ya tienes un código? <a routerLink="/auth/register" class="underline">Crea tu negocio</a>.</p>
@@ -165,7 +149,6 @@ const METHOD_TEXT: Record<string, string> = {
 })
 export class BuyPage implements OnInit {
   private readonly api = inject(BillingApi);
-  private readonly auth = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
@@ -175,15 +158,17 @@ export class BuyPage implements OnInit {
   protected readonly step = signal(1);
   protected readonly planCode = signal('');
   protected readonly regionCode = signal('');
-  protected readonly name = signal('');
-  protected readonly email = signal('');
-  protected readonly pending = signal(false);
-  protected readonly error = signal<string | null>(null);
-  protected readonly pendingOrder = signal<OrderReceipt | null>(null);
   protected readonly methodCode = signal('');
-  protected readonly methods = computed(() => this.options()?.regions.find(item => item.code === this.regionCode())?.methods ?? []);
-  protected readonly regionName = computed(() => this.options()?.regions.find(item => item.code === this.regionCode())?.name ?? 'tu país');
+  protected readonly error = signal<string | null>(null);
   protected readonly usd = formatUsd;
+  protected readonly methods = computed(() => this.options()?.regions.find(item => item.code === this.regionCode())?.methods ?? []);
+  protected readonly summary = computed(() => {
+    const data = this.options();
+    const plan = data?.plans.find(item => item.code === this.planCode());
+    const region = data?.regions.find(item => item.code === this.regionCode());
+    return plan && region ? `Plan ${plan.name} · ${formatUsd(plan.usdCents)} al mes · ${region.name}` : '';
+  });
+
   protected card(selected: boolean): string {
     return 'relative flex cursor-pointer items-center gap-3 rounded-ui-lg border-2 p-4 transition focus-within:ring-2 focus-within:ring-primary/40 '
       + (selected ? 'border-primary bg-primary/10 shadow-sm' : 'border-line bg-surface hover:border-primary/50');
@@ -194,17 +179,8 @@ export class BuyPage implements OnInit {
       + (selected ? 'border-primary bg-primary text-white' : 'border-line');
   }
 
-  protected readonly summary = computed(() => {
-    const data = this.options();
-    const plan = data?.plans.find(item => item.code === this.planCode());
-    const region = data?.regions.find(item => item.code === this.regionCode());
-    const method = region?.methods.find(item => item.code === this.methodCode());
-    return plan && region ? `Plan ${plan.name} · ${formatUsd(plan.usdCents)} al mes · ${region.name}${method ? ' · ' + method.name : ''}` : '';
-  });
-
   ngOnInit(): void {
     void this.load();
-    void this.resume();
   }
 
   protected async load(): Promise<void> {
@@ -245,7 +221,7 @@ export class BuyPage implements OnInit {
     this.step.update(current => Math.max(1, current - 1));
   }
 
-  protected async next(event: Event): Promise<void> {
+  protected next(event: Event): void {
     event.preventDefault();
     this.error.set(null);
     if (this.step() === 1) {
@@ -260,54 +236,22 @@ export class BuyPage implements OnInit {
       this.step.set(3);
       return;
     }
-    if (this.step() === 3) {
-      if (!this.methodCode()) {
-        this.error.set('Elige cómo quieres pagar.');
-        return;
-      }
-      this.step.set(4);
-      return;
-    }
-    await this.submit();
+    this.pay();
   }
 
-  private async resume(): Promise<void> {
-    const reference = lastOrderReference();
-    if (!reference) {
+  private pay(): void {
+    const data = this.options();
+    const plan = data?.plans.find(item => item.code === this.planCode());
+    const region = data?.regions.find(item => item.code === this.regionCode());
+    if (!plan || !region || !this.methodCode()) {
+      this.error.set('Elige cómo quieres pagar.');
       return;
     }
-    try {
-      const order = await firstValueFrom(this.api.order(reference));
-      this.pendingOrder.set(order.status === 'PENDING' ? order : null);
-    } catch {
-      this.pendingOrder.set(null);
-    }
-  }
-
-  private async submit(): Promise<void> {
-    if (this.pending()) {
+    if (this.methodCode() === 'WHATSAPP') {
+      window.open(whatsappUrl(region.whatsappNumber, whatsappMessage(plan, region)), '_blank', 'noopener');
+      void this.router.navigate(['/auth/register'], { queryParams: { from: 'whatsapp', plan: plan.code } });
       return;
     }
-    const email = this.email().trim();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      this.error.set('Escribe un correo válido: ahí te enviamos el código.');
-      return;
-    }
-    this.pending.set(true);
-    try {
-      await this.auth.ensureCsrf();
-      const receipt = await firstValueFrom(this.api.createOrder({ planCode: this.planCode(), region: this.regionCode(), email, name: this.name().trim(), method: this.methodCode() }));
-      rememberOrder(receipt.reference);
-      await this.router.navigate(['/pago/resultado'], { queryParams: { ref: receipt.reference } });
-    } catch (error) {
-      const problem = toProblem(error);
-      this.error.set(
-        problem.code === 'method_unavailable' ? 'Este método no está disponible en tu país por ahora.'
-          : problem.code === 'too_many_attempts' ? 'Demasiados intentos. Inténtalo más tarde.'
-          : problem.fieldErrors[0]?.message ?? (isConnectionProblem(problem) ? 'Problema de conexión. Inténtalo de nuevo.' : 'No pudimos registrar tu pedido.'),
-      );
-    } finally {
-      this.pending.set(false);
-    }
+    this.error.set('Esta forma de pago estará disponible muy pronto.');
   }
 }

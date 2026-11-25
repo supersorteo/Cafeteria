@@ -45,6 +45,12 @@ function notReserved(control: AbstractControl<string>): ValidationErrors | null 
       </app-auth-card>
     } @else {
       <app-auth-card title="Crea tu cuenta" [subtitle]="paid() ? 'Tu pago está confirmado. Solo faltan los datos de tu negocio.' : 'Registra tu negocio y empieza a publicar tu carta.'">
+        @if (waiting()) {
+          <div class="mb-5 rounded-ui-lg border border-primary/30 bg-primary/10 p-4 text-sm font-medium" data-waiting-code role="status">
+            <p class="font-bold">Te abrimos WhatsApp para coordinar el pago.</p>
+            <p class="mt-1">Cuando te enviemos tu código de activación, pégalo en el último campo. Si te mandamos un enlace, ábrelo: el código ya viene escrito.</p>
+          </div>
+        }
         <form [formGroup]="form" (ngSubmit)="submit()" class="space-y-5" novalidate>
           <div>
             <label for="reg-business" class="text-xs font-bold uppercase tracking-wider text-muted">Nombre del negocio</label>
@@ -139,6 +145,7 @@ export class RegisterPage {
   protected slugEdited = false;
 
   protected readonly paid = signal(false);
+  protected readonly waiting = signal(false);
 
   constructor() {
     const prefilled = formatActivationCode(this.route.snapshot.queryParamMap.get('code') ?? '');
@@ -150,6 +157,9 @@ export class RegisterPage {
         this.form.controls.email.setValue(email);
       }
       void this.router.navigate([], { queryParams: { code: null, email: null }, queryParamsHandling: 'merge', replaceUrl: true });
+    } else if (this.route.snapshot.queryParamMap.get('from') === 'whatsapp') {
+      this.waiting.set(true);
+      void this.router.navigate([], { queryParams: { from: null, plan: null }, queryParamsHandling: 'merge', replaceUrl: true });
     }
     effect(() => {
       if (this.done() && !this.stopListening) {

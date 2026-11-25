@@ -203,6 +203,22 @@ describe('RegisterPage', () => {
     expect(crossTab.handler).toBeNull();
   });
 
+  describe('arriving from the WhatsApp purchase', () => {
+    it('should explain that the code will arrive by WhatsApp and clean the address', async () => {
+      await harness.navigateByUrl('/auth/login');
+      await harness.navigateByUrl('/auth/register?from=whatsapp&plan=PROFESIONAL');
+      harness.detectChanges();
+
+      expect(root().querySelector('[data-waiting-code]')?.textContent).toContain('Te abrimos WhatsApp');
+      expect(TestBed.inject(Router).url).toBe('/auth/register');
+      expect(value('#reg-code')).toBe('');
+    });
+
+    it('should not show the notice on a regular visit', () => {
+      expect(root().querySelector('[data-waiting-code]')).toBeNull();
+    });
+  });
+
   describe('arriving from the payment email', () => {
     async function openFromEmail() {
       await harness.navigateByUrl('/auth/login');

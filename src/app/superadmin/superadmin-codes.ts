@@ -65,6 +65,9 @@ const STATUS_LABELS: Record<string, string> = { AVAILABLE: 'Disponible', REDEEME
           <div class="flex flex-wrap items-center justify-between gap-3">
             <p class="font-bold">Lote «{{ batch.label }}»: {{ batch.codes.length }} código{{ batch.codes.length === 1 ? '' : 's' }} {{ planLabel(batch.planCode) }} de {{ durationLabel(batch.durationMonths) }}</p>
             <div class="flex gap-2">
+              @if (batch.codes.length === 1) {
+                <button type="button" class="btn btn-primary btn-sm" data-copy-message (click)="copyMessage(batch)">Copiar mensaje para WhatsApp</button>
+              }
               <button type="button" class="btn btn-secondary btn-sm" data-copy-all (click)="copyAll(batch)">Copiar todos</button>
               <button type="button" class="btn btn-secondary btn-sm" data-download (click)="download(batch)">Descargar CSV</button>
             </div>
@@ -372,6 +375,13 @@ export class SuperAdminCodes implements OnInit, OnDestroy {
 
   protected async copy(code: string): Promise<void> {
     await this.toClipboard(code, 'Código copiado.');
+  }
+
+  protected async copyMessage(batch: GeneratedBatch): Promise<void> {
+    const code = batch.codes[0];
+    const message = `¡Hola! Recibimos tu pago, gracias. Tu código de activación del plan ${this.planLabel(batch.planCode)} es:\n\n${code}\n\n`
+      + `Crea tu negocio aquí (el código ya viene escrito):\n${location.origin}/auth/register?code=${code}`;
+    await this.toClipboard(message, 'Mensaje copiado. Pégalo en el chat de WhatsApp.');
   }
 
   protected async copyAll(batch: GeneratedBatch): Promise<void> {

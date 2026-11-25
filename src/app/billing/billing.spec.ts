@@ -1,5 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
@@ -10,6 +11,9 @@ import { answer, settle } from '../testing/http';
 import { BuyPage } from './buy.page';
 import { OrderResultPage } from './order-result.page';
 import { PricingPage } from './pricing.page';
+
+@Component({ template: '' })
+class RegisterStub {}
 
 const API = '/api/v1/public/billing';
 const OPTIONS: BillingOptions = {
@@ -55,6 +59,7 @@ describe('billing', () => {
           { path: 'precios', component: PricingPage },
           { path: 'comprar', component: BuyPage },
           { path: 'pago/resultado', component: OrderResultPage },
+          { path: 'auth/register', component: RegisterStub },
         ]),
         provideHttpClient(),
         provideHttpClientTesting(),
@@ -107,11 +112,9 @@ describe('billing', () => {
       await ui();
     }
 
-    afterEach(() => localStorage.removeItem('deliora.lastOrder'));
-
     it('should start by asking for the plan, with the most popular one preselected', async () => {
       await open();
-      expect(root().querySelector('[data-steps]')).not.toBeNull();
+      expect(root().querySelectorAll('[data-steps] li').length).toBe(3);
       expect((root().querySelector('[data-plan="PROFESIONAL"]') as HTMLInputElement).checked).toBe(true);
     });
 
@@ -141,10 +144,10 @@ describe('billing', () => {
       await open('/comprar?plan=EMPRENDEDOR');
       submit();
       await ui();
-      expect(root().querySelector('[data-method="WHATSAPP"]')).not.toBeNull();
       expect((root().querySelector('[data-method="WHATSAPP"]') as HTMLInputElement).checked).toBe(true);
       expect((root().querySelector('[data-method="PAYPAL"]') as HTMLInputElement).disabled).toBe(true);
       expect(root().querySelectorAll('[data-soon]').length).toBeGreaterThan(0);
+      expect(root().querySelector('[data-submit]')?.textContent).toContain('Abrir WhatsApp');
     });
 
     it('should show Mercado Pago only for Argentina', async () => {
@@ -162,71 +165,27 @@ describe('billing', () => {
       expect(root().querySelector('[data-method="MERCADOPAGO"]')).toBeNull();
     });
 
-    it('should ask for a valid email on the last step without calling the server', async () => {
-      await open('/comprar?plan=EMPRENDEDOR');
-      submit();
-      await ui();
-      submit();
-      await ui();
-      set('[data-email]', 'no-es-correo');
-      submit();
-      await ui();
-      expect(root().querySelector('[data-error]')?.textContent).toContain('correo válido');
-    });
-
-    it('should create the order with the chosen plan, country and method, remember it and go to the result page', async () => {
+    it('should open WhatsApp with a ready message and take the customer to the registration without creating any order', async () => {
+      const open$ = vi.spyOn(window, 'open').mockReturnValue(null);
       await open('/comprar?plan=EMPRENDEDOR');
       (root().querySelector('[data-region="UY"]') as HTMLInputElement).dispatchEvent(new Event('change'));
       await ui();
       submit();
       await ui();
+      expect(root().querySelector('[data-summary]')?.textContent).toContain('Plan Emprendedor · US$ 9 al mes · Uruguay');
       submit();
-      await ui();
-      expect(root().querySelector('[data-summary]')?.textContent).toContain('Plan Emprendedor · US$ 9 al mes · Uruguay · WhatsApp');
-      set('[data-name]', 'Ana');
-      set('[data-email]', 'ana@ejemplo.test');
-      await ui();
-      submit();
-      const request = await answer(http, `${API}/orders`, receipt({ planName: 'Emprendedor' }), { status: 201, statusText: 'Created' }, 'POST');
-      await answer(http, `${API}/orders/PED-ABCD2345`, receipt({ planName: 'Emprendedor' }));
       await ui();
 
-      expect(request.request.body).toEqual({ planCode: 'EMPRENDEDOR', region: 'UY', email: 'ana@ejemplo.test', name: 'Ana', method: 'WHATSAPP' });
-      expect(router.url).toBe('/pago/resultado?ref=PED-ABCD2345');
-      expect(localStorage.getItem('deliora.lastOrder')).toBe('PED-ABCD2345');
-    });
-
-    it('should explain when the country has no payment method available', async () => {
-      await open('/comprar?plan=EMPRENDEDOR');
-      submit();
-      await ui();
-      submit();
-      await ui();
-      set('[data-email]', 'ana@ejemplo.test');
-      await ui();
-      submit();
-      await answer(http, `${API}/orders`, { code: 'method_unavailable' }, { status: 409, statusText: 'Conflict' }, 'POST');
-      await ui();
-      expect(root().querySelector('[data-error]')?.textContent).toContain('no está disponible en tu país');
-    });
-
-    it('should offer to resume a pending order from a previous visit', async () => {
-      localStorage.setItem('deliora.lastOrder', 'PED-ABCD2345');
-      await harness.navigateByUrl('/comprar');
-      await answer(http, `${API}/options`, OPTIONS);
-      await answer(http, `${API}/orders/PED-ABCD2345`, receipt());
-      await ui();
-      expect(root().querySelector('[data-resume]')?.textContent).toContain('PED-ABCD2345');
-      expect(root().querySelector('[data-resume-link]')?.getAttribute('href')).toBe('/pago/resultado?ref=PED-ABCD2345');
-    });
-
-    it('should not offer to resume an order that was already paid', async () => {
-      localStorage.setItem('deliora.lastOrder', 'PED-ABCD2345');
-      await harness.navigateByUrl('/comprar');
-      await answer(http, `${API}/options`, OPTIONS);
-      await answer(http, `${API}/orders/PED-ABCD2345`, receipt({ status: 'PAID' }));
-      await ui();
-      expect(root().querySelector('[data-resume]')).toBeNull();
+      const url = open$.mock.calls[0][0] as string;
+      expect(url.startsWith('https://wa.me/59899000002?text=')).toBe(true);
+      expect(decodeURIComponent(url.split('text=')[1])).toBe(
+        'Hola, quiero contratar el plan *Emprendedor* de Deliora (US$ 9 por mes).' + String.fromCharCode(10)
+        + 'Estoy en Uruguay. ¿Me indican cómo realizar el pago para recibir mi código de activación?' + String.fromCharCode(10) + 'Gracias.');
+      expect(decodeURIComponent(url)).not.toContain('PED-');
+      expect(open$.mock.calls[0][1]).toBe('_blank');
+      expect(router.url).toBe('/auth/register?from=whatsapp&plan=EMPRENDEDOR');
+      http.expectNone(`${API}/orders`);
+      open$.mockRestore();
     });
   });
 

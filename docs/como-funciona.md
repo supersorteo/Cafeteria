@@ -18,7 +18,7 @@ Cada negocio (tenant) es independiente: su sesión solo ve y edita sus datos. El
 
 ## Flujo de un negocio real
 
-1. Entra a `/` → «Ver planes» → elige plan y país en `/comprar`, y escribe por WhatsApp con su número de pedido. Quien atiende confirma el pago en el superadmin (pestaña Pedidos) y le llega un correo con su código y un enlace a `/auth/register?code=…`; allí completa el registro.
+1. Entra a `/` → «Ver planes» → `/comprar` (plan, país y forma de pago). Con WhatsApp se abre la app con un mensaje listo (plan, precio y país) y la página pasa al registro, donde pegará el código. Quien atiende cobra por WhatsApp, genera el código en la pestaña Códigos y pulsa «Copiar mensaje para WhatsApp»: el mensaje trae un enlace `/auth/register?code=…` con el código ya escrito.
 2. Recibe un correo con un enlace de verificación (en local, por el Gmail configurado; con `mail.sender=log` el enlace sale en la consola del backend).
 3. Al abrir el enlace, el navegador siempre lo abre en una pestaña nueva. Si la pestaña del registro sigue abierta (mismo navegador), pasa sola al inicio de sesión con el aviso «Correo confirmado»; la pestaña nueva indica que ya puede cerrarse. Si no hay otra pestaña (otro navegador o el móvil), la nueva cuenta atrás de 3 s y lo lleva al inicio de sesión.
 4. Inicia sesión → llega a `/admin`.

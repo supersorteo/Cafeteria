@@ -276,6 +276,31 @@ describe('SuperAdminCodes', () => {
     }
   });
 
+  it('should copy a ready WhatsApp message with the registration link for a single generated code', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    await open();
+    set('#gen-quantity', '1');
+    await ui();
+    click('[data-generate-submit]');
+    await ui();
+    (dialog()!.querySelector('[data-confirm]') as HTMLElement).click();
+    await answerMatching(http, r => r.url === `${API}/batches` && r.method === 'POST', 'POST batch',
+      { id: 'b9', label: 'x', durationMonths: 1, planCode: 'PROFESIONAL', codes: ['DLR-AAAA-1111'] });
+    await answerMatching(http, r => r.url === API, 'reload', page([code()]));
+    await answer(http, `${API}/stats`, stats);
+    await answer(http, `${API}/batches`, batches);
+    await ui();
+
+    click('[data-copy-message]');
+    await ui();
+    const message = writeText.mock.calls[0][0] as string;
+    expect(message).toContain('plan Profesional');
+    expect(message).toContain('DLR-AAAA-1111');
+    expect(message).toContain(`${location.origin}/auth/register?code=DLR-AAAA-1111`);
+    Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true });
+  });
+
   it('should copy every generated code to the clipboard', async () => {
     await open();
     const writeText = vi.fn().mockResolvedValue(undefined);

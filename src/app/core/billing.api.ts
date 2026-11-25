@@ -60,24 +60,6 @@ export interface OrderReceipt {
   emailHint: string;
 }
 
-const LAST_ORDER_KEY = 'deliora.lastOrder';
-
-export function rememberOrder(reference: string): void {
-  try {
-    localStorage.setItem(LAST_ORDER_KEY, reference);
-  } catch {
-    return;
-  }
-}
-
-export function lastOrderReference(): string | null {
-  try {
-    return localStorage.getItem(LAST_ORDER_KEY);
-  } catch {
-    return null;
-  }
-}
-
 export function guessRegion(): string {
   try {
     const zone = Intl.DateTimeFormat().resolvedOptions().timeZone ?? '';
@@ -97,6 +79,16 @@ export function guessRegion(): string {
 export function formatUsd(cents: number): string {
   const value = cents / 100;
   return `US$ ${Number.isInteger(value) ? value : value.toFixed(2)}`;
+}
+
+export function whatsappMessage(plan: Pick<PlanOption, 'name' | 'usdCents'>, region: Pick<RegionOption, 'name'>): string {
+  return `Hola, quiero contratar el plan *${plan.name}* de Deliora (${formatUsd(plan.usdCents)} por mes).\n`
+    + `Estoy en ${region.name}. ¿Me indican cómo realizar el pago para recibir mi código de activación?\n`
+    + 'Gracias.';
+}
+
+export function whatsappUrl(number: string, message: string): string {
+  return `https://wa.me/${number}?text=${encodeURIComponent(message)}`;
 }
 
 export function whatsappLink(receipt: Pick<OrderReceipt, 'whatsappNumber' | 'message'>): string {
