@@ -48,15 +48,18 @@ const STEPS = ['Plan', 'País', 'Tus datos'];
             @case (1) {
               <fieldset>
                 <legend class="font-display text-xl font-black">¿Qué plan necesitas?</legend>
-                <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                <div class="mt-4 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Plan">
                   @for (plan of data.plans; track plan.code) {
-                    <label class="qr-choice flex-col !items-start !p-4" [class.active]="planCode() === plan.code">
-                      <span class="flex w-full items-center justify-between gap-3">
-                        <input type="radio" name="plan" class="sr-only" [value]="plan.code" [checked]="planCode() === plan.code" (change)="planCode.set(plan.code)" [attr.data-plan]="plan.code">
-                        <strong class="font-display text-lg">{{ plan.name }}</strong>
-                        <span class="font-bold text-primary">{{ usd(plan.usdCents) }} / mes</span>
+                    <label [class]="card(planCode() === plan.code)" [attr.data-selected]="planCode() === plan.code">
+                      <input type="radio" name="plan" class="sr-only" [value]="plan.code" [checked]="planCode() === plan.code" (change)="planCode.set(plan.code)" [attr.data-plan]="plan.code">
+                      <span class="min-w-0 flex-1">
+                        <span class="flex items-baseline justify-between gap-3">
+                          <strong class="font-display text-lg">{{ plan.name }}</strong>
+                          <span class="font-bold text-primary">{{ usd(plan.usdCents) }}<span class="text-xs font-semibold text-muted"> / mes</span></span>
+                        </span>
+                        <span class="mt-1 block text-xs font-medium text-muted">Hasta {{ plan.maxMenuItems }} platos · {{ plan.fullBranding ? 'marca completa' : 'logo y 2 colores' }} · {{ plan.prioritySupport ? 'soporte prioritario' : 'soporte por correo' }}</span>
                       </span>
-                      <span class="mt-1 text-xs font-medium text-muted">Hasta {{ plan.maxMenuItems }} platos · {{ plan.fullBranding ? 'marca completa' : 'logo y 2 colores' }} · {{ plan.prioritySupport ? 'soporte prioritario' : 'soporte por correo' }}</span>
+                      <span [class]="mark(planCode() === plan.code)" aria-hidden="true">@if (planCode() === plan.code) { ✓ }</span>
                     </label>
                   }
                 </div>
@@ -66,11 +69,26 @@ const STEPS = ['Plan', 'País', 'Tus datos'];
               <fieldset>
                 <legend class="font-display text-xl font-black">¿Desde qué país pagas?</legend>
                 <p class="mt-1 text-sm font-medium text-muted">Te atiende la persona de tu país por WhatsApp. Elegimos uno por tu zona horaria; puedes cambiarlo.</p>
-                <div class="mt-4 flex flex-wrap gap-3">
+                <div class="mt-4 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="País">
                   @for (region of data.regions; track region.code) {
-                    <label class="qr-choice !min-h-11" [class.active]="regionCode() === region.code" [class.opacity-50]="!region.whatsapp">
+                    <label [class]="card(regionCode() === region.code) + (region.whatsapp ? '' : ' opacity-50 cursor-not-allowed')" [attr.data-selected]="regionCode() === region.code">
                       <input type="radio" name="region" class="sr-only" [value]="region.code" [checked]="regionCode() === region.code" [disabled]="!region.whatsapp" (change)="regionCode.set(region.code)" [attr.data-region]="region.code">
-                      {{ region.name }}
+                      <span class="flex h-8 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md border border-line shadow-sm" aria-hidden="true">
+                        @switch (region.code) {
+                          @case ('AR') {
+                            <svg viewBox="0 0 48 32" width="48" height="32"><rect width="48" height="32" fill="#74ACDF"/><rect y="10.7" width="48" height="10.7" fill="#fff"/><circle cx="24" cy="16" r="3.4" fill="#F6B40E"/></svg>
+                          }
+                          @case ('UY') {
+                            <svg viewBox="0 0 48 32" width="48" height="32"><rect width="48" height="32" fill="#fff"/><g fill="#0038A8"><rect y="3.55" width="48" height="3.55"/><rect y="10.65" width="48" height="3.55"/><rect y="17.75" width="48" height="3.55"/><rect y="24.85" width="48" height="3.55"/></g><rect width="21" height="17.75" fill="#fff"/><circle cx="10.5" cy="8.9" r="4.6" fill="#FCD116"/></svg>
+                          }
+                          @default { <span class="text-xs font-black text-muted">{{ region.code }}</span> }
+                        }
+                      </span>
+                      <span class="min-w-0 flex-1">
+                        <strong class="block font-display text-lg">{{ region.name }}</strong>
+                        <span class="block text-xs font-medium text-muted">{{ region.whatsapp ? 'Pago coordinado por WhatsApp' : 'Por ahora no disponible' }}</span>
+                      </span>
+                      <span [class]="mark(regionCode() === region.code)" aria-hidden="true">@if (regionCode() === region.code) { ✓ }</span>
                     </label>
                   }
                 </div>
@@ -125,6 +143,16 @@ export class BuyPage implements OnInit {
   protected readonly error = signal<string | null>(null);
   protected readonly pendingOrder = signal<OrderReceipt | null>(null);
   protected readonly usd = formatUsd;
+  protected card(selected: boolean): string {
+    return 'relative flex cursor-pointer items-center gap-3 rounded-ui-lg border-2 p-4 transition focus-within:ring-2 focus-within:ring-primary/40 '
+      + (selected ? 'border-primary bg-primary/10 shadow-sm' : 'border-line bg-surface hover:border-primary/50');
+  }
+
+  protected mark(selected: boolean): string {
+    return 'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 text-xs font-black '
+      + (selected ? 'border-primary bg-primary text-white' : 'border-line');
+  }
+
   protected readonly summary = computed(() => {
     const data = this.options();
     const plan = data?.plans.find(item => item.code === this.planCode());
