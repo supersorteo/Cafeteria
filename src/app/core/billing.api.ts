@@ -49,6 +49,41 @@ export interface OrderReceipt {
   whatsappNumber: string;
   message: string;
   expiresAt: string;
+  emailHint: string;
+}
+
+const LAST_ORDER_KEY = 'deliora.lastOrder';
+
+export function rememberOrder(reference: string): void {
+  try {
+    localStorage.setItem(LAST_ORDER_KEY, reference);
+  } catch {
+    return;
+  }
+}
+
+export function lastOrderReference(): string | null {
+  try {
+    return localStorage.getItem(LAST_ORDER_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function guessRegion(): string {
+  try {
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone ?? '';
+    if (zone.includes('Montevideo')) {
+      return 'UY';
+    }
+    if (zone.includes('Argentina') || zone.includes('Buenos_Aires')) {
+      return 'AR';
+    }
+    const language = (navigator.language ?? '').toUpperCase();
+    return language.endsWith('-UY') ? 'UY' : language.endsWith('-AR') ? 'AR' : '';
+  } catch {
+    return '';
+  }
 }
 
 export function formatUsd(cents: number): string {

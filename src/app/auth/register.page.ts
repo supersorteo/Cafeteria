@@ -44,7 +44,7 @@ function notReserved(control: AbstractControl<string>): ValidationErrors | null 
         </div>
       </app-auth-card>
     } @else {
-      <app-auth-card title="Crea tu cuenta" subtitle="Registra tu negocio y empieza a publicar tu carta.">
+      <app-auth-card title="Crea tu cuenta" [subtitle]="paid() ? 'Tu pago está confirmado. Solo faltan los datos de tu negocio.' : 'Registra tu negocio y empieza a publicar tu carta.'">
         <form [formGroup]="form" (ngSubmit)="submit()" class="space-y-5" novalidate>
           <div>
             <label for="reg-business" class="text-xs font-bold uppercase tracking-wider text-muted">Nombre del negocio</label>
@@ -138,11 +138,18 @@ export class RegisterPage {
   protected readonly error = signal<string | null>(null);
   protected slugEdited = false;
 
+  protected readonly paid = signal(false);
+
   constructor() {
     const prefilled = formatActivationCode(this.route.snapshot.queryParamMap.get('code') ?? '');
     if (prefilled) {
       this.form.controls.activationCode.setValue(prefilled);
-      void this.router.navigate([], { queryParams: { code: null }, queryParamsHandling: 'merge', replaceUrl: true });
+      this.paid.set(true);
+      const email = (this.route.snapshot.queryParamMap.get('email') ?? '').trim();
+      if (email) {
+        this.form.controls.email.setValue(email);
+      }
+      void this.router.navigate([], { queryParams: { code: null, email: null }, queryParamsHandling: 'merge', replaceUrl: true });
     }
     effect(() => {
       if (this.done() && !this.stopListening) {
@@ -215,8 +222,13 @@ export class RegisterPage {
     try {
       await this.auth.ensureCsrf();
       const value = this.form.getRawValue();
-      await firstValueFrom(this.http.post('/api/v1/auth/register', { ...value, email: value.email.trim(), businessName: value.businessName.trim() }));
+      const response = await firstValueFrom(this.http.post<{ verified?: boolean }>('/api/v1/auth/register', { ...value, email: value.email.trim(), businessName: value.businessName.trim() }));
       rememberNewAccount(value.email, value.password, this.devPassword);
+      if (response?.verified) {
+        this.notices.show('info', 'Cuenta creada. Inicia sesión para empezar.');
+        await this.router.navigate(['/auth/login'], { queryParams: { verified: 1 } });
+        return;
+      }
       this.sentTo.set(value.email.trim());
       this.done.set(true);
     } catch (error) {

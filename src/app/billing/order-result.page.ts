@@ -7,6 +7,8 @@ import { BillingShell } from './billing-shell';
 
 export const ORDER_POLL_MS = 10000;
 
+const TRACKER = ['Pedido creado', 'Pago por WhatsApp', 'Recibes tu código', 'Creas tu negocio'];
+
 @Component({
   imports: [BillingShell, DatePipe, RouterLink],
   selector: 'app-order-result-page',
@@ -29,6 +31,15 @@ export const ORDER_POLL_MS = 10000;
         }
         @default {
           @if (order(); as o) {
+            <ol class="mb-5 grid max-w-2xl grid-cols-4 gap-2 text-center text-xs font-bold" aria-label="Avance de tu compra" data-tracker>
+              @for (label of trackerSteps; track label; let i = $index) {
+                <li [attr.aria-current]="stage(o) === i + 1 ? 'step' : null">
+                  <span class="mx-auto flex h-8 w-8 items-center justify-center rounded-full border text-sm font-black"
+                        [class.bg-primary]="stage(o) >= i + 1" [class.text-white]="stage(o) >= i + 1" [class.border-line]="stage(o) < i + 1">{{ stage(o) > i + 1 ? '✓' : i + 1 }}</span>
+                  <span class="mt-1 block" [class.text-muted]="stage(o) < i + 1">{{ label }}</span>
+                </li>
+              }
+            </ol>
             <section class="card max-w-2xl p-6 md:p-8" [attr.data-status]="o.status">
               <p class="text-xs font-bold uppercase tracking-wider text-muted">Pedido</p>
               <p class="mt-1 font-display text-3xl font-black tracking-wider" data-reference>{{ o.reference }}</p>
@@ -43,8 +54,8 @@ export const ORDER_POLL_MS = 10000;
                 }
                 @case ('PAID') {
                   <h1 class="mt-6 font-display text-2xl font-black" data-paid>¡Pago confirmado!</h1>
-                  <p class="mt-2 font-medium text-muted">Te enviamos tu código de activación por correo. Revisa también la carpeta de spam. Con ese código creas tu negocio.</p>
-                  <a routerLink="/auth/register" class="btn btn-primary btn-lg mt-5">Crear mi negocio</a>
+                  <p class="mt-2 font-medium text-muted">Te enviamos tu código de activación a <strong data-email-hint>{{ o.emailHint }}</strong>. Abre el correo y pulsa el botón «Crear mi negocio»: el código y tu correo ya vienen escritos. Revisa también la carpeta de spam.</p>
+                  <a routerLink="/auth/register" class="btn btn-secondary mt-5">Ya tengo el código, quiero escribirlo</a>
                 }
                 @case ('EXPIRED') {
                   <h1 class="mt-6 font-display text-2xl font-black">Este pedido venció</h1>
@@ -73,6 +84,11 @@ export class OrderResultPage implements OnInit {
   protected readonly state = signal<'loading' | 'ready' | 'missing' | 'error'>('loading');
   protected readonly usd = formatUsd;
   protected readonly link = whatsappLink;
+  protected readonly trackerSteps = TRACKER;
+
+  protected stage(order: OrderReceipt): number {
+    return order.status === 'PAID' ? 3 : order.status === 'PENDING' ? 2 : 1;
+  }
 
   ngOnInit(): void {
     void this.load();

@@ -202,4 +202,35 @@ describe('RegisterPage', () => {
   it('should not listen for confirmations before the account is created', () => {
     expect(crossTab.handler).toBeNull();
   });
+
+  describe('arriving from the payment email', () => {
+    async function openFromEmail() {
+      await harness.navigateByUrl('/auth/login');
+      await harness.navigateByUrl('/auth/register?code=dlr-abcd-2345&email=cliente%40cafe.test');
+      harness.detectChanges();
+    }
+
+    it('should prefill the code and the email, say the payment is confirmed and clean the address', async () => {
+      await openFromEmail();
+      expect(value('#reg-code')).toBe('DLR-ABCD-2345');
+      expect(value('#reg-email')).toBe('cliente@cafe.test');
+      expect(text()).toContain('Tu pago está confirmado');
+      expect(TestBed.inject(Router).url).toBe('/auth/register');
+    });
+
+    it('should go straight to the login when the server already verified the email', async () => {
+      await openFromEmail();
+      type(root(), '#reg-business', 'Café Nuevo');
+      type(root(), '#reg-password', 'Clave-Segura-1');
+      submit(root());
+      await answerCsrf(http);
+      await answer(http, '/api/v1/auth/register', { message: 'Cuenta creada', verified: true }, { status: 202, statusText: 'Accepted' }, 'POST');
+      await settle();
+      harness.detectChanges();
+
+      expect(TestBed.inject(Router).url).toBe('/auth/login?verified=1');
+      expect(TestBed.inject(NoticeService).notice()?.text).toContain('Cuenta creada');
+      TestBed.inject(NoticeService).dismiss();
+    });
+  });
 });

@@ -2,10 +2,12 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { toProblem, isConnectionProblem } from '../core/api-error';
+import { isConnectionProblem, toProblem } from '../core/api-error';
 import { AuthService } from '../core/auth.service';
-import { BillingApi, BillingOptions, formatUsd } from '../core/billing.api';
+import { BillingApi, BillingOptions, OrderReceipt, formatUsd, guessRegion, lastOrderReference, rememberOrder } from '../core/billing.api';
 import { BillingShell } from './billing-shell';
+
+const STEPS = ['Plan', 'País', 'Tus datos'];
 
 @Component({
   imports: [BillingShell, FormsModule, RouterLink],
@@ -14,8 +16,15 @@ import { BillingShell } from './billing-shell';
     <app-billing-shell>
       <header class="max-w-2xl">
         <h1 class="font-display text-3xl md:text-4xl font-black">Contratar tu plan</h1>
-        <p class="mt-2 font-medium text-muted">Completa tus datos y te mostramos cómo coordinar el pago por WhatsApp.</p>
+        <p class="mt-2 font-medium text-muted">Tres pasos rápidos. Pagas por WhatsApp y recibes tu código por correo.</p>
       </header>
+
+      @if (pendingOrder(); as pending) {
+        <div class="card mt-6 flex max-w-2xl flex-wrap items-center justify-between gap-3 p-4" data-resume>
+          <p class="text-sm font-bold">Tienes un pedido pendiente: <span class="tracking-wider">{{ pending.reference }}</span> · Plan {{ pending.planName }}</p>
+          <a routerLink="/pago/resultado" [queryParams]="{ ref: pending.reference }" class="btn btn-secondary btn-sm" data-resume-link>Retomarlo</a>
+        </div>
+      }
 
       @if (failed()) {
         <div class="card mt-8 p-6 text-center" role="alert">
@@ -23,46 +32,73 @@ import { BillingShell } from './billing-shell';
           <button type="button" class="btn btn-secondary btn-sm mt-3" data-retry (click)="load()">Reintentar</button>
         </div>
       } @else if (options(); as data) {
-        <form class="card mt-8 max-w-2xl space-y-6 p-6" (submit)="submit($event)" novalidate data-buy-form>
-          <fieldset>
-            <legend class="text-xs font-bold uppercase tracking-wider text-muted">1. Plan</legend>
-            <div class="mt-3 grid gap-3 sm:grid-cols-2">
-              @for (plan of data.plans; track plan.code) {
-                <label class="qr-choice flex-col !items-start !p-4" [class.active]="planCode() === plan.code">
-                  <span class="flex w-full items-center justify-between gap-3">
-                    <input type="radio" name="plan" class="sr-only" [value]="plan.code" [checked]="planCode() === plan.code" (change)="planCode.set(plan.code)" [attr.data-plan]="plan.code">
-                    <strong class="font-display text-lg">{{ plan.name }}</strong>
-                    <span class="font-bold text-primary">{{ usd(plan.usdCents) }} / mes</span>
-                  </span>
-                  <span class="mt-1 text-xs font-medium text-muted">Hasta {{ plan.maxMenuItems }} platos · {{ plan.fullBranding ? 'marca completa' : 'logo y 2 colores' }}</span>
-                </label>
-              }
-            </div>
-          </fieldset>
+        <ol class="mt-8 flex max-w-2xl items-center gap-2" aria-label="Pasos" data-steps>
+          @for (label of steps; track label; let i = $index) {
+            <li class="flex flex-1 items-center gap-2" [attr.aria-current]="step() === i + 1 ? 'step' : null">
+              <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-black"
+                    [class.bg-primary]="step() >= i + 1" [class.text-white]="step() >= i + 1" [class.border-line]="step() < i + 1">{{ step() > i + 1 ? '✓' : i + 1 }}</span>
+              <span class="hidden text-sm font-bold sm:inline" [class.text-muted]="step() < i + 1">{{ label }}</span>
+              @if (i < steps.length - 1) { <span class="h-px flex-1 bg-line" aria-hidden="true"></span> }
+            </li>
+          }
+        </ol>
 
-          <fieldset>
-            <legend class="text-xs font-bold uppercase tracking-wider text-muted">2. Tu país</legend>
-            <div class="mt-3 flex flex-wrap gap-3">
-              @for (region of data.regions; track region.code) {
-                <label class="qr-choice !min-h-11" [class.active]="regionCode() === region.code" [class.opacity-50]="!region.whatsapp">
-                  <input type="radio" name="region" class="sr-only" [value]="region.code" [checked]="regionCode() === region.code" [disabled]="!region.whatsapp" (change)="regionCode.set(region.code)" [attr.data-region]="region.code">
-                  {{ region.name }}
-                </label>
-              }
-            </div>
-            <p class="mt-2 text-xs font-medium text-muted">Si tu país no aparece, elige el más cercano: coordinamos el pago por WhatsApp.</p>
-          </fieldset>
-
-          <fieldset class="grid gap-4 sm:grid-cols-2">
-            <legend class="text-xs font-bold uppercase tracking-wider text-muted">3. Tus datos</legend>
-            <label class="block"><span class="text-sm font-bold">Nombre (opcional)</span>
-              <input class="input mt-1" maxlength="120" autocomplete="name" data-name [ngModel]="name()" (ngModelChange)="name.set($event)" name="name"></label>
-            <label class="block"><span class="text-sm font-bold">Correo donde recibirás el código</span>
-              <input class="input mt-1" type="email" maxlength="254" autocomplete="email" inputmode="email" data-email [ngModel]="email()" (ngModelChange)="email.set($event)" name="email"></label>
-          </fieldset>
+        <form class="card mt-6 max-w-2xl space-y-6 p-6" (submit)="next($event)" novalidate data-buy-form>
+          @switch (step()) {
+            @case (1) {
+              <fieldset>
+                <legend class="font-display text-xl font-black">¿Qué plan necesitas?</legend>
+                <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                  @for (plan of data.plans; track plan.code) {
+                    <label class="qr-choice flex-col !items-start !p-4" [class.active]="planCode() === plan.code">
+                      <span class="flex w-full items-center justify-between gap-3">
+                        <input type="radio" name="plan" class="sr-only" [value]="plan.code" [checked]="planCode() === plan.code" (change)="planCode.set(plan.code)" [attr.data-plan]="plan.code">
+                        <strong class="font-display text-lg">{{ plan.name }}</strong>
+                        <span class="font-bold text-primary">{{ usd(plan.usdCents) }} / mes</span>
+                      </span>
+                      <span class="mt-1 text-xs font-medium text-muted">Hasta {{ plan.maxMenuItems }} platos · {{ plan.fullBranding ? 'marca completa' : 'logo y 2 colores' }} · {{ plan.prioritySupport ? 'soporte prioritario' : 'soporte por correo' }}</span>
+                    </label>
+                  }
+                </div>
+              </fieldset>
+            }
+            @case (2) {
+              <fieldset>
+                <legend class="font-display text-xl font-black">¿Desde qué país pagas?</legend>
+                <p class="mt-1 text-sm font-medium text-muted">Te atiende la persona de tu país por WhatsApp. Elegimos uno por tu zona horaria; puedes cambiarlo.</p>
+                <div class="mt-4 flex flex-wrap gap-3">
+                  @for (region of data.regions; track region.code) {
+                    <label class="qr-choice !min-h-11" [class.active]="regionCode() === region.code" [class.opacity-50]="!region.whatsapp">
+                      <input type="radio" name="region" class="sr-only" [value]="region.code" [checked]="regionCode() === region.code" [disabled]="!region.whatsapp" (change)="regionCode.set(region.code)" [attr.data-region]="region.code">
+                      {{ region.name }}
+                    </label>
+                  }
+                </div>
+                <p class="mt-3 text-xs font-medium text-muted">Si tu país no aparece, elige el más cercano: coordinamos el pago por WhatsApp.</p>
+              </fieldset>
+            }
+            @default {
+              <fieldset class="space-y-4">
+                <legend class="font-display text-xl font-black">¿Dónde te enviamos tu código?</legend>
+                <p class="rounded-ui-md bg-surface-2 px-4 py-3 text-sm font-bold" data-summary>{{ summary() }}</p>
+                <label class="block"><span class="text-sm font-bold">Correo</span>
+                  <input class="input mt-1" type="email" maxlength="254" autocomplete="email" inputmode="email" data-email [ngModel]="email()" (ngModelChange)="email.set($event)" name="email">
+                  <small class="mt-1 block text-xs font-medium text-muted">Usa el correo con el que crearás tu cuenta: así no tendrás que confirmarlo otra vez.</small></label>
+                <label class="block"><span class="text-sm font-bold">Nombre (opcional)</span>
+                  <input class="input mt-1" maxlength="120" autocomplete="name" data-name [ngModel]="name()" (ngModelChange)="name.set($event)" name="name"></label>
+              </fieldset>
+            }
+          }
 
           @if (error()) { <p role="alert" class="text-sm font-bold text-danger" data-error>{{ error() }}</p> }
-          <button type="submit" class="btn btn-primary btn-lg w-full sm:w-auto" data-submit [disabled]="pending()">{{ pending() ? 'Registrando…' : 'Continuar' }}</button>
+          <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
+            @if (step() > 1) {
+              <button type="button" class="btn btn-secondary" data-back (click)="back()">Atrás</button>
+            } @else { <span></span> }
+            <button type="submit" class="btn btn-primary btn-lg" data-submit [disabled]="pending()">
+              {{ step() < 3 ? 'Continuar' : (pending() ? 'Registrando…' : 'Crear mi pedido') }}
+            </button>
+          </div>
           <p class="text-xs font-medium text-muted">¿Ya tienes un código? <a routerLink="/auth/register" class="underline">Crea tu negocio</a>.</p>
         </form>
       } @else {
@@ -77,19 +113,28 @@ export class BuyPage implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
+  protected readonly steps = STEPS;
   protected readonly options = signal<BillingOptions | null>(null);
   protected readonly failed = signal(false);
+  protected readonly step = signal(1);
   protected readonly planCode = signal('');
   protected readonly regionCode = signal('');
   protected readonly name = signal('');
   protected readonly email = signal('');
   protected readonly pending = signal(false);
   protected readonly error = signal<string | null>(null);
+  protected readonly pendingOrder = signal<OrderReceipt | null>(null);
   protected readonly usd = formatUsd;
-  protected readonly ready = computed(() => !!this.planCode() && !!this.regionCode());
+  protected readonly summary = computed(() => {
+    const data = this.options();
+    const plan = data?.plans.find(item => item.code === this.planCode());
+    const region = data?.regions.find(item => item.code === this.regionCode());
+    return plan && region ? `Plan ${plan.name} · ${formatUsd(plan.usdCents)} al mes · ${region.name}` : '';
+  });
 
   ngOnInit(): void {
     void this.load();
+    void this.resume();
   }
 
   protected async load(): Promise<void> {
@@ -99,31 +144,66 @@ export class BuyPage implements OnInit {
       this.options.set(data);
       const wanted = this.route.snapshot.queryParamMap.get('plan');
       this.planCode.set(data.plans.find(plan => plan.code === wanted)?.code ?? data.plans.find(plan => plan.code === 'PROFESIONAL')?.code ?? data.plans[0]?.code ?? '');
-      this.regionCode.set(data.regions.find(region => region.whatsapp)?.code ?? '');
+      const available = data.regions.filter(region => region.whatsapp);
+      this.regionCode.set(available.find(region => region.code === guessRegion())?.code ?? available[0]?.code ?? '');
+      if (wanted && data.plans.some(plan => plan.code === wanted)) {
+        this.step.set(2);
+      }
     } catch {
       this.failed.set(true);
     }
   }
 
-  protected async submit(event: Event): Promise<void> {
+  protected back(): void {
+    this.error.set(null);
+    this.step.update(current => Math.max(1, current - 1));
+  }
+
+  protected async next(event: Event): Promise<void> {
     event.preventDefault();
+    this.error.set(null);
+    if (this.step() === 1) {
+      this.step.set(2);
+      return;
+    }
+    if (this.step() === 2) {
+      if (!this.regionCode()) {
+        this.error.set('Elige tu país.');
+        return;
+      }
+      this.step.set(3);
+      return;
+    }
+    await this.submit();
+  }
+
+  private async resume(): Promise<void> {
+    const reference = lastOrderReference();
+    if (!reference) {
+      return;
+    }
+    try {
+      const order = await firstValueFrom(this.api.order(reference));
+      this.pendingOrder.set(order.status === 'PENDING' ? order : null);
+    } catch {
+      this.pendingOrder.set(null);
+    }
+  }
+
+  private async submit(): Promise<void> {
     if (this.pending()) {
       return;
     }
     const email = this.email().trim();
-    if (!this.ready()) {
-      this.error.set('Elige un plan y tu país.');
-      return;
-    }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       this.error.set('Escribe un correo válido: ahí te enviamos el código.');
       return;
     }
     this.pending.set(true);
-    this.error.set(null);
     try {
       await this.auth.ensureCsrf();
       const receipt = await firstValueFrom(this.api.createOrder({ planCode: this.planCode(), region: this.regionCode(), email, name: this.name().trim() }));
+      rememberOrder(receipt.reference);
       await this.router.navigate(['/pago/resultado'], { queryParams: { ref: receipt.reference } });
     } catch (error) {
       const problem = toProblem(error);

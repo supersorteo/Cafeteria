@@ -4,7 +4,8 @@ import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { AuthService } from '../core/auth.service';
-import { BillingOptions, OrderReceipt } from '../core/billing.api';
+import { vi } from 'vitest';
+import { BillingOptions, OrderReceipt, guessRegion } from '../core/billing.api';
 import { answer, settle } from '../testing/http';
 import { BuyPage } from './buy.page';
 import { OrderResultPage } from './order-result.page';
@@ -23,7 +24,7 @@ const OPTIONS: BillingOptions = {
 };
 const receipt = (overrides: Partial<OrderReceipt> = {}): OrderReceipt => ({
   reference: 'PED-ABCD2345', status: 'PENDING', planName: 'Profesional', months: 1, usdCents: 1900, region: 'UY',
-  whatsappNumber: '59899000002', message: 'Hola, quiero el plan Profesional. Mi pedido es PED-ABCD2345.', expiresAt: '2026-12-01T12:00:00Z', ...overrides,
+  whatsappNumber: '59899000002', message: 'Hola, quiero el plan Profesional. Mi pedido es PED-ABCD2345.', expiresAt: '2026-12-01T12:00:00Z', emailHint: 'a***@ejemplo.test', ...overrides,
 });
 
 describe('billing', () => {
@@ -96,49 +97,103 @@ describe('billing', () => {
   });
 
   describe('buy page', () => {
+    const submit = () => (root().querySelector('[data-buy-form]') as HTMLFormElement).dispatchEvent(new Event('submit'));
+
     async function open(url = '/comprar') {
       await harness.navigateByUrl(url);
       await answer(http, `${API}/options`, OPTIONS);
       await ui();
     }
 
-    it('should preselect the plan from the link and the first available country', async () => {
-      await open('/comprar?plan=EMPRENDEDOR');
-      expect((root().querySelector('[data-plan="EMPRENDEDOR"]') as HTMLInputElement).checked).toBe(true);
-      expect((root().querySelector('[data-region="AR"]') as HTMLInputElement).checked).toBe(true);
+    afterEach(() => localStorage.removeItem('deliora.lastOrder'));
+
+    it('should start by asking for the plan, with the most popular one preselected', async () => {
+      await open();
+      expect(root().querySelector('[data-steps]')).not.toBeNull();
+      expect((root().querySelector('[data-plan="PROFESIONAL"]') as HTMLInputElement).checked).toBe(true);
     });
 
-    it('should ask for a valid email without calling the server', async () => {
-      await open();
+    it('should skip the plan step when it comes from a pricing link and preselect a country', async () => {
+      await open('/comprar?plan=EMPRENDEDOR');
+      expect(root().querySelector('[data-plan]')).toBeNull();
+      expect(root().querySelectorAll('[data-region]:checked').length).toBe(1);
+    });
+
+    it('should guess the country from the time zone', () => {
+      const zone = vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions');
+      zone.mockReturnValue({ timeZone: 'America/Montevideo' } as Intl.ResolvedDateTimeFormatOptions);
+      expect(guessRegion()).toBe('UY');
+      zone.mockReturnValue({ timeZone: 'America/Argentina/Buenos_Aires' } as Intl.ResolvedDateTimeFormatOptions);
+      expect(guessRegion()).toBe('AR');
+      zone.mockRestore();
+    });
+
+    it('should go back to the previous step', async () => {
+      await open('/comprar?plan=EMPRENDEDOR');
+      (root().querySelector('[data-back]') as HTMLElement).click();
+      await ui();
+      expect(root().querySelector('[data-plan="EMPRENDEDOR"]')).not.toBeNull();
+    });
+
+    it('should ask for a valid email on the last step without calling the server', async () => {
+      await open('/comprar?plan=EMPRENDEDOR');
+      submit();
+      await ui();
       set('[data-email]', 'no-es-correo');
-      (root().querySelector('[data-buy-form]') as HTMLFormElement).dispatchEvent(new Event('submit'));
+      submit();
       await ui();
       expect(root().querySelector('[data-error]')?.textContent).toContain('correo válido');
     });
 
-    it('should create the order with the chosen plan and country and go to the result page', async () => {
+    it('should create the order with the chosen plan and country, remember it and go to the result page', async () => {
       await open('/comprar?plan=EMPRENDEDOR');
       (root().querySelector('[data-region="UY"]') as HTMLInputElement).dispatchEvent(new Event('change'));
+      await ui();
+      submit();
+      await ui();
+      expect(root().querySelector('[data-summary]')?.textContent).toContain('Plan Emprendedor · US$ 9 al mes · Uruguay');
       set('[data-name]', 'Ana');
       set('[data-email]', 'ana@ejemplo.test');
       await ui();
-      (root().querySelector('[data-buy-form]') as HTMLFormElement).dispatchEvent(new Event('submit'));
+      submit();
       const request = await answer(http, `${API}/orders`, receipt({ planName: 'Emprendedor' }), { status: 201, statusText: 'Created' }, 'POST');
       await answer(http, `${API}/orders/PED-ABCD2345`, receipt({ planName: 'Emprendedor' }));
       await ui();
 
       expect(request.request.body).toEqual({ planCode: 'EMPRENDEDOR', region: 'UY', email: 'ana@ejemplo.test', name: 'Ana' });
       expect(router.url).toBe('/pago/resultado?ref=PED-ABCD2345');
+      expect(localStorage.getItem('deliora.lastOrder')).toBe('PED-ABCD2345');
     });
 
     it('should explain when the country has no payment method available', async () => {
-      await open();
+      await open('/comprar?plan=EMPRENDEDOR');
+      submit();
+      await ui();
       set('[data-email]', 'ana@ejemplo.test');
       await ui();
-      (root().querySelector('[data-buy-form]') as HTMLFormElement).dispatchEvent(new Event('submit'));
+      submit();
       await answer(http, `${API}/orders`, { code: 'method_unavailable' }, { status: 409, statusText: 'Conflict' }, 'POST');
       await ui();
       expect(root().querySelector('[data-error]')?.textContent).toContain('no está disponible en tu país');
+    });
+
+    it('should offer to resume a pending order from a previous visit', async () => {
+      localStorage.setItem('deliora.lastOrder', 'PED-ABCD2345');
+      await harness.navigateByUrl('/comprar');
+      await answer(http, `${API}/options`, OPTIONS);
+      await answer(http, `${API}/orders/PED-ABCD2345`, receipt());
+      await ui();
+      expect(root().querySelector('[data-resume]')?.textContent).toContain('PED-ABCD2345');
+      expect(root().querySelector('[data-resume-link]')?.getAttribute('href')).toBe('/pago/resultado?ref=PED-ABCD2345');
+    });
+
+    it('should not offer to resume an order that was already paid', async () => {
+      localStorage.setItem('deliora.lastOrder', 'PED-ABCD2345');
+      await harness.navigateByUrl('/comprar');
+      await answer(http, `${API}/options`, OPTIONS);
+      await answer(http, `${API}/orders/PED-ABCD2345`, receipt({ status: 'PAID' }));
+      await ui();
+      expect(root().querySelector('[data-resume]')).toBeNull();
     });
   });
 
@@ -164,6 +219,8 @@ describe('billing', () => {
     it('should tell the customer the code was sent once the payment is confirmed', async () => {
       await open(receipt({ status: 'PAID' }));
       expect(root().querySelector('[data-paid]')?.textContent).toContain('Pago confirmado');
+      expect(root().querySelector('[data-email-hint]')?.textContent).toContain('a***@ejemplo.test');
+      expect(root().querySelectorAll('[data-tracker] li').length).toBe(4);
       expect(root().querySelector('[data-whatsapp]')).toBeNull();
     });
 
