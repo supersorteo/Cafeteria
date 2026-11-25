@@ -121,6 +121,11 @@ const METHOD_TEXT: Record<string, string> = {
                     </label>
                   }
                 </div>
+                @if (methodCode() === 'WHATSAPP') {
+                  <p class="mt-4 rounded-ui-md bg-surface-2 px-4 py-3 text-sm font-medium" data-whatsapp-hint>
+                    Se abrirá la aplicación de WhatsApp con un mensaje listo para enviar. Mientras tanto, te llevamos al registro: ahí pegas el código que te enviemos.
+                  </p>
+                }
               </fieldset>
             }
           }
@@ -250,7 +255,7 @@ export class BuyPage implements OnInit {
     }
     if (this.methodCode() === 'WHATSAPP') {
       openWhatsApp(region.whatsappNumber, whatsappMessage(plan, region));
-      void this.router.navigate(['/auth/register']);
+      void this.router.navigate(['/auth/register'], { queryParams: { from: 'whatsapp', plan: plan.code } });
       return;
     }
     this.error.set('Esta forma de pago estará disponible muy pronto.');

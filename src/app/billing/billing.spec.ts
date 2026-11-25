@@ -207,9 +207,11 @@ describe('billing', () => {
         'Hola, quiero contratar el plan *Emprendedor* de Deliora (US$ 9 por mes).' + String.fromCharCode(10)
         + 'Estoy en Uruguay. ¿Me indican cómo realizar el pago para recibir mi código de activación?' + String.fromCharCode(10) + 'Gracias.');
       expect(opened[0]).not.toContain('PED-');
-      expect(router.url).toBe('/auth/register');
+      expect(sessionStorage.getItem('deliora.whatsappWeb')?.startsWith('https://wa.me/59899000002?text=')).toBe(true);
+      expect(router.url).toBe('/auth/register?from=whatsapp&plan=EMPRENDEDOR');
       http.expectNone(`${API}/orders`);
       click.mockRestore();
+      sessionStorage.removeItem('deliora.whatsappWeb');
     });
   });
 
