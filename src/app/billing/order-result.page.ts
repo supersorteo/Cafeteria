@@ -1,122 +1,154 @@
-import { DatePipe } from '@angular/common';
-import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { Component, DestroyRef, InjectionToken, OnInit, inject, signal } from '@angular/core';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { BillingApi, OrderReceipt, formatUsd, whatsappLink } from '../core/billing.api';
+import { AuthService } from '../core/auth.service';
+import { BillingApi, OrderState, forgetCheckout, recalledCheckout } from '../core/billing.api';
 import { BillingShell } from './billing-shell';
 
-export const ORDER_POLL_MS = 10000;
+export const RESULT_TIMINGS = new InjectionToken('payment-result-timings', {
+  factory: () => ({ pollMs: 3000, maxPolls: 40 }),
+});
 
-const TRACKER = ['Pedido creado', 'Pago por WhatsApp', 'Recibes tu código', 'Creas tu negocio'];
+type View = 'checking' | 'pending' | 'creating' | 'login' | 'failed' | 'expired' | 'missing' | 'error';
 
 @Component({
-  imports: [BillingShell, DatePipe, RouterLink],
+  imports: [BillingShell, RouterLink],
   selector: 'app-order-result-page',
   template: `
     <app-billing-shell>
-      @switch (state()) {
-        @case ('loading') { <div class="skeleton h-64 max-w-2xl" aria-hidden="true"></div> }
-        @case ('missing') {
-          <div class="card max-w-2xl p-6" role="alert" data-missing>
-            <h1 class="font-display text-2xl font-black">No encontramos ese pedido</h1>
-            <p class="mt-2 font-medium text-muted">Revisa el número de pedido o vuelve a elegir tu plan.</p>
-            <a routerLink="/precios" class="btn btn-primary mt-4">Ver planes</a>
-          </div>
-        }
-        @case ('error') {
-          <div class="card max-w-2xl p-6 text-center" role="alert">
-            <p class="font-bold text-danger">No pudimos consultar tu pedido.</p>
-            <button type="button" class="btn btn-secondary btn-sm mt-3" data-retry (click)="load()">Reintentar</button>
-          </div>
-        }
-        @default {
-          @if (order(); as o) {
-            <ol class="mb-5 grid max-w-2xl grid-cols-4 gap-2 text-center text-xs font-bold" aria-label="Avance de tu compra" data-tracker>
-              @for (label of trackerSteps; track label; let i = $index) {
-                <li [attr.aria-current]="stage(o) === i + 1 ? 'step' : null">
-                  <span class="mx-auto flex h-8 w-8 items-center justify-center rounded-full border text-sm font-black"
-                        [class.bg-primary]="stage(o) >= i + 1" [class.text-white]="stage(o) >= i + 1" [class.border-line]="stage(o) < i + 1">{{ stage(o) > i + 1 ? '✓' : i + 1 }}</span>
-                  <span class="mt-1 block" [class.text-muted]="stage(o) < i + 1">{{ label }}</span>
-                </li>
-              }
-            </ol>
-            <section class="card max-w-2xl p-6 md:p-8" [attr.data-status]="o.status">
-              <p class="text-xs font-bold uppercase tracking-wider text-muted">Pedido</p>
-              <p class="mt-1 font-display text-3xl font-black tracking-wider" data-reference>{{ o.reference }}</p>
-              <p class="mt-1 text-sm font-medium text-muted">Plan {{ o.planName }} · {{ usd(o.usdCents) }} por {{ o.months }} {{ o.months === 1 ? 'mes' : 'meses' }}</p>
-
-              @switch (o.status) {
-                @case ('PENDING') {
-                  <h1 class="mt-6 font-display text-2xl font-black">Último paso: escríbenos por WhatsApp</h1>
-                  <p class="mt-2 font-medium text-muted">Guarda tu número de pedido. Escríbenos y coordinamos el pago; cuando lo confirmemos, te enviamos un código de activación por correo.</p>
-                  <a [href]="link(o)" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-lg mt-5" data-whatsapp>Abrir WhatsApp con mi pedido</a>
-                  <p class="mt-3 text-xs font-medium text-muted">Esta página se actualiza sola. Tu pedido vence el {{ o.expiresAt | date: 'dd/MM/yyyy' }}.</p>
-                }
-                @case ('PAID') {
-                  <h1 class="mt-6 font-display text-2xl font-black" data-paid>¡Pago confirmado!</h1>
-                  <p class="mt-2 font-medium text-muted">Te enviamos tu código de activación a <strong data-email-hint>{{ o.emailHint }}</strong>. Abre el correo y pulsa el botón «Crear mi negocio»: el código y tu correo ya vienen escritos. Revisa también la carpeta de spam.</p>
-                  <a routerLink="/auth/register" class="btn btn-secondary mt-5">Ya tengo el código, quiero escribirlo</a>
-                }
-                @case ('EXPIRED') {
-                  <h1 class="mt-6 font-display text-2xl font-black">Este pedido venció</h1>
-                  <p class="mt-2 font-medium text-muted">Si ya pagaste, escríbenos con tu número de pedido y lo revisamos. Si no, puedes empezar de nuevo.</p>
-                  <a routerLink="/precios" class="btn btn-secondary mt-5">Ver planes</a>
-                }
-                @default {
-                  <h1 class="mt-6 font-display text-2xl font-black">Este pedido fue cancelado</h1>
-                  <a routerLink="/precios" class="btn btn-secondary mt-5">Ver planes</a>
-                }
-              }
-            </section>
+      <section class="card max-w-2xl p-6 md:p-8" [attr.data-view]="view()">
+        @switch (view()) {
+          @case ('checking') {
+            <h1 class="font-display text-2xl font-black">Confirmando tu pago…</h1>
+            <p class="mt-2 font-medium text-muted">Un momento, estamos verificando tu pago.</p>
+            <div class="skeleton mt-5 h-3 w-2/3" aria-hidden="true"></div>
+          }
+          @case ('pending') {
+            <h1 class="font-display text-2xl font-black" data-pending>Tu pago está pendiente</h1>
+            <p class="mt-2 font-medium text-muted">Apenas se acredite, creamos tu negocio y entras automáticamente. Esta página se actualiza sola; también te avisaremos por correo.</p>
+            <div class="skeleton mt-5 h-3 w-2/3" aria-hidden="true"></div>
+          }
+          @case ('creating') {
+            <h1 class="font-display text-2xl font-black" data-creating>¡Pago recibido! Creando tu negocio…</h1>
+            <p class="mt-2 font-medium text-muted">Esto toma unos segundos. No cierres esta página.</p>
+            <div class="skeleton mt-5 h-3 w-2/3" aria-hidden="true"></div>
+          }
+          @case ('login') {
+            <h1 class="font-display text-2xl font-black" data-login>¡Tu negocio está listo!</h1>
+            <p class="mt-2 font-medium text-muted">Confirmamos tu pago y creamos tu cuenta. Inicia sesión con tu correo y la contraseña que elegiste.</p>
+            <a routerLink="/auth/login" class="btn btn-primary btn-lg mt-5" data-go-login>Iniciar sesión</a>
+          }
+          @case ('failed') {
+            <h1 class="font-display text-2xl font-black" data-failed>No pudimos completar el pago</h1>
+            <p class="mt-2 font-medium text-muted">{{ detail() ?? 'No se hizo ningún cobro. Puedes intentarlo de nuevo con otra forma de pago.' }}</p>
+            <a routerLink="/comprar" class="btn btn-primary mt-5">Volver a intentar</a>
+          }
+          @case ('expired') {
+            <h1 class="font-display text-2xl font-black" data-expired>Este pedido venció</h1>
+            <p class="mt-2 font-medium text-muted">Si ya pagaste, escríbenos y lo revisamos. Si no, puedes empezar de nuevo.</p>
+            <a routerLink="/precios" class="btn btn-secondary mt-5">Ver planes</a>
+          }
+          @case ('missing') {
+            <h1 class="font-display text-2xl font-black" data-missing>No encontramos ese pedido</h1>
+            <p class="mt-2 font-medium text-muted">Revisa el enlace o vuelve a elegir tu plan.</p>
+            <a routerLink="/precios" class="btn btn-primary mt-5">Ver planes</a>
+          }
+          @default {
+            <h1 class="font-display text-2xl font-black" data-error>No pudimos consultar tu pedido</h1>
+            <p class="mt-2 font-medium text-muted">Revisa tu conexión.</p>
+            <button type="button" class="btn btn-secondary btn-sm mt-4" data-retry (click)="restart()">Reintentar</button>
           }
         }
-      }
+      </section>
     </app-billing-shell>
   `,
 })
 export class OrderResultPage implements OnInit {
   private readonly api = inject(BillingApi);
+  private readonly auth = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
-  private poll?: ReturnType<typeof setInterval>;
+  private readonly timings = inject(RESULT_TIMINGS);
+  private timer?: ReturnType<typeof setTimeout>;
+  private polls = 0;
+  private reference = '';
+  private paymentId: string | null = null;
 
-  protected readonly order = signal<OrderReceipt | null>(null);
-  protected readonly state = signal<'loading' | 'ready' | 'missing' | 'error'>('loading');
-  protected readonly usd = formatUsd;
-  protected readonly link = whatsappLink;
-  protected readonly trackerSteps = TRACKER;
-
-  protected stage(order: OrderReceipt): number {
-    return order.status === 'PAID' ? 3 : order.status === 'PENDING' ? 2 : 1;
-  }
+  protected readonly view = signal<View>('checking');
+  protected readonly detail = signal<string | null>(null);
 
   ngOnInit(): void {
-    void this.load();
-    this.poll = setInterval(() => {
-      if (this.order()?.status === 'PENDING' && document.visibilityState === 'visible') {
-        void this.load(true);
-      }
-    }, ORDER_POLL_MS);
-    this.destroyRef.onDestroy(() => clearInterval(this.poll));
-  }
-
-  protected async load(silent = false): Promise<void> {
-    const reference = this.route.snapshot.queryParamMap.get('ref') ?? '';
-    if (!reference) {
-      this.state.set('missing');
+    const params = this.route.snapshot.queryParamMap;
+    this.reference = params.get('ref') ?? '';
+    this.paymentId = params.get('payment_id') ?? params.get('collection_id');
+    this.destroyRef.onDestroy(() => clearTimeout(this.timer));
+    if (!this.reference) {
+      this.view.set('missing');
       return;
     }
-    if (!silent) {
-      this.state.set('loading');
-    }
+    void this.check();
+  }
+
+  protected restart(): void {
+    this.polls = 0;
+    this.view.set('checking');
+    void this.check();
+  }
+
+  private async check(): Promise<void> {
     try {
-      this.order.set(await firstValueFrom(this.api.order(reference)));
-      this.state.set('ready');
+      const state = this.paymentId
+        ? await firstValueFrom(this.api.verifyMercadoPago(this.reference, this.paymentId))
+        : await firstValueFrom(this.api.orderState(this.reference));
+      await this.apply(state);
     } catch (error) {
-      if (silent) {
-        return;
-      }
-      this.state.set((error as { status?: number }).status === 404 ? 'missing' : 'error');
+      this.view.set((error as { status?: number }).status === 404 ? 'missing' : 'error');
     }
+  }
+
+  private async apply(state: OrderState): Promise<void> {
+    if (state.status === 'PAID' && state.ready) {
+      await this.enter();
+      return;
+    }
+    if (state.status === 'FAILED' || state.status === 'CANCELLED') {
+      this.detail.set(state.failure);
+      this.view.set('failed');
+      return;
+    }
+    if (state.status === 'EXPIRED') {
+      this.view.set('expired');
+      return;
+    }
+    this.view.set(state.status === 'PAID' ? 'creating' : 'pending');
+    this.schedule();
+  }
+
+  private schedule(): void {
+    if (++this.polls > this.timings.maxPolls) {
+      return;
+    }
+    this.timer = setTimeout(() => {
+      this.paymentId = this.view() === 'pending' ? this.paymentId : null;
+      void this.check();
+    }, this.timings.pollMs);
+  }
+
+  private async enter(): Promise<void> {
+    const claim = recalledCheckout(this.reference);
+    if (claim) {
+      try {
+        await firstValueFrom(this.api.startSession(this.reference, claim));
+        await this.auth.refreshUser();
+        forgetCheckout();
+        await this.router.navigateByUrl('/admin');
+        return;
+      } catch {
+        // la sesión automática es una comodidad; si falla, se pide iniciar sesión
+      }
+    }
+    forgetCheckout();
+    this.view.set('login');
   }
 }

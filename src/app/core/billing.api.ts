@@ -16,6 +16,7 @@ export interface PlanOption {
   tableQr: boolean;
   prioritySupport: boolean;
   stats: boolean;
+  arsPrice?: number | null;
 }
 
 export interface MethodOption {
@@ -32,37 +33,54 @@ export interface RegionOption {
   methods: MethodOption[];
 }
 
+export interface CheckoutConfig {
+  paypalClientId: string;
+  mercadopagoPublicKey: string;
+}
+
 export interface BillingOptions {
   plans: PlanOption[];
   regions: RegionOption[];
+  checkout?: CheckoutConfig;
 }
 
-export interface NewOrder {
+export type OrderStatus = 'PENDING' | 'PAID' | 'CANCELLED' | 'EXPIRED' | 'FAILED';
+
+export interface CheckoutBody {
   planCode: string;
   region: string;
-  email: string;
-  name: string;
   method: string;
+  email: string;
+  businessName: string;
+  slug: string;
+  password: string;
+  emailProof: string;
 }
 
-export type OrderStatus = 'PENDING' | 'PAID' | 'CANCELLED' | 'EXPIRED';
+export interface Checkout {
+  reference: string;
+  claimToken: string;
+  method: string;
+  providerRef: string;
+  initPoint: string | null;
+  amountLabel: string;
+}
 
-export interface OrderReceipt {
+export interface OrderState {
   reference: string;
   status: OrderStatus;
-  planName: string;
-  months: number;
-  usdCents: number;
-  region: string;
-  whatsappNumber: string;
-  message: string;
-  expiresAt: string;
-  emailHint: string;
+  method: string;
+  ready: boolean;
+  failure: string | null;
 }
 
 export function formatUsd(cents: number): string {
   const value = cents / 100;
   return `US$ ${Number.isInteger(value) ? value : value.toFixed(2)}`;
+}
+
+export function formatArs(pesos: number): string {
+  return `$ ${new Intl.NumberFormat('es-AR').format(pesos)} ARS`;
 }
 
 export function whatsappMessage(plan: Pick<PlanOption, 'name' | 'usdCents'>, region: Pick<RegionOption, 'name'>): string {
@@ -84,8 +102,31 @@ export function openWhatsApp(number: string, message: string): void {
   link.remove();
 }
 
-export function whatsappLink(receipt: Pick<OrderReceipt, 'whatsappNumber' | 'message'>): string {
-  return `https://wa.me/${receipt.whatsappNumber}?text=${encodeURIComponent(receipt.message)}`;
+const CHECKOUT_KEY = 'deliora.checkout';
+
+export function rememberCheckout(reference: string, claimToken: string): void {
+  try {
+    sessionStorage.setItem(CHECKOUT_KEY, JSON.stringify({ reference, claimToken }));
+  } catch {
+    return;
+  }
+}
+
+export function recalledCheckout(reference: string): string | null {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(CHECKOUT_KEY) ?? 'null') as { reference?: string; claimToken?: string } | null;
+    return saved?.reference === reference ? (saved.claimToken ?? null) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function forgetCheckout(): void {
+  try {
+    sessionStorage.removeItem(CHECKOUT_KEY);
+  } catch {
+    return;
+  }
 }
 
 const API = '/api/v1/public/billing';
@@ -98,11 +139,31 @@ export class BillingApi {
     return this.http.get<BillingOptions>(`${API}/options`);
   }
 
-  createOrder(body: NewOrder): Observable<OrderReceipt> {
-    return this.http.post<OrderReceipt>(`${API}/orders`, body);
+  checkout(body: CheckoutBody): Observable<Checkout> {
+    return this.http.post<Checkout>(`${API}/checkout`, body);
   }
 
-  order(reference: string): Observable<OrderReceipt> {
-    return this.http.get<OrderReceipt>(`${API}/orders/${encodeURIComponent(reference)}`);
+  orderState(reference: string): Observable<OrderState> {
+    return this.http.get<OrderState>(`${API}/orders/${encodeURIComponent(reference)}/state`);
+  }
+
+  capturePayPal(reference: string): Observable<OrderState> {
+    return this.http.post<OrderState>(`${API}/orders/${encodeURIComponent(reference)}/paypal/capture`, null);
+  }
+
+  verifyMercadoPago(reference: string, paymentId: string | null): Observable<OrderState> {
+    return this.http.post<OrderState>(`${API}/orders/${encodeURIComponent(reference)}/mercadopago/verify`, { paymentId });
+  }
+
+  sendEmailCode(email: string): Observable<void> {
+    return this.http.post<void>(`${API}/email/code`, { email });
+  }
+
+  verifyEmailCode(email: string, code: string): Observable<{ proof: string }> {
+    return this.http.post<{ proof: string }>(`${API}/email/verify`, { email, code });
+  }
+
+  startSession(reference: string, claimToken: string): Observable<{ status: string }> {
+    return this.http.post<{ status: string }>(`${API}/orders/${encodeURIComponent(reference)}/session`, { claimToken });
   }
 }

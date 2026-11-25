@@ -1,10 +1,12 @@
 import { Component, DestroyRef, InjectionToken, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { BillingApi, BillingOptions, RegionOption, formatUsd, openWhatsApp, whatsappMessage } from '../core/billing.api';
+import { BillingApi, BillingOptions, CheckoutConfig, RegionOption, formatUsd, openWhatsApp, whatsappMessage } from '../core/billing.api';
 import { BillingShell } from './billing-shell';
+import { OnlineCheckout } from './online-checkout';
 
 const STEPS = ['Plan', 'País', 'Pago'];
+const ONLINE_STEPS = ['Plan', 'País', 'Pago', 'Tus datos'];
 
 export const WHATSAPP_TIMINGS = new InjectionToken('whatsapp-open-timings', {
   factory: () => ({ waitMs: 5000, minAwayMs: 1500 }),
@@ -14,18 +16,18 @@ type WhatsappState = 'idle' | 'opening' | 'opened' | 'notOpened';
 
 const METHOD_TEXT: Record<string, string> = {
   WHATSAPP: 'Te escribimos por WhatsApp, coordinamos el pago y te enviamos tu código de activación.',
-  MERCADOPAGO: 'Tarjeta o saldo en pesos argentinos. Tu código llega al instante.',
-  PAYPAL: 'Tarjeta o cuenta PayPal, en dólares. Tu código llega al instante.',
+  MERCADOPAGO: 'Tarjeta o saldo en pesos argentinos. Tu negocio se crea al instante.',
+  PAYPAL: 'Tarjeta o cuenta PayPal, en dólares. Tu negocio se crea al instante.',
 };
 
 @Component({
-  imports: [BillingShell, RouterLink],
+  imports: [BillingShell, RouterLink, OnlineCheckout],
   selector: 'app-buy-page',
   template: `
     <app-billing-shell>
       <header class="max-w-2xl">
         <h1 class="font-display text-3xl md:text-4xl font-black">Contratar tu plan</h1>
-        <p class="mt-2 font-medium text-muted">Tres pasos rápidos. Eliges cómo pagar y recibes tu código para crear tu negocio.</p>
+        <p class="mt-2 font-medium text-muted">Pocos pasos. Eliges cómo pagar y creas tu negocio.</p>
       </header>
 
       @if (failed()) {
@@ -35,12 +37,12 @@ const METHOD_TEXT: Record<string, string> = {
         </div>
       } @else if (options(); as data) {
         <ol class="mt-8 flex max-w-2xl items-center gap-2" aria-label="Pasos" data-steps>
-          @for (label of steps; track label; let i = $index) {
+          @for (label of steps(); track label; let i = $index) {
             <li class="flex flex-1 items-center gap-2" [attr.aria-current]="step() === i + 1 ? 'step' : null">
               <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-black"
                     [class.bg-primary]="step() >= i + 1" [class.text-white]="step() >= i + 1" [class.border-line]="step() < i + 1">{{ step() > i + 1 ? '✓' : i + 1 }}</span>
               <span class="hidden text-sm font-bold sm:inline" [class.text-muted]="step() < i + 1">{{ label }}</span>
-              @if (i < steps.length - 1) { <span class="h-px flex-1 bg-line" aria-hidden="true"></span> }
+              @if (i < steps().length - 1) { <span class="h-px flex-1 bg-line" aria-hidden="true"></span> }
             </li>
           }
         </ol>
@@ -97,7 +99,7 @@ const METHOD_TEXT: Record<string, string> = {
                 <p class="mt-3 text-xs font-medium text-muted">Si tu país no aparece, elige el más cercano: coordinamos el pago por WhatsApp.</p>
               </fieldset>
             }
-            @default {
+            @case (3) {
               <fieldset>
                 <legend class="font-display text-xl font-black">¿Cómo quieres pagar?</legend>
                 <p class="mt-1 text-sm font-medium text-muted" data-summary>{{ summary() }}</p>
@@ -153,6 +155,13 @@ const METHOD_TEXT: Record<string, string> = {
                 }
               </fieldset>
             }
+            @default {
+              @if (selectedPlan(); as plan) {
+                @if (selectedRegion(); as region) {
+                  <app-online-checkout [plan]="plan" [region]="region" [method]="methodCode()" [config]="checkout()" />
+                }
+              }
+            }
           }
 
           @if (error()) { <p role="alert" class="text-sm font-bold text-danger" data-error>{{ error() }}</p> }
@@ -160,9 +169,11 @@ const METHOD_TEXT: Record<string, string> = {
             @if (step() > 1) {
               <button type="button" class="btn btn-secondary" data-back (click)="back()">Atrás</button>
             } @else { <span></span> }
-            <button type="submit" class="btn btn-primary btn-lg" data-submit [disabled]="!canContinue() || waState() === 'opening' || waState() === 'opened'">
-              {{ step() < 3 ? 'Continuar' : (methodCode() === 'WHATSAPP' ? 'Abrir WhatsApp' : 'Continuar') }}
-            </button>
+            @if (step() < 4) {
+              <button type="submit" class="btn btn-primary btn-lg" data-submit [disabled]="!canContinue() || waState() === 'opening' || waState() === 'opened'">
+                {{ step() < 3 ? 'Continuar' : (methodCode() === 'WHATSAPP' ? 'Abrir WhatsApp' : 'Continuar') }}
+              </button>
+            }
           </div>
           <p class="text-xs font-medium text-muted">¿Ya tienes un código? <a routerLink="/auth/register" class="underline">Crea tu negocio</a>.</p>
         </form>
@@ -180,7 +191,11 @@ export class BuyPage implements OnInit {
   private readonly timings = inject(WHATSAPP_TIMINGS);
   private stopWatching: (() => void) | null = null;
 
-  protected readonly steps = STEPS;
+  protected readonly online = computed(() => this.methodCode() === 'PAYPAL' || this.methodCode() === 'MERCADOPAGO');
+  protected readonly steps = computed(() => (this.online() ? ONLINE_STEPS : STEPS));
+  protected readonly checkout = computed<CheckoutConfig>(() => this.options()?.checkout ?? { paypalClientId: '', mercadopagoPublicKey: '' });
+  protected readonly selectedPlan = computed(() => this.options()?.plans.find(item => item.code === this.planCode()) ?? null);
+  protected readonly selectedRegion = computed(() => this.options()?.regions.find(item => item.code === this.regionCode()) ?? null);
   protected readonly options = signal<BillingOptions | null>(null);
   protected readonly failed = signal(false);
   protected readonly step = signal(1);
@@ -288,7 +303,7 @@ export class BuyPage implements OnInit {
       openWhatsApp(region.whatsappNumber, whatsappMessage(plan, region));
       return;
     }
-    this.error.set('Esta forma de pago estará disponible muy pronto.');
+    this.step.set(4);
   }
 
   protected goToRegister(): void {

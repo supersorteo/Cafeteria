@@ -6,11 +6,12 @@ import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { AuthService } from '../core/auth.service';
 import { vi } from 'vitest';
-import { BillingOptions, OrderReceipt } from '../core/billing.api';
+import { BillingOptions, OrderState } from '../core/billing.api';
 import { answer, settle } from '../testing/http';
 import { BuyPage, WHATSAPP_TIMINGS } from './buy.page';
 import { OrderResultPage } from './order-result.page';
 import { PricingPage } from './pricing.page';
+import { SDK_LOADER } from './sdk-loader';
 
 @Component({ template: '' })
 class RegisterStub {}
@@ -28,10 +29,17 @@ const OPTIONS: BillingOptions = {
       { code: 'WHATSAPP', name: 'WhatsApp', available: true }, { code: 'PAYPAL', name: 'PayPal', available: false }] },
   ],
 };
-const receipt = (overrides: Partial<OrderReceipt> = {}): OrderReceipt => ({
-  reference: 'PED-ABCD2345', status: 'PENDING', planName: 'Profesional', months: 1, usdCents: 1900, region: 'UY',
-  whatsappNumber: '59899000002', message: 'Hola, quiero el plan Profesional. Mi pedido es PED-ABCD2345.', expiresAt: '2026-12-01T12:00:00Z', emailHint: 'a***@ejemplo.test', ...overrides,
-});
+const ONLINE_OPTIONS: BillingOptions = {
+  ...OPTIONS,
+  checkout: { paypalClientId: 'cid', mercadopagoPublicKey: '' },
+  regions: [
+    { code: 'AR', name: 'Argentina', whatsapp: true, whatsappNumber: '5491100000001', methods: [
+      { code: 'WHATSAPP', name: 'WhatsApp', available: true }, { code: 'MERCADOPAGO', name: 'Mercado Pago', available: true }, { code: 'PAYPAL', name: 'PayPal', available: true }] },
+    { code: 'UY', name: 'Uruguay', whatsapp: true, whatsappNumber: '59899000002', methods: [
+      { code: 'WHATSAPP', name: 'WhatsApp', available: true }, { code: 'PAYPAL', name: 'PayPal', available: true }] },
+  ],
+};
+const state = (overrides: Partial<OrderState> = {}): OrderState => ({ reference: 'PED-ABCD2345', status: 'PENDING', method: 'PAYPAL', ready: false, failure: null, ...overrides });
 
 describe('billing', () => {
   let harness: RouterTestingHarness;
@@ -65,6 +73,7 @@ describe('billing', () => {
         provideHttpClientTesting(),
         { provide: AuthService, useValue: { ensureCsrf: () => Promise.resolve() } },
         { provide: WHATSAPP_TIMINGS, useValue: { waitMs: 80, minAwayMs: 30 } },
+        { provide: SDK_LOADER, useValue: () => new Promise<void>(() => undefined) },
       ],
     });
     harness = await RouterTestingHarness.create();
@@ -188,6 +197,51 @@ describe('billing', () => {
       expect(root().querySelectorAll('[data-method]:checked').length).toBe(1);
     });
 
+    describe('online payment methods', () => {
+      async function toPayment(region: string) {
+        await harness.navigateByUrl('/comprar?plan=PROFESIONAL');
+        await answer(http, `${API}/options`, ONLINE_OPTIONS);
+        await ui();
+        await choose(`[data-region="${region}"]`);
+        submit();
+        await ui();
+      }
+
+      it('should keep three steps for WhatsApp and add the data step only for an online method', async () => {
+        await toPayment('AR');
+        expect(root().querySelectorAll('[data-steps] li').length).toBe(3);
+
+        await choose('[data-method="PAYPAL"]');
+        expect(root().querySelectorAll('[data-steps] li').length).toBe(4);
+        expect(button().textContent).toContain('Continuar');
+      });
+
+      it('should show the registration and payment step after choosing PayPal, and allow going back', async () => {
+        await toPayment('UY');
+        await choose('[data-method="PAYPAL"]');
+        submit();
+        await ui();
+
+        expect(root().querySelector('[data-online-checkout]')).not.toBeNull();
+        expect(root().querySelector('[data-total]')?.textContent).toContain('Plan Profesional · US$ 19 al mes · Uruguay');
+        expect(root().querySelector('[data-submit]')).toBeNull();
+
+        (root().querySelector('[data-back]') as HTMLElement).click();
+        await ui();
+        expect((root().querySelector('[data-method="PAYPAL"]') as HTMLInputElement).checked).toBe(true);
+      });
+
+      it('should offer Mercado Pago only to Argentina', async () => {
+        await toPayment('AR');
+        await choose('[data-method="MERCADOPAGO"]');
+        submit();
+        await ui();
+
+        expect(root().querySelector('[data-mp-start]')).not.toBeNull();
+        expect(root().querySelector('[data-total]')?.textContent).toContain('Argentina');
+      });
+    });
+
     describe('opening WhatsApp', () => {
       const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
       let opened: string[];
@@ -288,39 +342,6 @@ describe('billing', () => {
         expect(opened.length).toBe(2);
         expect(status()).toBe('opening');
       });
-    });
-  });
-
-  describe('result page', () => {
-    async function open(order: OrderReceipt | null) {
-      await harness.navigateByUrl('/pago/resultado?ref=PED-ABCD2345');
-      if (order) {
-        await answer(http, `${API}/orders/PED-ABCD2345`, order);
-      } else {
-        await answer(http, `${API}/orders/PED-ABCD2345`, { code: 'not_found' }, { status: 404, statusText: 'Not Found' });
-      }
-      await ui();
-    }
-
-    it('should show the reference and a WhatsApp link with the prepared message while pending', async () => {
-      await open(receipt());
-      expect(root().querySelector('[data-reference]')?.textContent).toContain('PED-ABCD2345');
-      const href = root().querySelector('[data-whatsapp]')?.getAttribute('href') ?? '';
-      expect(href.startsWith('https://wa.me/59899000002?text=')).toBe(true);
-      expect(decodeURIComponent(href)).toContain('PED-ABCD2345');
-    });
-
-    it('should tell the customer the code was sent once the payment is confirmed', async () => {
-      await open(receipt({ status: 'PAID' }));
-      expect(root().querySelector('[data-paid]')?.textContent).toContain('Pago confirmado');
-      expect(root().querySelector('[data-email-hint]')?.textContent).toContain('a***@ejemplo.test');
-      expect(root().querySelectorAll('[data-tracker] li').length).toBe(4);
-      expect(root().querySelector('[data-whatsapp]')).toBeNull();
-    });
-
-    it('should say the order was not found', async () => {
-      await open(null);
-      expect(root().querySelector('[data-missing]')).not.toBeNull();
     });
   });
 });

@@ -13,7 +13,7 @@ type Action = { kind: 'confirm' | 'cancel'; order: AdminOrder };
 
 export const ORDERS_POLL_MS = 10000;
 
-const STATUS_LABELS: Record<OrderStatus, string> = { PENDING: 'Pendiente', PAID: 'Pagado', CANCELLED: 'Cancelado', EXPIRED: 'Vencido' };
+const STATUS_LABELS: Record<OrderStatus, string> = { PENDING: 'Pendiente', PAID: 'Pagado', CANCELLED: 'Cancelado', EXPIRED: 'Vencido', FAILED: 'Con problema' };
 
 @Component({
   imports: [DatePipe, ConfirmDialog, EmptyState],
