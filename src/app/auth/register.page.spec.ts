@@ -204,26 +204,18 @@ describe('RegisterPage', () => {
   });
 
   describe('arriving from the WhatsApp purchase', () => {
-    it('should explain that the code will arrive by WhatsApp and clean the address', async () => {
+    it('should say in one short notice that the code will arrive by WhatsApp and clean the address', async () => {
       await harness.navigateByUrl('/auth/login');
       await harness.navigateByUrl('/auth/register?from=whatsapp&plan=PROFESIONAL');
       harness.detectChanges();
 
-      expect(root().querySelector('[data-waiting-code]')?.textContent).toContain('Te abrimos WhatsApp');
+      const notice = root().querySelector('[data-waiting-code]')?.textContent ?? '';
+      expect(notice).toContain('Último paso: tu código de activación');
+      expect(notice).toContain('Te lo enviamos por WhatsApp apenas confirmemos el pago');
+      expect(notice).not.toMatch(/enlace|WhatsApp Web/i);
+      expect(root().querySelector('a[href*="wa.me"]')).toBeNull();
       expect(TestBed.inject(Router).url).toBe('/auth/register');
       expect(value('#reg-code')).toBe('');
-    });
-
-    it('should offer WhatsApp Web as a fallback when the native app did not open', async () => {
-      sessionStorage.setItem('deliora.whatsappWeb', 'https://wa.me/59899000002?text=Hola');
-      await harness.navigateByUrl('/auth/login');
-      await harness.navigateByUrl('/auth/register?from=whatsapp');
-      harness.detectChanges();
-
-      const link = root().querySelector('[data-whatsapp-web]') as HTMLAnchorElement;
-      expect(link.getAttribute('href')).toBe('https://wa.me/59899000002?text=Hola');
-      expect(link.getAttribute('target')).toBe('_blank');
-      sessionStorage.removeItem('deliora.whatsappWeb');
     });
 
     it('should not show the notice on a regular visit', () => {

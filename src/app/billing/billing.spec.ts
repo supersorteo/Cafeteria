@@ -209,10 +209,7 @@ describe('billing', () => {
         });
       });
 
-      afterEach(() => {
-        click.mockRestore();
-        sessionStorage.removeItem('deliora.whatsappWeb');
-      });
+      afterEach(() => click.mockRestore());
 
       it('should open the native app with a ready message but stay on the page, without creating any order', async () => {
         await toPayment();
@@ -274,7 +271,7 @@ describe('billing', () => {
         expect(router.url).toBe('/auth/register?from=whatsapp&plan=EMPRENDEDOR');
       });
 
-      it('should say WhatsApp was not detected and offer to retry or use WhatsApp Web', async () => {
+      it('should say WhatsApp was not detected and offer to retry, without offering WhatsApp Web', async () => {
         await toPayment();
         submit();
         await ui();
@@ -283,7 +280,8 @@ describe('billing', () => {
 
         expect(status()).toBe('notOpened');
         expect(router.url).toBe('/comprar?plan=EMPRENDEDOR');
-        expect(root().querySelector('[data-wa-web]')?.getAttribute('href')?.startsWith('https://wa.me/59899000002?text=')).toBe(true);
+        expect(root().querySelector('[data-wa-web]')).toBeNull();
+        expect(root().querySelector('a[href*="wa.me"]')).toBeNull();
 
         (root().querySelector('[data-wa-retry]') as HTMLElement).click();
         await ui();

@@ -1,7 +1,7 @@
 import { Component, DestroyRef, InjectionToken, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { BillingApi, BillingOptions, RegionOption, formatUsd, openWhatsApp, whatsappMessage, whatsappUrl } from '../core/billing.api';
+import { BillingApi, BillingOptions, RegionOption, formatUsd, openWhatsApp, whatsappMessage } from '../core/billing.api';
 import { BillingShell } from './billing-shell';
 
 const STEPS = ['Plan', 'País', 'Pago'];
@@ -147,7 +147,6 @@ const METHOD_TEXT: Record<string, string> = {
                       <p class="text-sm font-bold">No detectamos que se abriera WhatsApp.</p>
                       <div class="mt-2 flex flex-wrap gap-2">
                         <button type="button" class="btn btn-secondary btn-sm" data-wa-retry (click)="pay()">Intentar de nuevo</button>
-                        <a [href]="webUrl()" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" data-wa-web>Abrir WhatsApp Web</a>
                       </div>
                     </div>
                   }
@@ -191,12 +190,6 @@ export class BuyPage implements OnInit {
   protected readonly error = signal<string | null>(null);
   protected readonly waState = signal<WhatsappState>('idle');
   protected readonly usd = formatUsd;
-  protected readonly webUrl = computed(() => {
-    const data = this.options();
-    const plan = data?.plans.find(item => item.code === this.planCode());
-    const region = data?.regions.find(item => item.code === this.regionCode());
-    return plan && region ? whatsappUrl(region.whatsappNumber, whatsappMessage(plan, region)) : '';
-  });
   protected readonly methods = computed(() => this.options()?.regions.find(item => item.code === this.regionCode())?.methods ?? []);
   protected readonly summary = computed(() => {
     const data = this.options();
