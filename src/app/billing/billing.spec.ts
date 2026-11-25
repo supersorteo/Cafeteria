@@ -18,8 +18,10 @@ const OPTIONS: BillingOptions = {
     { code: 'PROFESIONAL', name: 'Profesional', months: 1, usdCents: 1900, maxMenuItems: 100, maxActiveCoupons: 35, maxGallery: 15, maxTableQr: 30, fullBranding: true, advancedCoupons: true, tableQr: true, prioritySupport: true, stats: false },
   ],
   regions: [
-    { code: 'AR', name: 'Argentina', whatsapp: true, whatsappNumber: '5491100000001' },
-    { code: 'UY', name: 'Uruguay', whatsapp: true, whatsappNumber: '59899000002' },
+    { code: 'AR', name: 'Argentina', whatsapp: true, whatsappNumber: '5491100000001', methods: [
+      { code: 'WHATSAPP', name: 'WhatsApp', available: true }, { code: 'MERCADOPAGO', name: 'Mercado Pago', available: false }, { code: 'PAYPAL', name: 'PayPal', available: false }] },
+    { code: 'UY', name: 'Uruguay', whatsapp: true, whatsappNumber: '59899000002', methods: [
+      { code: 'WHATSAPP', name: 'WhatsApp', available: true }, { code: 'PAYPAL', name: 'PayPal', available: false }] },
   ],
 };
 const receipt = (overrides: Partial<OrderReceipt> = {}): OrderReceipt => ({
@@ -135,8 +137,35 @@ describe('billing', () => {
       expect(root().querySelector('[data-plan="EMPRENDEDOR"]')).not.toBeNull();
     });
 
+    it('should ask how to pay after the country, with WhatsApp available and the online methods marked as coming soon', async () => {
+      await open('/comprar?plan=EMPRENDEDOR');
+      submit();
+      await ui();
+      expect(root().querySelector('[data-method="WHATSAPP"]')).not.toBeNull();
+      expect((root().querySelector('[data-method="WHATSAPP"]') as HTMLInputElement).checked).toBe(true);
+      expect((root().querySelector('[data-method="PAYPAL"]') as HTMLInputElement).disabled).toBe(true);
+      expect(root().querySelectorAll('[data-soon]').length).toBeGreaterThan(0);
+    });
+
+    it('should show Mercado Pago only for Argentina', async () => {
+      await open('/comprar?plan=EMPRENDEDOR');
+      (root().querySelector('[data-region="AR"]') as HTMLInputElement).dispatchEvent(new Event('change'));
+      submit();
+      await ui();
+      expect(root().querySelector('[data-method="MERCADOPAGO"]')).not.toBeNull();
+
+      (root().querySelector('[data-back]') as HTMLElement).click();
+      await ui();
+      (root().querySelector('[data-region="UY"]') as HTMLInputElement).dispatchEvent(new Event('change'));
+      submit();
+      await ui();
+      expect(root().querySelector('[data-method="MERCADOPAGO"]')).toBeNull();
+    });
+
     it('should ask for a valid email on the last step without calling the server', async () => {
       await open('/comprar?plan=EMPRENDEDOR');
+      submit();
+      await ui();
       submit();
       await ui();
       set('[data-email]', 'no-es-correo');
@@ -145,13 +174,15 @@ describe('billing', () => {
       expect(root().querySelector('[data-error]')?.textContent).toContain('correo válido');
     });
 
-    it('should create the order with the chosen plan and country, remember it and go to the result page', async () => {
+    it('should create the order with the chosen plan, country and method, remember it and go to the result page', async () => {
       await open('/comprar?plan=EMPRENDEDOR');
       (root().querySelector('[data-region="UY"]') as HTMLInputElement).dispatchEvent(new Event('change'));
       await ui();
       submit();
       await ui();
-      expect(root().querySelector('[data-summary]')?.textContent).toContain('Plan Emprendedor · US$ 9 al mes · Uruguay');
+      submit();
+      await ui();
+      expect(root().querySelector('[data-summary]')?.textContent).toContain('Plan Emprendedor · US$ 9 al mes · Uruguay · WhatsApp');
       set('[data-name]', 'Ana');
       set('[data-email]', 'ana@ejemplo.test');
       await ui();
@@ -160,13 +191,15 @@ describe('billing', () => {
       await answer(http, `${API}/orders/PED-ABCD2345`, receipt({ planName: 'Emprendedor' }));
       await ui();
 
-      expect(request.request.body).toEqual({ planCode: 'EMPRENDEDOR', region: 'UY', email: 'ana@ejemplo.test', name: 'Ana' });
+      expect(request.request.body).toEqual({ planCode: 'EMPRENDEDOR', region: 'UY', email: 'ana@ejemplo.test', name: 'Ana', method: 'WHATSAPP' });
       expect(router.url).toBe('/pago/resultado?ref=PED-ABCD2345');
       expect(localStorage.getItem('deliora.lastOrder')).toBe('PED-ABCD2345');
     });
 
     it('should explain when the country has no payment method available', async () => {
       await open('/comprar?plan=EMPRENDEDOR');
+      submit();
+      await ui();
       submit();
       await ui();
       set('[data-email]', 'ana@ejemplo.test');

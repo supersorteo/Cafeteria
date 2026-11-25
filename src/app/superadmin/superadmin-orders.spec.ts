@@ -110,7 +110,7 @@ describe('superadmin orders and prices', () => {
   describe('prices', () => {
     const OPTIONS: BillingOptions = {
       plans: [{ code: 'PROFESIONAL', name: 'Profesional', months: 1, usdCents: 1900, maxMenuItems: 100, maxActiveCoupons: 35, maxGallery: 15, maxTableQr: 30, fullBranding: true, advancedCoupons: true, tableQr: true, prioritySupport: true, stats: false }],
-      regions: [{ code: 'AR', name: 'Argentina', whatsapp: true, whatsappNumber: '5491100000001' }, { code: 'UY', name: 'Uruguay', whatsapp: false, whatsappNumber: '' }],
+      regions: [{ code: 'AR', name: 'Argentina', whatsapp: true, whatsappNumber: '5491100000001', methods: [] }, { code: 'UY', name: 'Uruguay', whatsapp: false, whatsappNumber: '', methods: [] }],
     };
 
     async function openPrices() {

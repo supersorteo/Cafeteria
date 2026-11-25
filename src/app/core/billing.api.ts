@@ -18,11 +18,18 @@ export interface PlanOption {
   stats: boolean;
 }
 
+export interface MethodOption {
+  code: 'WHATSAPP' | 'MERCADOPAGO' | 'PAYPAL' | string;
+  name: string;
+  available: boolean;
+}
+
 export interface RegionOption {
   code: string;
   name: string;
   whatsapp: boolean;
   whatsappNumber: string;
+  methods: MethodOption[];
 }
 
 export interface BillingOptions {
@@ -35,6 +42,7 @@ export interface NewOrder {
   region: string;
   email: string;
   name: string;
+  method: string;
 }
 
 export type OrderStatus = 'PENDING' | 'PAID' | 'CANCELLED' | 'EXPIRED';
