@@ -531,6 +531,9 @@ export class SuperAdminPage implements OnInit, OnDestroy {
     if (problem.code === 'not_suspended') {
       return 'Suspende el negocio antes de eliminarlo.';
     }
+    if (problem.code === 'demo_protected') {
+      return 'El negocio de demostración no se puede suspender ni eliminar.';
+    }
     if (problem.code === 'slug_mismatch') {
       return 'La dirección escrita no coincide.';
     }

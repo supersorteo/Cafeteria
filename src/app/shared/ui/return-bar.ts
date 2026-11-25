@@ -12,7 +12,7 @@ export type ReturnMode = 'plataforma' | 'panel';
         <a id="returnPanel" routerLink="/admin" class="btn btn-primary btn-sm"><span class="sm:hidden">← Volver al panel</span><span class="hidden sm:inline">← Volver al panel de administración</span></a>
       } @else {
         <a id="returnHome" routerLink="/" class="btn btn-secondary btn-sm"><span class="sm:hidden">← Volver</span><span class="hidden sm:inline">← Volver a Deliora</span></a>
-        <a id="returnRegister" routerLink="/auth/register" class="btn btn-primary btn-sm">Crear mi negocio</a>
+        <a id="returnPlans" routerLink="/precios" class="btn btn-primary btn-sm">Ver planes</a>
       }
     </div>
   `,

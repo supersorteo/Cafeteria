@@ -18,7 +18,7 @@ Cada negocio (tenant) es independiente: su sesión solo ve y edita sus datos. El
 
 ## Flujo de un negocio real
 
-1. Entra a `/` → «Crear mi negocio» → completa el registro.
+1. Entra a `/` → «Ver planes» → elige plan y país en `/comprar`, y escribe por WhatsApp con su número de pedido. Quien atiende confirma el pago en el superadmin (pestaña Pedidos) y le llega un correo con su código y un enlace a `/auth/register?code=…`; allí completa el registro.
 2. Recibe un correo con un enlace de verificación (en local, por el Gmail configurado; con `mail.sender=log` el enlace sale en la consola del backend).
 3. Al abrir el enlace, el navegador siempre lo abre en una pestaña nueva. Si la pestaña del registro sigue abierta (mismo navegador), pasa sola al inicio de sesión con el aviso «Correo confirmado»; la pestaña nueva indica que ya puede cerrarse. Si no hay otra pestaña (otro navegador o el móvil), la nueva cuenta atrás de 3 s y lo lleva al inicio de sesión.
 4. Inicia sesión → llega a `/admin`.
@@ -65,7 +65,7 @@ La contraseña es el valor de `seed.dev.password` de tu `application.properties`
 
 ### Probar el registro de un negocio nuevo
 
-1. `http://localhost:4200/` → «Crear mi negocio».
+1. `http://localhost:4200/precios` → compra un plan, confírmalo en el superadmin y abre el enlace del correo (o genera un código en la pestaña Códigos y usa `/auth/register`).
 2. Completa el formulario. En la consola del backend busca la línea del correo con el enlace `/auth/verify-email?token=...` y ábrelo en el navegador.
 3. Inicia sesión, carga la carta y publica. Tu página queda en `http://localhost:4200/<tu-slug>`.
 
@@ -144,4 +144,11 @@ El resumen (`/admin`) muestra «N de 9 pasos completos» y el botón «Continuar
 
 - **Tu marca** (Configuración): colores del título, fondo, pie de página, títulos, textos, botón de WhatsApp y cinta de frases, más una fuente entre 8. Se guarda en el servidor y se ve en tu sitio público. El texto del pie de página y de la cinta cambia solo entre claro y oscuro para que siempre se lea.
 - **QR de tu sitio** (`/admin/qr`): todos los negocios descargan el QR básico. Desde el plan de **3 meses** se personaliza (estilo, colores, fondo y logo) y el diseño se guarda por negocio. Con el plan de 1 mes los controles aparecen bloqueados.
+
+## Planes y cobros
+
+- Dos planes mensuales: **Emprendedor** (50 platos, 15 cupones activos con fechas, QR personalizable, logo y 2 colores, 6 fotos de galería, soporte por correo) y **Profesional** (100 platos, 35 cupones con horarios, límite de usos, canjes y destacado, QR personalizable, marca completa con 7 colores y 8 fuentes, 15 fotos, soporte prioritario). Los límites y precios viven en la base de datos.
+- El pago se coordina por WhatsApp según el país; los números se definen en variables de entorno del servidor (`BILLING_WHATSAPP_AR`, `BILLING_WHATSAPP_UY`).
+- El panel de superadmin tiene las pestañas **Pedidos** (confirmar o cancelar) y **Planes y precios** (solo el Dueño). Cada administrador ve solo lo suyo; el Dueño alterna a «Otro administrador» para revisar lo demás sin mezclarlo.
+- El negocio demo `/la-terraza` es la muestra pública: no tiene límites ni caducidad y no se puede suspender ni eliminar. Trae ingredientes y cupones de ejemplo.
 

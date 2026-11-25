@@ -132,7 +132,7 @@ describe('PublicSitePage', () => {
       http.expectOne(api('cafe-demo')).flush(makeSite());
       harness.detectChanges();
       expect(root().querySelector('#returnHome')?.getAttribute('href')).toBe('/');
-      expect(root().querySelector('#returnRegister')?.getAttribute('href')).toBe('/auth/register');
+      expect(root().querySelector('#returnPlans')?.getAttribute('href')).toBe('/precios');
       expect(ensureInitialized).not.toHaveBeenCalled();
     });
 

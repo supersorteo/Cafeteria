@@ -60,7 +60,7 @@ Reutilizar (backend, bajo `cafeteria/cafeteria/src/main/java/Cafeteria`): `plan/
 
 ## 6. Backend (`cafeteria/cafeteria`)
 
-### Migraciones (solo aditivas; la última existente es V7)
+### Migraciones (solo aditivas). Numeración real: V8 = cuentas de superadmin, V9 = planes, ingredientes y cupones, V10 = pedidos y precios; la tasa de cambio y los eventos de pago llegarán en migraciones posteriores (Fases D y E)
 - **V8 – planes, cupones e ingredientes:** `billing_plans` (entitlements de la sección 3), `ingredients`, `menu_item_ingredients` (con `UNIQUE (tenant_id, id)` en `menu_items`), `coupons` (código único por negocio, tipo, título, beneficio, texto de vigencia, `starts_at`, `ends_at`, días y horario, `max_redemptions`, `redemptions`, `featured`, activo, orden; las columnas avanzadas existen desde ya y se habilitan por plan), `plan_code` en `code_batches`, `activation_codes` y `tenants`. Verificar si V2/V4 imponen un tope de galería a nivel de base de datos.
 - **V9 – cobros:** `billing_prices` (plan × meses × USD en centavos), `billing_regions` (`AR`, `UY`: métodos activos, WhatsApp, activa), `fx_rates` (USD→ARS, origen `AUTO|MANUAL`, fecha), `billing_settings` (margen, gracia, vencimiento de pedidos), `orders` (referencia única, plan, meses, región, método, país del comprador, correo, monto USD, moneda y monto cobrado, tasa usada, estado `PENDING|PAID|CANCELLED|EXPIRED|REFUNDED`, `provider_ref`, `activation_code_id`, `tenant_id` si es renovación, quién confirmó) y `payment_events` (proveedor + id de evento **único**, idempotencia).
 - **V10 – cuentas de superadmin:** `superadmin_accounts` (correo único, hash, rol `ADMIN|OPERATOR`, regiones, activa). La cuenta de las variables de entorno sigue como administrador inicial.

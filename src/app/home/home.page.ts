@@ -22,7 +22,7 @@ import { PlanCards } from '../shared/plan-cards';
             <a id="homePanel" routerLink="/admin" class="btn btn-primary btn-sm">Ir a mi panel</a>
           } @else {
             <a id="homeLogin" routerLink="/auth/login" class="btn btn-ghost btn-sm"><span class="sm:hidden">Entrar</span><span class="hidden sm:inline">Iniciar sesión</span></a>
-            <a id="homeRegister" routerLink="/auth/register" class="btn btn-primary btn-sm"><span class="sm:hidden">Registrarme</span><span class="hidden sm:inline">Crear mi negocio</span></a>
+            <a id="homePlans" routerLink="/precios" class="btn btn-primary btn-sm"><span class="sm:hidden">Planes</span><span class="hidden sm:inline">Ver planes</span></a>
           }
         </nav>
       </div>
@@ -39,13 +39,13 @@ import { PlanCards } from '../shared/plan-cards';
               Tu carta y tu web, <span class="italic text-primary">listas en minutos</span>
             </h1>
             <p class="anim-fade-up mt-6 text-lg md:text-xl font-medium max-w-xl text-muted" style="--i:2">
-              Registra tu negocio, sube tu carta con fotos y publica una página propia con reservas por WhatsApp. Tú la administras desde un panel sencillo.
+              Sube tu carta con fotos, crea cupones para tus clientes y publica una página propia con reservas por WhatsApp. Tú la administras desde un panel sencillo.
             </p>
             <div class="anim-fade-up mt-9 flex flex-col sm:flex-row gap-3" style="--i:3">
-              <a routerLink="/auth/register" class="btn btn-primary btn-lg">Crear mi negocio</a>
+              <a routerLink="/precios" class="btn btn-primary btn-lg">Ver planes y precios</a>
               <a id="homeDemo" routerLink="/la-terraza" [queryParams]="{ ref: 'plataforma' }" class="btn btn-secondary btn-lg">Ver un ejemplo</a>
             </div>
-            <p class="anim-fade-up mt-5 text-sm font-semibold text-muted" style="--i:4">Sin tarjeta · Listo en 5 minutos · Tu carta siempre actualizada</p>
+            <p class="anim-fade-up mt-5 text-sm font-semibold text-muted" style="--i:4">Planes mensuales · Sin permanencia · Pagas por WhatsApp</p>
           </div>
 
           <div class="hero-visual relative mx-auto w-full max-w-sm anim-scale-in" aria-hidden="true">
@@ -130,9 +130,9 @@ import { PlanCards } from '../shared/plan-cards';
             <img class="relative z-10 h-full w-full object-contain drop-shadow-[0_8px_18px_rgba(255,255,255,0.18)]" src="/deliora-map-pin.webp" alt="Pin de ubicación" />
           </div>
           <h2 class="relative font-display text-3xl md:text-5xl font-black">Pon tu negocio <span class="italic text-gold">en el mapa</span></h2>
-          <p class="relative mt-3 text-lg font-medium text-white/80">Crea tu cuenta gratis y publica tu carta hoy.</p>
+          <p class="relative mt-3 text-lg font-medium text-white/80">Elige tu plan y publica tu carta hoy.</p>
           <div class="relative mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-            <a routerLink="/auth/register" class="btn btn-lg bg-white text-[#2A1420] hover:shadow-lift">Crear mi negocio</a>
+            <a routerLink="/precios" class="btn btn-lg bg-white text-[#2A1420] hover:shadow-lift">Ver planes y precios</a>
             <a routerLink="/la-terraza" [queryParams]="{ ref: 'plataforma' }" class="btn btn-lg border-white/40 text-white hover:bg-white/10">Ver un ejemplo</a>
           </div>
         </div>
@@ -141,26 +141,28 @@ import { PlanCards } from '../shared/plan-cards';
 
     <footer class="py-8 text-center text-xs font-medium text-muted border-t border-line">
       © {{ year }} Deliora ·
+      <a routerLink="/precios" class="underline underline-offset-2 hover:text-primary">Precios</a> ·
+      <a routerLink="/auth/register" class="underline underline-offset-2 hover:text-primary">Tengo un código</a> ·
       <a routerLink="/auth/login" class="underline underline-offset-2 hover:text-primary">Acceso para negocios</a>
     </footer>
 
     @if (qrOpen()) {
-      <app-modal heading="Personaliza tu QR de mesa" size="md" (closed)="closeQrCustomizer()">
+      <app-modal heading="Personaliza tu QR" size="md" (closed)="closeQrCustomizer()">
         <div class="grid gap-6 md:grid-cols-[1fr_auto] items-center">
           <div>
             <span class="badge badge-success">Muestra</span>
-            <h3 class="mt-4 font-display text-2xl font-black">Un QR distinto para cada mesa</h3>
+            <h3 class="mt-4 font-display text-2xl font-black">Un QR con el estilo de tu negocio</h3>
             <p class="mt-2 text-sm font-medium text-muted">Escribe la dirección de tu página pública. El código se actualiza al instante y puedes abrirlo para imprimirlo.</p>
             <label for="planQrUrl" class="mt-5 block text-xs font-bold uppercase tracking-wider text-muted">Enlace de destino</label>
             <input id="planQrUrl" class="input mt-2" type="url" [value]="qrUrl()" (input)="setQrUrl($event)" placeholder="https://tusitio.com/mi-negocio" />
-            <label for="planQrLabel" class="mt-4 block text-xs font-bold uppercase tracking-wider text-muted">Nombre de la mesa (opcional)</label>
-            <input id="planQrLabel" class="input mt-2" type="text" [value]="qrLabel()" (input)="setQrLabel($event)" placeholder="Mesa 01" />
+            <label for="planQrLabel" class="mt-4 block text-xs font-bold uppercase tracking-wider text-muted">Nombre bajo el QR (opcional)</label>
+            <input id="planQrLabel" class="input mt-2" type="text" [value]="qrLabel()" (input)="setQrLabel($event)" placeholder="Ej. Entrada" />
             <button type="button" class="btn btn-primary mt-5 w-full sm:w-auto" data-demo-qr-download (click)="downloadDemoQr()">Descargar QR de muestra</button>
             <p class="mt-3 text-xs font-medium text-muted">Es una muestra. Con tu plan creas y guardas el diseño de tu QR desde el panel.</p>
           </div>
           <div class="qr-preview card p-4 text-center">
-            <app-qr-canvas class="mx-auto" [options]="qrOptions()" [label]="'Código QR para ' + (qrLabel() || 'tu mesa')" />
-            <p class="mt-3 text-xs font-bold text-muted">{{ qrLabel() || 'Tu mesa' }}</p>
+            <app-qr-canvas class="mx-auto" [options]="qrOptions()" [label]="'Código QR para ' + (qrLabel() || 'tu negocio')" />
+            <p class="mt-3 text-xs font-bold text-muted">{{ qrLabel() || 'Tu negocio' }}</p>
           </div>
         </div>
       </app-modal>
@@ -211,18 +213,16 @@ export class HomePage {
   protected readonly introSlide = signal(0);
   protected readonly qrOpen = signal(false);
   protected readonly qrUrl = signal('https://deliora.app/mi-negocio');
-  protected readonly qrLabel = signal('Mesa 01');
+  protected readonly qrLabel = signal('');
   private readonly demoQr = viewChild(QrCanvas);
   protected readonly qrOptions = computed<Partial<Options>>(() => {
-    const label = this.qrLabel().trim();
     const destination = this.qrUrl().trim() || 'https://deliora.app/mi-negocio';
-    const separator = destination.includes('?') ? '&' : '?';
     return {
       type: 'svg',
       width: 176,
       height: 176,
       margin: 8,
-      data: label ? `${destination}${separator}mesa=${encodeURIComponent(label)}` : destination,
+      data: destination,
       qrOptions: { errorCorrectionLevel: 'H' },
       dotsOptions: { type: 'dots', color: '#2A1420' },
       cornersSquareOptions: { type: 'extra-rounded', color: '#2A1420' },
@@ -259,14 +259,14 @@ export class HomePage {
     { name: 'Volcán de chocolate', tag: 'Postre', price: '$190', image: '/deliora-dish-volcan.webp' },
   ];
   protected readonly steps = [
-    { image: '/deliora-step-1.webp', title: 'Regístrate', text: 'Crea tu cuenta con tu correo y elige la dirección de tu página.' },
-    { image: '/deliora-step-2.webp', title: 'Confirma tu correo', text: 'Te enviamos un enlace para activar la cuenta.' },
-    { image: '/deliora-step-3.webp', title: 'Carga tu carta', text: 'Categorías, platos, precios y fotos desde el panel.' },
-    { image: '/deliora-step-4.webp', title: 'Publica', text: 'Personaliza colores y textos, y activa tu página pública.' },
+    { image: '/deliora-step-1.webp', title: 'Elige tu plan', text: 'Escoge el plan y tu país, y registramos tu pedido.' },
+    { image: '/deliora-step-2.webp', title: 'Paga por WhatsApp', text: 'Nos escribes con tu número de pedido; al confirmar el pago te enviamos un código por correo.' },
+    { image: '/deliora-step-3.webp', title: 'Crea tu negocio', text: 'Con el código creas tu cuenta y cargas tu carta, con fotos, precios e ingredientes.' },
+    { image: '/deliora-step-4.webp', title: 'Publica', text: 'Personaliza tu marca, crea cupones y activa tu página pública.' },
   ];
   protected readonly features = [
-    { image: '/deliora-feature-carta.webp', title: 'Carta siempre al día', text: 'Cambia precios, oculta platos agotados y reordena categorías en segundos.' },
-    { image: '/deliora-feature-marca.webp', title: 'Tu marca, tu estilo', text: 'Colores, textos, fotos y horarios propios. Tu página se ve como tu negocio.' },
+    { image: '/deliora-feature-carta.webp', title: 'Carta siempre al día', text: 'Cambia precios, indica los ingredientes de cada plato, oculta lo agotado y reordena en segundos.' },
+    { image: '/deliora-feature-marca.webp', title: 'Tu marca, tu estilo', text: 'Logo, colores, textos y fotos propios. Con el plan Profesional, además, todos los colores y 8 tipografías.' },
     { image: '/deliora-feature-reservas.webp', title: 'Reservas por WhatsApp', text: 'Tus clientes reservan y el mensaje llega directo a tu teléfono.' },
   ];
 
@@ -300,7 +300,7 @@ export class HomePage {
   }
 
   protected async downloadDemoQr(): Promise<void> {
-    await this.demoQr()?.download('qr-mesa-muestra', 'png');
+    await this.demoQr()?.download('qr-muestra', 'png');
   }
 
   protected closeQrCustomizer(): void {

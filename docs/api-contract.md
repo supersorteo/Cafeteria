@@ -154,3 +154,28 @@ Un negocio suspendido (`tenants.suspended_at`): login 401, sesiones abiertas 401
 - `POST /superadmin/auth/password` `{current, next}` (204) cambia la contraseña de una cuenta de la base de datos (mínimo 10 caracteres, distinta de la actual); `400 wrong_password`, `400 weak_password`, `400 primary_account` si es la cuenta de las variables de entorno.
 - Con `mustChangePassword` verdadero solo funcionan `me`, `password` y `logout`; el resto responde `403`.
 - **Operador:** solo `GET` de negocios, estadísticas y actividad. `403` en códigos (lectura y escritura), lotes, suspender, reactivar y eliminar. **Administrador:** todo.
+
+## Planes, límites, cupones e ingredientes (`V9__plans_ingredients_coupons.sql`)
+
+- `GET /auth/me` y `GET /admin/plan` devuelven `plan.planCode`, `plan.limits` (`maxMenuItems`, `maxActiveCoupons`, `maxGallery`, `maxTableQr`, `fullBranding`, `advancedCoupons`, `tableQr`, `prioritySupport`, `stats`) y `plan.usage` (`menuItems`, `activeCoupons`, `gallery`). Los límites salen de la tabla `billing_plans`; un negocio sin plan asignado se trata como Profesional y el negocio demo (`la-terraza`) no tiene límites ni caducidad.
+- `403 plan_limit_reached` al superar un límite; `403 plan_feature_unavailable` al usar una función que el plan no incluye (cupones avanzados, marca completa). Nunca se borra nada al bajar de plan: se bloquea crear más y el sitio público oculta el exceso.
+- **Ingredientes** (`/admin/ingredients`, owner o editor): `GET`, `POST {name}`, `PUT /{id} {name}`, `DELETE /{id}`. `409 duplicate_ingredient`, `409 limit_reached` (100 por negocio). `MenuItemRequest.ingredientIds` (hasta 30) y `MenuItemResponse.ingredients`.
+- **Cupones** (`/admin/coupons`): `GET`, `POST`, `PUT /{id}` (con `version`), `DELETE /{id}` y `POST /{id}/redeem` (suma un canje; solo Profesional). Campos: `code`, `type` (`DESCUENTO|VIGENCIA|CAMBIO|REGALO|OTRO`), `title`, `benefit`, `validityText`, `startsOn`, `endsOn`, `active` y, **solo Profesional**, `weekdays` (`1`=lunes … `7`=domingo), `timeFrom`, `timeTo`, `maxRedemptions`, `featured`. El límite cuenta solo los cupones **activos a la vez** (activo, dentro de fecha y con usos disponibles); tope de archivo de 100. `409 duplicate_coupon_code`, `409 coupon_exhausted`.
+- **Sitio público** (`GET /public/sites/{slug}`): cada plato trae `ingredients` y el sitio trae `coupons` vigentes (fecha, día y horario en la zona del negocio) con `schedule`, `remaining` y `featured`.
+- **QR:** personalizable en ambos planes; los QR generados llevan `?src=qr`.
+
+## Cobros por WhatsApp (`V10__billing_orders.sql`)
+
+- `GET /public/billing/options` → `{plans[], regions[]}` con precio en centavos de dólar, límites y, por región, si hay WhatsApp y su número.
+- `POST /public/billing/orders {planCode, region, email, name?}` (201) crea el pedido (`PED-XXXXXXXX`, vence a los 7 días). Un pedido pendiente del mismo correo, plan y país se reutiliza. `400` si el plan o el país no existen; `409 method_unavailable` si la región no tiene WhatsApp.
+- `GET /public/billing/orders/{reference}` → estado (`PENDING|PAID|CANCELLED|EXPIRED`), plan, importe y el mensaje de WhatsApp preparado.
+- `GET /superadmin/orders?status&query&scope&page&size` lista los pedidos de las regiones del administrador (el Dueño ve el resto con `scope=others`). El código de activación solo se devuelve a los administradores, no al operador.
+- `POST /superadmin/orders/{id}/confirm` genera un código del plan, lo envía por correo con el enlace `/auth/register?code=…` y deja el pedido en `PAID` (`409 order_state_conflict` si ya estaba confirmado o cancelado). `POST /superadmin/orders/{id}/cancel` (204).
+- `GET /superadmin/billing/options` y `PUT /superadmin/billing/prices {planCode, months, usdCents}` (204): solo el Dueño cambia precios; `403` para el resto.
+
+## Visibilidad entre administradores
+
+- El Dueño (cuenta de `SUPERADMIN_EMAIL`) ve todo; cualquier otra cuenta `ADMIN` ve y gestiona solo lo suyo: los códigos que generó, los negocios que se registraron con ellos, su actividad y los pedidos de sus regiones.
+- Los `GET` de negocios, estadísticas, códigos, lotes, actividad y pedidos aceptan `scope=others` (solo para el Dueño) para ver lo de los demás por separado. Actuar fuera del alcance responde `404`.
+- `GET /superadmin/auth/me` devuelve además `owner`. Suspender o eliminar el negocio demo responde `409 demo_protected`.
+

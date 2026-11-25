@@ -29,7 +29,7 @@ describe('routes', () => {
     harness.detectChanges();
     expect(TestBed.inject(Router).url).toBe('/');
     const root = harness.routeNativeElement as HTMLElement;
-    expect(root.querySelector('#homeRegister')?.getAttribute('href')).toBe('/auth/register');
+    expect(root.querySelector('#homePlans')?.getAttribute('href')).toBe('/precios');
     expect(root.querySelector('#homeLogin')?.getAttribute('href')).toBe('/auth/login');
     expect(root.querySelector('#homeDemo')?.getAttribute('href')).toBe('/la-terraza?ref=plataforma');
   });
