@@ -152,6 +152,19 @@ export interface AdminOrderPage {
   totalPages: number;
 }
 
+export interface FxReference {
+  code: string;
+  name: string;
+  sell: number;
+}
+
+export interface FxRate {
+  rate: number | null;
+  updatedAt: string | null;
+  updatedBy: string | null;
+  references: FxReference[];
+}
+
 const API = '/api/v1/superadmin';
 
 @Injectable({ providedIn: 'root' })
@@ -249,6 +262,14 @@ export class SuperAdminApi {
 
   billingOptions(): Observable<BillingOptions> {
     return this.http.get<BillingOptions>(`${API}/billing/options`);
+  }
+
+  rate(): Observable<FxRate> {
+    return this.http.get<FxRate>(`${API}/billing/rate`);
+  }
+
+  setRate(rate: number): Observable<void> {
+    return this.http.put<void>(`${API}/billing/rate`, { rate });
   }
 
   setPrice(planCode: string, months: number, usdCents: number): Observable<void> {

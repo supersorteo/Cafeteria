@@ -5,7 +5,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { BillingOptions } from '../core/billing.api';
 import { NoticeService } from '../core/notice.service';
 import { SuperAdminAuth } from '../core/superadmin-auth.service';
-import { AdminOrder } from '../core/superadmin.api';
+import { AdminOrder, FxRate } from '../core/superadmin.api';
 import { answer, answerMatching, settle } from '../testing/http';
 import { SuperAdminOrders } from './superadmin-orders';
 import { SuperAdminPrices } from './superadmin-prices';
@@ -112,47 +112,95 @@ describe('superadmin orders and prices', () => {
       plans: [{ code: 'PROFESIONAL', name: 'Profesional', months: 1, usdCents: 1900, maxMenuItems: 100, maxActiveCoupons: 35, maxGallery: 15, maxTableQr: 30, fullBranding: true, advancedCoupons: true, tableQr: true, prioritySupport: true, stats: false }],
       regions: [{ code: 'AR', name: 'Argentina', whatsapp: true, whatsappNumber: '5491100000001', methods: [] }, { code: 'UY', name: 'Uruguay', whatsapp: false, whatsappNumber: '', methods: [] }],
     };
+    const RATE: FxRate = {
+      rate: 1700, updatedAt: '2026-11-26T12:00:00Z', updatedBy: 'root@plataforma.test',
+      references: [{ code: 'oficial', name: 'Oficial', sell: 1630 }, { code: 'bolsa', name: 'MEP', sell: 1688.7 }, { code: 'blue', name: 'Blue', sell: 1710 }],
+    };
 
-    async function openPrices() {
+    async function openPrices(rate: FxRate = RATE) {
       const fixture = TestBed.createComponent(SuperAdminPrices);
       fixture.detectChanges();
       await answer(http, `${API}/billing/options`, OPTIONS);
+      await answer(http, `${API}/billing/rate`, rate);
       await ui(fixture);
       return fixture;
     }
 
-    it('should show the current price and which countries lack a WhatsApp number', async () => {
+    const type = async (fixture: ComponentFixture<unknown>, selector: string, value: string) => {
+      const input = (fixture.nativeElement as HTMLElement).querySelector(selector) as HTMLInputElement;
+      input.value = value;
+      input.dispatchEvent(new Event('input'));
+      await ui(fixture);
+    };
+
+    it('should show the current rate, the price in pesos and the countries without WhatsApp', async () => {
       const el = (await openPrices()).nativeElement as HTMLElement;
+      expect(el.querySelector('[data-rate-current]')?.textContent).toContain('Tasa actual: $ 1700');
       expect(el.querySelector('[data-price-current]')?.textContent).toContain('US$ 19');
+      expect(el.querySelector('[data-price-ars]')?.textContent).toContain('$ 32.300 ARS');
       expect(el.querySelector('[data-region="UY"]')?.textContent).toContain('Sin WhatsApp');
+    });
+
+    it('should preview the price in pesos while the rate or the price is being edited', async () => {
+      const fixture = await openPrices();
+      const el = fixture.nativeElement as HTMLElement;
+      await type(fixture, '[data-rate-input]', '1688.7');
+      expect(el.querySelector('[data-price-ars]')?.textContent).toContain('$ 32.090 ARS');
+      await type(fixture, '[data-price-input]', '20');
+      expect(el.querySelector('[data-price-ars]')?.textContent).toContain('$ 33.770 ARS');
+    });
+
+    it('should use a reference rate of the day with one click and save it', async () => {
+      const fixture = await openPrices();
+      const el = fixture.nativeElement as HTMLElement;
+      (el.querySelector('[data-rate-reference="blue"]') as HTMLElement).click();
+      await ui(fixture);
+      expect((el.querySelector('[data-rate-input]') as HTMLInputElement).value).toBe('1710');
+
+      (el.querySelector('[data-rate] form') as HTMLFormElement).dispatchEvent(new Event('submit'));
+      const request = await answer(http, `${API}/billing/rate`, null, { status: 204, statusText: 'No Content' }, 'PUT');
+      await answer(http, `${API}/billing/options`, OPTIONS);
+      await answer(http, `${API}/billing/rate`, { ...RATE, rate: 1710 });
+      await ui(fixture);
+
+      expect(request.request.body).toEqual({ rate: 1710 });
+      expect(el.querySelector('[data-rate-current]')?.textContent).toContain('$ 1710');
+      expect(notices.notice()?.text).toContain('recalcularon');
+    });
+
+    it('should explain that Mercado Pago is off while there is no rate', async () => {
+      const el = (await openPrices({ rate: null, updatedAt: null, updatedBy: null, references: [] })).nativeElement as HTMLElement;
+      expect(el.querySelector('[data-rate-current]')?.textContent).toContain('Sin tasa');
+      expect(el.querySelector('[data-price-ars]')?.textContent).toContain('carga la tasa');
+      expect(el.querySelector('[data-rate-references]')).toBeNull();
     });
 
     it('should save the new price in cents and reload', async () => {
       const fixture = await openPrices();
       const el = fixture.nativeElement as HTMLElement;
-      const input = el.querySelector('[data-price-input]') as HTMLInputElement;
-      input.value = '24.5';
-      input.dispatchEvent(new Event('input'));
-      await ui(fixture);
-      (el.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
+      await type(fixture, '[data-price-input]', '24.5');
+      (el.querySelector('[data-price-plan] form') as HTMLFormElement).dispatchEvent(new Event('submit'));
       const request = await answer(http, `${API}/billing/prices`, null, { status: 204, statusText: 'No Content' }, 'PUT');
       await answer(http, `${API}/billing/options`, { ...OPTIONS, plans: [{ ...OPTIONS.plans[0], usdCents: 2450 }] });
+      await answer(http, `${API}/billing/rate`, RATE);
       await ui(fixture);
 
       expect(request.request.body).toEqual({ planCode: 'PROFESIONAL', months: 1, usdCents: 2450 });
       expect(el.querySelector('[data-price-current]')?.textContent).toContain('US$ 24.50');
     });
 
-    it('should reject a price out of range without calling the server', async () => {
+    it('should reject a price or a rate out of range without calling the server', async () => {
       const fixture = await openPrices();
       const el = fixture.nativeElement as HTMLElement;
-      const input = el.querySelector('[data-price-input]') as HTMLInputElement;
-      input.value = '0';
-      input.dispatchEvent(new Event('input'));
-      await ui(fixture);
-      (el.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
+      await type(fixture, '[data-price-input]', '0');
+      (el.querySelector('[data-price-plan] form') as HTMLFormElement).dispatchEvent(new Event('submit'));
       await ui(fixture);
       expect(el.querySelector('[data-prices-error]')?.textContent).toContain('entre US$ 1 y US$ 1000');
+
+      await type(fixture, '[data-rate-input]', '0');
+      (el.querySelector('[data-rate] form') as HTMLFormElement).dispatchEvent(new Event('submit'));
+      await ui(fixture);
+      expect(el.querySelector('[data-prices-error]')?.textContent).toContain('mayor que 0');
     });
   });
 });
