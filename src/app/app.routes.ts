@@ -63,6 +63,7 @@ export const routes: Routes = [
     ],
   },
   { path: 'precios', loadComponent: () => import('./billing/pricing.page').then(m => m.PricingPage) },
+  { path: 'comprar/verificar', loadComponent: () => import('./billing/email-link.page').then(m => m.EmailLinkPage) },
   { path: 'comprar', loadComponent: () => import('./billing/buy.page').then(m => m.BuyPage) },
   { path: 'pago/resultado', loadComponent: () => import('./billing/order-result.page').then(m => m.OrderResultPage) },
   { path: ':slug', loadComponent: () => import('./public-site/public-site.page').then(m => m.PublicSitePage) },

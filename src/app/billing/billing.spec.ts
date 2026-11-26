@@ -231,6 +231,20 @@ describe('billing', () => {
         expect((root().querySelector('[data-method="PAYPAL"]') as HTMLInputElement).checked).toBe(true);
       });
 
+      it('should take the customer back to the data step with what they had typed when they come from the email link', async () => {
+        localStorage.setItem('deliora.compra', JSON.stringify({
+          plan: 'PROFESIONAL', region: 'UY', method: 'PAYPAL', businessName: 'Café Ana', slug: 'cafe-ana', email: 'ana@ejemplo.test', savedAt: Date.now(),
+        }));
+        await harness.navigateByUrl('/comprar?continuar=1');
+        await answer(http, `${API}/options`, ONLINE_OPTIONS);
+        await ui();
+
+        expect(root().querySelector('[data-total]')?.textContent).toContain('Plan Profesional · US$ 19 al mes · Uruguay');
+        expect((root().querySelector('[data-business]') as HTMLInputElement).value).toBe('Café Ana');
+        expect((root().querySelector('[data-email]') as HTMLInputElement).value).toBe('ana@ejemplo.test');
+        localStorage.clear();
+      });
+
       it('should offer Mercado Pago only to Argentina', async () => {
         await toPayment('AR');
         await choose('[data-method="MERCADOPAGO"]');

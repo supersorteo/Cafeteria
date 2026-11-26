@@ -2,6 +2,7 @@ import { Component, DestroyRef, InjectionToken, OnInit, computed, inject, signal
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { BillingApi, BillingOptions, CheckoutConfig, RegionOption, formatUsd, openWhatsApp, whatsappMessage } from '../core/billing.api';
+import { loadDraft } from './checkout-draft';
 import { BillingShell } from './billing-shell';
 import { OnlineCheckout } from './online-checkout';
 
@@ -233,6 +234,9 @@ export class BuyPage implements OnInit {
     try {
       const data = await firstValueFrom(this.api.options());
       this.options.set(data);
+      if (this.resume(data)) {
+        return;
+      }
       const wanted = this.route.snapshot.queryParamMap.get('plan');
       const chosen = data.plans.find(plan => plan.code === wanted)?.code;
       if (chosen) {
@@ -242,6 +246,19 @@ export class BuyPage implements OnInit {
     } catch {
       this.failed.set(true);
     }
+  }
+
+  private resume(data: BillingOptions): boolean {
+    const draft = this.route.snapshot.queryParamMap.has('continuar') ? loadDraft() : null;
+    const region = data.regions.find(item => item.code === draft?.region);
+    if (!draft || !data.plans.some(plan => plan.code === draft.plan) || !region?.methods.some(method => method.code === draft.method && method.available)) {
+      return false;
+    }
+    this.planCode.set(draft.plan);
+    this.regionCode.set(draft.region);
+    this.methodCode.set(draft.method);
+    this.step.set(4);
+    return true;
   }
 
   protected usable(region: RegionOption): boolean {

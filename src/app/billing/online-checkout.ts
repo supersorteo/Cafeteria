@@ -1,17 +1,27 @@
-import { Component, ElementRef, OnDestroy, OnInit, computed, inject, input, signal, viewChild } from '@angular/core';
+import { Component, ElementRef, InjectionToken, OnDestroy, OnInit, computed, effect, inject, input, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { isConnectionProblem, toProblem } from '../core/api-error';
 import { AuthService } from '../core/auth.service';
 import {
-  BillingApi, Checkout, CheckoutConfig, OrderState, PlanOption, RegionOption, formatArs, formatUsd, rememberCheckout,
+  BillingApi, Checkout, CheckoutConfig, OrderState, PlanOption, RegionOption, forgetCheckout, formatArs, formatUsd, rememberCheckout,
 } from '../core/billing.api';
 import { RESERVED_SLUGS, SLUG_PATTERN, slugify } from '../shared/slug';
-import { PasswordMeter } from '../shared/ui/password-meter';
-import { PAGE_REDIRECT, SDK_LOADER } from './sdk-loader';
+import { PasswordToggle } from '../shared/ui/password-toggle';
+import { clearDraft, loadDraft, mailboxFor, saveDraft, takeEmailCode } from './checkout-draft';
+import { emailProblem, emailSuggestion, passwordProblem, passwordRules } from './checkout-rules';
+import { OtpInput } from './otp-input';
+import { CHECKOUT_CHANNEL, CheckoutChannel, CheckoutMessage, PAGE_REDIRECT, PAYMENT_WINDOW, PaymentWindow, SDK_LOADER } from './sdk-loader';
 
 type Field = 'businessName' | 'slug' | 'email' | 'password';
+type EmailState = 'idle' | 'sending' | 'sent' | 'verifying' | 'verified';
+type MpState = 'idle' | 'opening' | 'waiting' | 'checking';
+
+const FIELDS: Field[] = ['businessName', 'slug', 'email', 'password'];
+const RESEND_SECONDS = 45;
+
+export const MP_POLL_MS = new InjectionToken<number>('mercadopago-poll-ms', { factory: () => 4000 });
 
 interface PayPalButtons {
   render(host: HTMLElement): Promise<void>;
@@ -22,57 +32,124 @@ interface PayPalSdk {
   Buttons(options: Record<string, unknown>): PayPalButtons;
 }
 
-interface MercadoPagoSdk {
-  new (publicKey: string, options?: Record<string, unknown>): {
-    bricks(): { create(name: string, container: string, options: Record<string, unknown>): Promise<unknown> };
-  };
-}
-
 @Component({
-  imports: [FormsModule, PasswordMeter],
+  imports: [FormsModule, OtpInput, PasswordToggle],
   selector: 'app-online-checkout',
   host: { class: 'block' },
   template: `
-    <div class="space-y-5" data-online-checkout>
+    <form class="space-y-5" data-online-checkout novalidate (submit)="$event.preventDefault()">
       <div>
         <h2 class="font-display text-xl font-black">Crea tu negocio y paga</h2>
         <p class="mt-1 text-sm font-medium text-muted" data-total>{{ total() }}</p>
       </div>
 
       <div class="grid gap-4 sm:grid-cols-2">
-        <label class="block sm:col-span-2"><span class="text-xs font-bold uppercase tracking-wider text-muted">Nombre del negocio</span>
-          <input class="input mt-2" maxlength="120" autocomplete="organization" data-business [ngModel]="businessName()" (ngModelChange)="setBusiness($event)" name="businessName" [disabled]="locked()">
-          @if (errors().businessName) { <small class="mt-1 block text-xs font-bold text-danger" data-field-error="businessName">{{ errors().businessName }}</small> }</label>
-        <label class="block sm:col-span-2"><span class="text-xs font-bold uppercase tracking-wider text-muted">Dirección de tu sitio</span>
-          <input class="input mt-2" maxlength="63" autocomplete="off" data-slug [ngModel]="slug()" (ngModelChange)="setSlug($event)" name="slug" [disabled]="locked()">
-          <small class="mt-1 block text-xs font-medium text-muted">{{ origin }}/{{ slug() || 'tu-negocio' }}</small>
-          @if (errors().slug) { <small class="block text-xs font-bold text-danger" data-field-error="slug">{{ errors().slug }}</small> }</label>
         <div class="sm:col-span-2">
-          <label class="block"><span class="text-xs font-bold uppercase tracking-wider text-muted">Correo</span>
-            <input class="input mt-2" type="email" maxlength="254" autocomplete="username" inputmode="email" data-email [ngModel]="email()" (ngModelChange)="setEmail($event)" name="email" [disabled]="locked() || emailState() === 'verified'"></label>
-          @if (emailState() === 'verified') {
-            <p class="mt-2 text-sm font-bold text-success" data-email-verified>✓ Correo verificado</p>
-          } @else if (emailState() === 'idle' || emailState() === 'sending') {
-            <button type="button" class="btn btn-secondary btn-sm mt-2" data-email-send [disabled]="emailState() === 'sending'" (click)="sendEmailCode()">{{ emailState() === 'sending' ? 'Enviando…' : 'Enviar código de verificación' }}</button>
-          } @else {
-            <div class="mt-3 flex flex-wrap items-end gap-2" data-email-code-box>
-              <label class="block"><span class="text-xs font-bold uppercase tracking-wider text-muted">Código de 6 dígitos</span>
-                <input class="input mt-1 w-40 tracking-widest" inputmode="numeric" maxlength="6" autocomplete="one-time-code" data-email-code [ngModel]="emailCode()" (ngModelChange)="emailCode.set($event)" name="emailCode"></label>
-              <button type="button" class="btn btn-primary btn-sm" data-email-confirm [disabled]="emailState() === 'verifying' || emailCode().length < 6" (click)="confirmEmailCode()">{{ emailState() === 'verifying' ? 'Verificando…' : 'Verificar' }}</button>
-              <button type="button" class="btn btn-ghost btn-sm" data-email-resend (click)="sendEmailCode()">Reenviar código</button>
-            </div>
-            <p class="mt-2 text-xs font-medium text-muted">Te enviamos un código a {{ email().trim() }}. Revisa también la carpeta de spam.</p>
-          }
-          @if (errors().email) { <small class="mt-1 block text-xs font-bold text-danger" data-field-error="email">{{ errors().email }}</small> }
+          <label for="co-business" class="text-xs font-bold uppercase tracking-wider text-muted">Nombre del negocio</label>
+          <input id="co-business" class="input mt-2" maxlength="120" autocomplete="organization" placeholder="Ej.: Café La Esquina" data-business
+                 [ngModel]="businessName()" (ngModelChange)="setBusiness($event)" name="businessName" (blur)="touch('businessName')"
+                 [disabled]="locked()" [attr.aria-invalid]="!!errors().businessName" [attr.aria-describedby]="errors().businessName ? 'co-business-error' : null">
+          @if (errors().businessName) { <p id="co-business-error" class="field-error" data-field-error="businessName">{{ errors().businessName }}</p> }
         </div>
-        <label class="block"><span class="text-xs font-bold uppercase tracking-wider text-muted">Contraseña</span>
-          <input class="input mt-2" type="password" maxlength="72" autocomplete="new-password" data-password [ngModel]="password()" (ngModelChange)="password.set($event)" name="password" [disabled]="locked()">
-          <app-password-meter class="mt-2" [value]="password()" />
-          @if (errors().password) { <small class="mt-1 block text-xs font-bold text-danger" data-field-error="password">{{ errors().password }}</small> }</label>
+
+        <div class="sm:col-span-2">
+          <label for="co-slug" class="text-xs font-bold uppercase tracking-wider text-muted">Dirección de tu sitio</label>
+          <input id="co-slug" class="input mt-2" maxlength="63" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="tu-negocio" data-slug
+                 [ngModel]="slug()" (ngModelChange)="setSlug($event)" name="slug" (blur)="touch('slug')"
+                 [disabled]="locked()" [attr.aria-invalid]="!!errors().slug" aria-describedby="co-slug-hint">
+          <p id="co-slug-hint" class="mt-1 text-xs font-medium text-muted">{{ origin }}/<strong class="text-ink">{{ slug() || 'tu-negocio' }}</strong></p>
+          @if (errors().slug) { <p class="field-error" data-field-error="slug">{{ errors().slug }}</p> }
+        </div>
+
+        <div class="sm:col-span-2">
+          <label for="co-email" class="text-xs font-bold uppercase tracking-wider text-muted">Correo</label>
+          <div class="relative mt-2">
+            <input id="co-email" class="input" [class.has-addon]="emailState() !== 'verified'" type="email" maxlength="254" autocomplete="email" inputmode="email"
+                   autocapitalize="off" spellcheck="false" placeholder="nombre@gmail.com" data-email
+                   [ngModel]="email()" (ngModelChange)="setEmail($event)" name="email" (blur)="emailBlur()" (keydown.enter)="sendEmailCode()"
+                   [disabled]="locked() || emailState() === 'verified' || emailState() === 'verifying'"
+                   [attr.aria-invalid]="!!errors().email" [attr.aria-describedby]="errors().email ? 'co-email-error' : null">
+            <div class="field-addon">
+              @switch (emailState()) {
+                @case ('verified') { <span class="badge badge-success" data-email-verified>✓ Verificado</span> }
+                @case ('sending') { <span class="px-2 text-xs font-bold text-muted" data-email-sending>Enviando…</span> }
+                @case ('idle') { <button type="button" class="btn btn-secondary btn-sm" data-email-send (click)="sendEmailCode()">Verificar</button> }
+                @default { <button type="button" class="btn btn-ghost btn-sm" data-email-change (click)="changeEmail()">Cambiar</button> }
+              }
+            </div>
+          </div>
+          @if (suggestion(); as better) {
+            <p class="mt-1 text-xs font-medium text-muted" data-email-suggestion>¿Quisiste decir
+              <button type="button" class="font-bold text-primary underline" (click)="useSuggestion(better)">{{ better }}</button>?</p>
+          }
+          @if (errors().email) { <p id="co-email-error" class="field-error" data-field-error="email">{{ errors().email }}</p> }
+          @if (emailState() === 'verified' && !locked()) {
+            <button type="button" class="mt-1 text-xs font-bold text-muted underline" data-email-change (click)="changeEmail()">Usar otro correo</button>
+          }
+
+          @if (emailState() === 'sent' || emailState() === 'verifying') {
+            <div class="mt-3 rounded-2xl border border-line bg-surface-2 p-4 sm:p-5" data-email-code-box>
+              <p class="text-sm font-medium">Te enviamos un correo a <strong>{{ email().trim() }}</strong>. Sigue estos 2 pasos; esta página te espera abierta.</p>
+              <ol class="mt-4 space-y-4">
+                <li class="code-step" [class.code-step-active]="!mailOpened()" [class.code-step-done]="mailOpened()" data-code-step="1">
+                  <span class="code-step-n" aria-hidden="true">{{ mailOpened() ? '✓' : '1' }}</span>
+                  <div class="min-w-0 flex-1">
+                    <p class="font-bold">Abre tu correo</p>
+                    @if (mailbox(); as box) {
+                      <a class="btn btn-primary btn-sm mt-2" [href]="box.url" target="_blank" rel="noopener" data-open-mailbox (click)="mailOpened.set(true)">Abrir {{ box.name }} ↗</a>
+                    } @else {
+                      <p class="text-xs font-medium text-muted">Ábrelo en otra pestaña o en la app de tu correo.</p>
+                      <button type="button" class="mt-1 text-xs font-bold text-primary underline" data-mailbox-opened (click)="mailOpened.set(true)">Ya lo abrí</button>
+                    }
+                    <p class="mt-2 text-xs font-medium text-muted">Busca el mensaje «Deliora: tu código es…». Si no está, mira en Spam o Promociones.</p>
+                  </div>
+                </li>
+                <li class="code-step" [class.code-step-active]="mailOpened()" data-code-step="2">
+                  <span class="code-step-n" aria-hidden="true">2</span>
+                  <div class="min-w-0 flex-1">
+                    <p class="font-bold">Toca el enlace del mensaje, o copia el código</p>
+                    <p class="text-xs font-medium text-muted">Con el enlace se verifica solo y sigues aquí. Si copias el código, al volver lo pegamos por ti.</p>
+                    <app-otp-input class="mt-3" [disabled]="emailState() === 'verifying'" [invalid]="!!codeError()" (completed)="confirmEmailCode($event)" />
+                    <div class="mt-3 flex flex-wrap items-center gap-3">
+                      <button type="button" class="btn btn-secondary btn-sm" [class.paste-hint]="returned() && emailState() === 'sent'" data-paste-code
+                              [disabled]="emailState() === 'verifying'" (click)="pasteCode()">Pegar código</button>
+                      <span class="min-h-5 text-xs font-bold" aria-live="polite">
+                        @if (emailState() === 'verifying') { <span class="text-muted" data-email-verifying>Verificando…</span> }
+                        @else if (codeError()) { <span class="text-danger" data-code-error>{{ codeError() }}</span> }
+                        @else if (attempted()) { <span class="text-danger" data-code-pending>Falta este paso: escribe el código para continuar.</span> }
+                      </span>
+                    </div>
+                  </div>
+                </li>
+              </ol>
+              <p class="mt-4 text-xs font-medium text-muted">¿No llegó?
+                @if (resendIn() > 0) { <span data-email-countdown>Podrás reenviarlo en {{ resendIn() }} s.</span> }
+                @else { <button type="button" class="font-bold text-primary underline" data-email-resend (click)="sendEmailCode(true)">Reenviar código</button> }
+              </p>
+            </div>
+          }
+        </div>
+
+        <div class="sm:col-span-2">
+          <label for="co-password" class="text-xs font-bold uppercase tracking-wider text-muted">Contraseña</label>
+          <app-password-toggle class="mt-2">
+            <input id="co-password" class="input has-toggle" type="password" maxlength="72" autocomplete="new-password" data-password
+                   [ngModel]="password()" (ngModelChange)="setPassword($event)" name="password" (blur)="touch('password')"
+                   [disabled]="locked()" [attr.aria-invalid]="!!errors().password" aria-describedby="co-password-rules">
+          </app-password-toggle>
+          <ul id="co-password-rules" class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs font-bold" aria-label="Requisitos de la contraseña">
+            @for (rule of rules(); track rule.key) {
+              <li [attr.data-password-rule]="rule.key" [attr.data-ok]="rule.ok" [class.text-success]="rule.ok" [class.text-muted]="!rule.ok">
+                <span aria-hidden="true">{{ rule.ok ? '✓' : '○' }}</span> {{ rule.label }}<span class="sr-only">{{ rule.ok ? ': cumplido' : ': pendiente' }}</span>
+              </li>
+            }
+          </ul>
+          @if (errors().password) { <p class="field-error" data-field-error="password">{{ errors().password }}</p> }
+        </div>
       </div>
 
-      @if (error()) { <p role="alert" class="text-sm font-bold text-danger" data-online-error>{{ error() }}</p> }
-      @if (notice()) { <p role="status" class="text-sm font-bold" data-online-notice>{{ notice() }}</p> }
+      @if (error()) { <p role="alert" class="rounded-xl bg-danger/10 px-4 py-3 text-sm font-bold text-danger" data-online-error>{{ error() }}</p> }
+      @if (notice()) { <p role="status" class="rounded-xl bg-surface-2 px-4 py-3 text-sm font-bold" data-online-notice>{{ notice() }}</p> }
 
       @if (method() === 'PAYPAL') {
         <div>
@@ -80,19 +157,41 @@ interface MercadoPagoSdk {
           @if (sdkFailed()) {
             <p class="text-sm font-bold text-danger" role="alert" data-sdk-error>No pudimos cargar PayPal. Revisa tu conexión y recarga la página.</p>
           }
+          @if (busy()) { <p class="text-sm font-medium text-muted" data-busy>Confirmando tu pago…</p> }
         </div>
       } @else {
-        <div>
-          @if (!walletShown()) {
-            <button type="button" class="btn btn-primary btn-lg w-full sm:w-auto" data-mp-start [disabled]="busy()" (click)="startMercadoPago()">
-              {{ busy() ? 'Preparando el pago…' : 'Continuar con Mercado Pago' }}
-            </button>
+        @switch (mpState()) {
+          @case ('idle') {
+            <div>
+              <button type="button" class="btn btn-mp btn-lg w-full" data-mp-start (click)="startMercadoPago()">Pagar con Mercado Pago</button>
+              <p class="mt-2 text-center text-xs font-medium text-muted">Se abre una ventana segura de Mercado Pago. Al terminar, entras a tu panel automáticamente.</p>
+            </div>
           }
-          <div id="mp-wallet-container" #walletHost data-mp-wallet class="mt-3"></div>
-        </div>
+          @case ('opening') {
+            <button type="button" class="btn btn-mp btn-lg w-full" disabled data-mp-opening>Abriendo Mercado Pago…</button>
+          }
+          @default {
+            <div class="rounded-2xl border border-line bg-surface-2 p-5 text-center" role="status" data-mp-waiting>
+              <span class="mx-auto block h-8 w-8 animate-spin rounded-full border-[3px] border-[#009ee3] border-r-transparent" aria-hidden="true"></span>
+              @if (mpState() === 'checking') {
+                <p class="mt-3 font-bold" data-mp-checking>Confirmando tu pago…</p>
+                <p class="mt-1 text-sm font-medium text-muted">En unos segundos creamos tu negocio y entras a tu panel.</p>
+              } @else if (popupClosed()) {
+                <p class="mt-3 font-bold" data-mp-closed>Se cerró la ventana de Mercado Pago</p>
+                <p class="mt-1 text-sm font-medium text-muted">Si ya pagaste, la confirmación llega sola en unos segundos. Si no, ábrela de nuevo.</p>
+              } @else {
+                <p class="mt-3 font-bold">Completa el pago en la ventana de Mercado Pago</p>
+                <p class="mt-1 text-sm font-medium text-muted">Esta página se actualiza sola cuando el pago se confirme.</p>
+              }
+              <div class="mt-4 flex flex-wrap justify-center gap-2">
+                <button type="button" class="btn btn-secondary btn-sm" data-mp-focus (click)="showPaymentWindow()">{{ popupClosed() ? 'Abrir Mercado Pago' : 'Ir a la ventana de pago' }}</button>
+                <button type="button" class="btn btn-ghost btn-sm" data-mp-cancel (click)="cancelMercadoPago()">Cancelar</button>
+              </div>
+            </div>
+          }
+        }
       }
-      @if (busy() && method() === 'PAYPAL') { <p class="text-sm font-medium text-muted" data-busy>Confirmando tu pago…</p> }
-    </div>
+    </form>
   `,
 })
 export class OnlineCheckout implements OnInit, OnDestroy {
@@ -106,26 +205,90 @@ export class OnlineCheckout implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly loadSdk = inject(SDK_LOADER);
   private readonly redirect = inject(PAGE_REDIRECT);
+  private readonly openWindow = inject(PAYMENT_WINDOW);
+  private readonly openChannel = inject(CHECKOUT_CHANNEL);
+  private readonly pollMs = inject(MP_POLL_MS);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   private readonly paypalHost = viewChild<ElementRef<HTMLElement>>('paypalHost');
+  private readonly otp = viewChild(OtpInput);
   private paypalButtons: PayPalButtons | null = null;
   private checkout: Checkout | null = null;
+  private popup: PaymentWindow | null = null;
+  private channel: CheckoutChannel | null = null;
+  private emailChannel: CheckoutChannel | null = null;
+  private readonly onPageBack = (): void => this.pageBack();
+  private pollTimer?: ReturnType<typeof setInterval>;
+  private resendTimer?: ReturnType<typeof setInterval>;
+  private proof = '';
+  private lastSent = '';
+  private slugEdited = false;
 
   protected readonly origin = typeof location === 'undefined' ? '' : location.host;
   protected readonly businessName = signal('');
   protected readonly slug = signal('');
   protected readonly email = signal('');
   protected readonly password = signal('');
-  protected readonly errors = signal<Partial<Record<Field, string>>>({});
+  protected readonly touched = signal<ReadonlySet<Field>>(new Set());
+  protected readonly attempted = signal(false);
+  protected readonly serverErrors = signal<Partial<Record<Field, string>>>({});
   protected readonly error = signal<string | null>(null);
   protected readonly notice = signal<string | null>(null);
   protected readonly busy = signal(false);
   protected readonly locked = signal(false);
   protected readonly sdkFailed = signal(false);
-  protected readonly walletShown = signal(false);
-  protected readonly emailState = signal<'idle' | 'sending' | 'sent' | 'verifying' | 'verified'>('idle');
-  protected readonly emailCode = signal('');
-  private proof = '';
-  private slugEdited = false;
+  protected readonly emailState = signal<EmailState>('idle');
+  protected readonly codeError = signal<string | null>(null);
+  protected readonly resendIn = signal(0);
+  protected readonly mpState = signal<MpState>('idle');
+  protected readonly popupClosed = signal(false);
+  protected readonly mailOpened = signal(false);
+  protected readonly returned = signal(false);
+  protected readonly mailbox = computed(() => mailboxFor(this.email()));
+
+  protected readonly rules = computed(() => passwordRules(this.password()));
+  protected readonly suggestion = computed(() => (this.emailState() === 'verified' ? null : emailSuggestion(this.email())));
+
+  private readonly localErrors = computed<Partial<Record<Field, string>>>(() => {
+    const errors: Partial<Record<Field, string>> = {};
+    if (!this.businessName().trim()) {
+      errors.businessName = 'Escribe el nombre de tu negocio.';
+    }
+    const slug = this.slug().trim();
+    if (slug.length < 3 || !SLUG_PATTERN.test(slug)) {
+      errors.slug = 'Usa de 3 a 63 letras minúsculas, números o guiones, sin guiones al inicio ni al final.';
+    } else if (RESERVED_SLUGS.includes(slug)) {
+      errors.slug = 'Esa dirección no está disponible. Elige otra.';
+    }
+    const emailIssue = emailProblem(this.email());
+    if (emailIssue) {
+      errors.email = emailIssue;
+    } else if (this.attempted() && this.emailState() !== 'verified') {
+      errors.email = this.emailState() === 'idle' ? 'Verifica tu correo: toca «Verificar» y te enviamos un código.' : 'Escribe el código de 6 dígitos que te enviamos.';
+    }
+    const passwordIssue = passwordProblem(this.password());
+    if (passwordIssue) {
+      errors.password = passwordIssue;
+    }
+    return errors;
+  });
+
+  protected readonly errors = computed<Partial<Record<Field, string>>>(() => {
+    const local = this.localErrors();
+    const server = this.serverErrors();
+    const touched = this.touched();
+    const shown: Partial<Record<Field, string>> = {};
+    const codePending = this.emailState() === 'sent' || this.emailState() === 'verifying';
+    for (const field of FIELDS) {
+      if (field === 'email' && codePending && !server.email) {
+        continue;
+      }
+      const message = server[field] ?? local[field];
+      if (message && (server[field] || this.attempted() || touched.has(field))) {
+        shown[field] = message;
+      }
+    }
+    return shown;
+  });
 
   protected readonly total = computed(() => {
     const plan = this.plan();
@@ -133,98 +296,277 @@ export class OnlineCheckout implements OnInit, OnDestroy {
     return `Plan ${plan.name} · ${price} al mes · ${this.region().name}`;
   });
 
+  constructor() {
+    effect(() => {
+      const draft = {
+        plan: this.plan().code, region: this.region().code, method: this.method(),
+        businessName: this.businessName(), slug: this.slug(), email: this.email(),
+      };
+      if (draft.businessName || draft.email) {
+        saveDraft(draft);
+      }
+    });
+  }
+
   ngOnInit(): void {
+    this.restoreDraft();
     if (this.method() === 'PAYPAL') {
       void this.mountPayPal();
+    }
+    if (typeof window !== 'undefined') {
+      window.addEventListener('focus', this.onPageBack);
+      document.addEventListener('visibilitychange', this.onPageBack);
     }
   }
 
   ngOnDestroy(): void {
     this.paypalButtons?.close?.();
-  }
-
-  protected setEmail(value: string): void {
-    this.email.set(value);
-    if (this.emailState() !== 'idle') {
-      this.emailState.set('idle');
-      this.emailCode.set('');
-      this.proof = '';
+    this.stopWaiting();
+    this.closeEmailChannel();
+    clearInterval(this.resendTimer);
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('focus', this.onPageBack);
+      document.removeEventListener('visibilitychange', this.onPageBack);
     }
   }
 
-  protected async sendEmailCode(): Promise<void> {
-    const email = this.email().trim();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      this.errors.update(current => ({ ...current, email: 'Escribe un correo válido.' }));
+  private restoreDraft(): void {
+    const draft = loadDraft();
+    if (!draft || draft.plan !== this.plan().code || draft.region !== this.region().code || draft.method !== this.method()) {
       return;
     }
-    this.errors.update(current => ({ ...current, email: undefined }));
-    this.emailState.set('sending');
-    try {
-      await firstValueFrom(this.api.sendEmailCode(email));
-      this.emailCode.set('');
+    this.businessName.set(draft.businessName);
+    this.slug.set(draft.slug);
+    this.email.set(draft.email);
+    this.slugEdited = draft.slug !== slugify(draft.businessName);
+    const code = draft.email ? takeEmailCode(draft.email) : null;
+    if (code) {
+      this.lastSent = draft.email.trim().toLowerCase();
+      this.mailOpened.set(true);
       this.emailState.set('sent');
-    } catch (error) {
-      this.emailState.set('idle');
-      const problem = toProblem(error);
-      this.errors.update(current => ({
-        ...current,
-        email: problem.code === 'email_in_use' ? 'Ese correo ya tiene una cuenta. Inicia sesión para renovar tu plan.'
-          : problem.status === 429 ? 'Pediste demasiados códigos. Inténtalo más tarde.'
-          : isConnectionProblem(problem) ? 'No pudimos enviar el código. Inténtalo de nuevo.' : 'No pudimos enviar el código a ese correo.',
-      }));
+      this.notice.set('Retomamos tu compra donde la dejaste. Solo falta tu contraseña.');
+      void this.confirmEmailCode(code);
     }
   }
 
-  protected async confirmEmailCode(): Promise<void> {
-    this.emailState.set('verifying');
-    try {
-      this.proof = (await firstValueFrom(this.api.verifyEmailCode(this.email().trim(), this.emailCode().trim()))).proof;
-      this.errors.update(current => ({ ...current, email: undefined }));
-      this.emailState.set('verified');
-    } catch (error) {
-      this.emailState.set('sent');
-      this.errors.update(current => ({
-        ...current,
-        email: toProblem(error).code === 'invalid_email_code' ? 'El código no es válido o venció. Pide uno nuevo.' : 'No pudimos verificar el código. Inténtalo de nuevo.',
-      }));
+  private pageBack(): void {
+    if (document.visibilityState !== 'visible' || this.emailState() !== 'sent' || !this.mailOpened()) {
+      return;
     }
+    this.returned.set(true);
+    void this.autoPaste();
+  }
+
+  private async autoPaste(): Promise<void> {
+    try {
+      const permission = await navigator.permissions?.query({ name: 'clipboard-read' as PermissionName });
+      if (permission?.state === 'granted') {
+        const code = (await navigator.clipboard.readText()).match(/\b\d{6}\b/)?.[0];
+        if (code) {
+          this.useCode(code);
+          return;
+        }
+      }
+    } catch {
+      // sin permiso para leer el portapapeles: se ofrece «Pegar código»
+    }
+    this.otp()?.focus();
+  }
+
+  protected async pasteCode(): Promise<void> {
+    this.codeError.set(null);
+    try {
+      const code = (await navigator.clipboard.readText()).match(/\b\d{6}\b/)?.[0];
+      if (code) {
+        this.useCode(code);
+      } else {
+        this.codeError.set('No encontramos un código de 6 dígitos copiado. Cópialo del correo e inténtalo de nuevo.');
+      }
+    } catch {
+      this.codeError.set('Tu navegador no nos deja leer lo copiado. Mantén presionada la primera casilla y elige «Pegar».');
+      this.otp()?.focus();
+    }
+  }
+
+  private useCode(code: string): void {
+    const otp = this.otp();
+    if (otp) {
+      otp.fillCode(code);
+    } else {
+      void this.confirmEmailCode(code);
+    }
+  }
+
+  private listenForEmailLink(): void {
+    this.closeEmailChannel();
+    this.emailChannel = this.openChannel();
+    if (!this.emailChannel) {
+      return;
+    }
+    this.emailChannel.onmessage = event => {
+      const message = event.data;
+      if (message?.type !== 'email-code' || !message.code || message.email?.trim().toLowerCase() !== this.email().trim().toLowerCase()
+        || this.emailState() !== 'sent') {
+        return;
+      }
+      this.emailChannel?.postMessage({ type: 'email-ack', email: message.email });
+      this.useCode(message.code);
+    };
+  }
+
+  private closeEmailChannel(): void {
+    this.emailChannel?.close();
+    this.emailChannel = null;
+  }
+
+  protected touch(field: Field): void {
+    if (!this.touched().has(field)) {
+      this.touched.update(current => new Set([...current, field]));
+    }
+  }
+
+  private clearServerError(field: Field): void {
+    if (this.serverErrors()[field]) {
+      this.serverErrors.update(current => ({ ...current, [field]: undefined }));
+    }
+    this.error.set(null);
   }
 
   protected setBusiness(value: string): void {
     this.businessName.set(value);
+    this.clearServerError('businessName');
     if (!this.slugEdited) {
       this.slug.set(slugify(value));
+      this.clearServerError('slug');
     }
   }
 
   protected setSlug(value: string): void {
     this.slugEdited = true;
-    this.slug.set(value.toLowerCase());
+    this.slug.set(value.toLowerCase().replace(/\s+/g, '-'));
+    this.clearServerError('slug');
   }
 
-  private validate(): boolean {
-    const errors: Partial<Record<Field, string>> = {};
-    if (!this.businessName().trim()) {
-      errors.businessName = 'Escribe el nombre de tu negocio.';
+  protected setPassword(value: string): void {
+    this.password.set(value);
+    this.clearServerError('password');
+  }
+
+  protected setEmail(value: string): void {
+    this.email.set(value);
+    this.clearServerError('email');
+  }
+
+  protected useSuggestion(value: string): void {
+    this.setEmail(value);
+    this.touch('email');
+  }
+
+  protected emailBlur(): void {
+    this.touch('email');
+    const email = this.email().trim();
+    if (this.emailState() === 'idle' && !emailProblem(email) && !this.suggestion() && email.toLowerCase() !== this.lastSent) {
+      void this.sendEmailCode();
     }
-    const slug = this.slug().trim();
-    if (slug.length < 3 || !SLUG_PATTERN.test(slug)) {
-      errors.slug = 'Usa de 3 a 63 letras minúsculas, números o guiones.';
-    } else if (RESERVED_SLUGS.includes(slug)) {
-      errors.slug = 'Esa dirección no está disponible.';
+  }
+
+  protected changeEmail(): void {
+    this.closeEmailChannel();
+    this.notice.set(null);
+    this.mailOpened.set(false);
+    this.returned.set(false);
+    this.emailState.set('idle');
+    this.proof = '';
+    this.lastSent = '';
+    this.codeError.set(null);
+    clearInterval(this.resendTimer);
+    setTimeout(() => (this.host.querySelector('[data-email]') as HTMLInputElement | null)?.focus());
+  }
+
+  protected async sendEmailCode(resend = false): Promise<void> {
+    const email = this.email().trim();
+    this.touch('email');
+    if (emailProblem(email) || this.emailState() === 'sending' || (resend && this.resendIn() > 0)) {
+      return;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.email().trim())) {
-      errors.email = 'Escribe un correo válido.';
-    } else if (this.emailState() !== 'verified') {
-      errors.email = 'Verifica tu correo con el código que te enviamos.';
+    this.clearServerError('email');
+    this.codeError.set(null);
+    this.emailState.set('sending');
+    try {
+      await firstValueFrom(this.api.sendEmailCode(email));
+      this.lastSent = email.toLowerCase();
+      this.emailState.set('sent');
+      this.listenForEmailLink();
+      this.startResendCountdown();
+      setTimeout(() => (resend ? this.otp()?.clear() : this.otp()?.focus()));
+    } catch (error) {
+      this.emailState.set('idle');
+      const problem = toProblem(error);
+      this.serverErrors.update(current => ({
+        ...current,
+        email: problem.code === 'email_in_use' ? 'Ese correo ya tiene una cuenta. Inicia sesión para renovar tu plan.'
+          : problem.status === 429 ? 'Pediste demasiados códigos. Espera unos minutos e inténtalo de nuevo.'
+          : problem.fieldErrors.length > 0 ? 'Revisa el formato del correo. Ejemplo: nombre@gmail.com'
+          : isConnectionProblem(problem) ? 'No pudimos enviar el código. Revisa tu conexión e inténtalo de nuevo.' : 'No pudimos enviar el código a ese correo.',
+      }));
     }
-    if (this.password().length < 10) {
-      errors.password = 'La contraseña debe tener al menos 10 caracteres.';
+  }
+
+  private startResendCountdown(): void {
+    clearInterval(this.resendTimer);
+    this.resendIn.set(RESEND_SECONDS);
+    this.resendTimer = setInterval(() => {
+      this.resendIn.update(value => Math.max(0, value - 1));
+      if (this.resendIn() === 0) {
+        clearInterval(this.resendTimer);
+      }
+    }, 1000);
+  }
+
+  protected async confirmEmailCode(code: string): Promise<void> {
+    if (this.emailState() !== 'sent') {
+      return;
     }
-    this.errors.set(errors);
-    this.error.set(null);
-    return Object.keys(errors).length === 0;
+    this.emailState.set('verifying');
+    this.codeError.set(null);
+    try {
+      this.proof = (await firstValueFrom(this.api.verifyEmailCode(this.email().trim(), code))).proof;
+      this.clearServerError('email');
+      this.emailState.set('verified');
+      this.closeEmailChannel();
+      clearInterval(this.resendTimer);
+      if (!this.password()) {
+        setTimeout(() => (this.host.querySelector('[data-password]') as HTMLInputElement | null)?.focus());
+      }
+    } catch (error) {
+      this.emailState.set('sent');
+      this.codeError.set(toProblem(error).code === 'invalid_email_code'
+        ? 'El código no es correcto o venció. Revísalo o pide uno nuevo.'
+        : 'No pudimos verificar el código. Inténtalo de nuevo.');
+      setTimeout(() => this.otp()?.clear());
+    }
+  }
+
+  private attempt(): boolean {
+    this.attempted.set(true);
+    this.notice.set(null);
+    const errors = { ...this.localErrors(), ...this.serverErrors() };
+    const first = FIELDS.find(field => errors[field]);
+    if (!first) {
+      this.error.set(null);
+      return true;
+    }
+    this.error.set('Revisa los campos marcados antes de pagar.');
+    if (this.emailState() === 'idle' && !emailProblem(this.email())) {
+      void this.sendEmailCode();
+    }
+    const selector = first === 'email' && (this.emailState() === 'sent' || this.emailState() === 'verifying') ? '[data-otp="0"]' : `[data-${first === 'businessName' ? 'business' : first}]`;
+    setTimeout(() => {
+      const target = this.host.querySelector(selector) as HTMLElement | null;
+      target?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+      target?.focus({ preventScroll: true });
+    });
+    return false;
   }
 
   private async startCheckout(method: string): Promise<Checkout> {
@@ -245,36 +587,47 @@ export class OnlineCheckout implements OnInit, OnDestroy {
       this.locked.set(true);
       return checkout;
     } catch (error) {
-      this.busy.set(false);
       this.showCheckoutError(toProblem(error));
       throw error;
+    } finally {
+      this.busy.set(false);
     }
   }
 
   private showCheckoutError(problem: ReturnType<typeof toProblem>): void {
     if (problem.code === 'email_not_verified') {
-      this.emailState.set('idle');
-      this.proof = '';
-      this.errors.update(current => ({ ...current, email: 'Tu verificación venció. Verifica tu correo de nuevo.' }));
+      this.changeEmail();
+      this.serverErrors.update(current => ({ ...current, email: 'Tu verificación venció. Verifica tu correo de nuevo.' }));
     } else if (problem.code === 'slug_taken' || problem.code === 'slug_reserved') {
-      this.errors.update(current => ({ ...current, slug: 'Esa dirección ya está en uso. Elige otra.' }));
+      this.serverErrors.update(current => ({ ...current, slug: 'Esa dirección ya está en uso. Elige otra.' }));
     } else if (problem.code === 'email_in_use') {
-      this.errors.update(current => ({ ...current, email: 'Ese correo ya tiene una cuenta. Inicia sesión para renovar tu plan.' }));
+      this.serverErrors.update(current => ({ ...current, email: 'Ese correo ya tiene una cuenta. Inicia sesión para renovar tu plan.' }));
     } else if (problem.code === 'method_unavailable') {
       this.error.set('Esta forma de pago no está disponible por ahora. Elige otra.');
+      return;
     } else if (problem.fieldErrors.length > 0) {
       const next: Partial<Record<Field, string>> = {};
       for (const { field, message } of problem.fieldErrors) {
         next[field as Field] = message;
       }
-      this.errors.update(current => ({ ...current, ...next }));
+      this.serverErrors.update(current => ({ ...current, ...next }));
     } else if (problem.status === 429) {
       this.error.set('Demasiados intentos. Espera un momento e inténtalo de nuevo.');
+      return;
     } else if (isConnectionProblem(problem)) {
       this.error.set('No pudimos iniciar el pago. Inténtalo de nuevo en unos minutos.');
+      return;
     } else {
       this.error.set('No pudimos iniciar el pago. Revisa tus datos.');
+      return;
     }
+    this.error.set('Revisa los campos marcados antes de pagar.');
+  }
+
+  private releaseCheckout(): void {
+    this.checkout = null;
+    this.locked.set(false);
+    forgetCheckout();
   }
 
   private async mountPayPal(): Promise<void> {
@@ -293,19 +646,20 @@ export class OnlineCheckout implements OnInit, OnDestroy {
     }
     this.paypalButtons = sdk.Buttons({
       style: { layout: 'vertical', shape: 'pill', label: 'pay' },
-      onClick: (_: unknown, actions: { resolve(): Promise<void>; reject(): Promise<void> }) => (this.validate() ? actions.resolve() : actions.reject()),
+      onClick: (_: unknown, actions: { resolve(): Promise<void>; reject(): Promise<void> }) => (this.attempt() ? actions.resolve() : actions.reject()),
       createOrder: async () => (await this.startCheckout('PAYPAL')).providerRef,
       onApprove: async () => {
         await this.finishPayPal();
       },
       onCancel: () => {
         this.busy.set(false);
-        this.locked.set(false);
-        this.notice.set('Cancelaste el pago. Puedes intentarlo de nuevo cuando quieras.');
+        this.releaseCheckout();
+        this.notice.set('Cancelaste el pago. No se hizo ningún cobro; puedes intentarlo de nuevo cuando quieras.');
       },
       onError: () => {
         this.busy.set(false);
-        if (!this.errors().slug && !this.errors().email && !this.error()) {
+        if (!this.error()) {
+          this.releaseCheckout();
           this.error.set('PayPal no pudo completar el pago. No se hizo ningún cobro; inténtalo de nuevo.');
         }
       },
@@ -319,6 +673,7 @@ export class OnlineCheckout implements OnInit, OnDestroy {
       return;
     }
     this.notice.set(null);
+    this.busy.set(true);
     try {
       const state = await firstValueFrom(this.api.capturePayPal(checkout.reference));
       await this.enter(state, checkout);
@@ -329,47 +684,147 @@ export class OnlineCheckout implements OnInit, OnDestroy {
   }
 
   protected async startMercadoPago(): Promise<void> {
-    if (!this.validate()) {
+    if (this.mpState() !== 'idle' || !this.attempt()) {
       return;
     }
+    const popup = this.openWindow();
+    this.mpState.set('opening');
+    let checkout: Checkout;
     try {
-      const checkout = await this.startCheckout('MERCADOPAGO');
-      const publicKey = this.config().mercadopagoPublicKey;
-      if (publicKey) {
-        await this.mountWallet(publicKey, checkout.providerRef);
-        this.busy.set(false);
-      } else if (checkout.initPoint) {
-        this.redirect(checkout.initPoint);
-      }
+      checkout = await this.startCheckout('MERCADOPAGO');
     } catch {
-      this.busy.set(false);
+      popup?.close();
+      this.mpState.set('idle');
+      return;
+    }
+    if (!checkout.initPoint) {
+      popup?.close();
+      this.releaseCheckout();
+      this.mpState.set('idle');
+      this.error.set('No pudimos abrir Mercado Pago. Inténtalo de nuevo.');
+      return;
+    }
+    if (!popup || popup.closed) {
+      this.redirect(checkout.initPoint);
+      return;
+    }
+    popup.location.href = checkout.initPoint;
+    this.popup = popup;
+    this.popupClosed.set(false);
+    this.mpState.set('waiting');
+    this.watch(checkout);
+  }
+
+  protected showPaymentWindow(): void {
+    const checkout = this.checkout;
+    if (!checkout?.initPoint) {
+      return;
+    }
+    if (this.popup && !this.popup.closed) {
+      this.popup.focus();
+      return;
+    }
+    const popup = this.openWindow();
+    if (!popup) {
+      this.redirect(checkout.initPoint);
+      return;
+    }
+    popup.location.href = checkout.initPoint;
+    this.popup = popup;
+    this.popupClosed.set(false);
+  }
+
+  protected cancelMercadoPago(): void {
+    this.stopWaiting();
+    this.releaseCheckout();
+    this.notice.set('Cancelaste el pago. Si ya pagaste en Mercado Pago, te avisaremos por correo; si no, puedes intentarlo de nuevo.');
+  }
+
+  private watch(checkout: Checkout): void {
+    this.channel?.close();
+    this.channel = this.openChannel();
+    if (this.channel) {
+      this.channel.onmessage = event => this.onReturn(event.data, checkout);
+    }
+    clearInterval(this.pollTimer);
+    this.pollTimer = setInterval(() => {
+      if (this.popup?.closed && !this.popupClosed()) {
+        this.popupClosed.set(true);
+      }
+      void this.refresh(checkout, null);
+    }, this.pollMs);
+  }
+
+  private onReturn(message: CheckoutMessage, checkout: Checkout): void {
+    if (message?.type !== 'mp-return' || message.reference !== checkout.reference) {
+      return;
+    }
+    this.channel?.postMessage({ type: 'mp-ack', reference: checkout.reference });
+    this.popup?.close();
+    this.popupClosed.set(true);
+    this.mpState.set('checking');
+    void this.refresh(checkout, message.paymentId ?? null, true);
+  }
+
+  private async refresh(checkout: Checkout, paymentId: string | null, returned = false): Promise<void> {
+    if (this.checkout !== checkout) {
+      return;
+    }
+    let state: OrderState;
+    try {
+      state = paymentId
+        ? await firstValueFrom(this.api.verifyMercadoPago(checkout.reference, paymentId))
+        : await firstValueFrom(this.api.orderState(checkout.reference));
+    } catch {
+      return;
+    }
+    if (this.checkout !== checkout) {
+      return;
+    }
+    if (state.status === 'PAID') {
+      this.mpState.set('checking');
+      if (state.ready) {
+        await this.enter(state, checkout);
+      }
+      return;
+    }
+    const open = state.status === 'PENDING';
+    if (open && (!returned || (paymentId && !state.failure))) {
+      return;
+    }
+    this.stopWaiting();
+    this.releaseCheckout();
+    if (open && !state.failure) {
+      this.notice.set('No completaste el pago en Mercado Pago. No se hizo ningún cobro; puedes intentarlo de nuevo.');
+    } else {
+      this.error.set('Mercado Pago no aprobó el pago. No se hizo ningún cobro; puedes intentarlo de nuevo con otra tarjeta o medio.');
     }
   }
 
-  private async mountWallet(publicKey: string, preferenceId: string): Promise<void> {
-    try {
-      await this.loadSdk('https://sdk.mercadopago.com/js/v2');
-      const sdk = (window as unknown as { MercadoPago?: MercadoPagoSdk }).MercadoPago;
-      if (!sdk) {
-        throw new Error('sin SDK');
-      }
-      await new sdk(publicKey, { locale: 'es-AR' }).bricks().create('wallet', 'mp-wallet-container', { initialization: { preferenceId } });
-      this.walletShown.set(true);
-    } catch {
-      const checkout = this.checkout;
-      if (checkout?.initPoint) {
-        this.redirect(checkout.initPoint);
-      } else {
-        this.error.set('No pudimos cargar Mercado Pago. Inténtalo de nuevo.');
-      }
+  private stopWaiting(): void {
+    clearInterval(this.pollTimer);
+    this.pollTimer = undefined;
+    this.channel?.close();
+    this.channel = null;
+    if (this.popup && !this.popup.closed) {
+      this.popup.close();
     }
+    this.popup = null;
+    this.popupClosed.set(false);
+    this.mpState.set('idle');
   }
 
   private async enter(state: OrderState, checkout: Checkout): Promise<void> {
+    clearInterval(this.pollTimer);
+    if (this.popup && !this.popup.closed) {
+      this.popup.close();
+    }
     if (state.ready) {
       try {
         await firstValueFrom(this.api.startSession(checkout.reference, checkout.claimToken));
         await this.auth.refreshUser();
+        forgetCheckout();
+        clearDraft();
         await this.router.navigateByUrl('/admin');
         return;
       } catch {

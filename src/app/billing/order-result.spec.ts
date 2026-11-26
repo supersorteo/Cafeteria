@@ -8,7 +8,8 @@ import { vi } from 'vitest';
 import { AuthService } from '../core/auth.service';
 import { OrderState, rememberCheckout } from '../core/billing.api';
 import { answer, settle } from '../testing/http';
-import { OrderResultPage, RESULT_TIMINGS } from './order-result.page';
+import { CLOSE_WINDOW, OrderResultPage, RESULT_TIMINGS } from './order-result.page';
+import { CHECKOUT_CHANNEL, CheckoutChannel, CheckoutMessage } from './sdk-loader';
 
 @Component({ template: '' })
 class AdminStub {}
@@ -21,6 +22,16 @@ describe('OrderResultPage', () => {
   let http: HttpTestingController;
   let router: Router;
   const refreshUser = vi.fn().mockResolvedValue(undefined);
+  const closeWindow = vi.fn();
+  let opener: ((message: CheckoutMessage, reply: (answer: CheckoutMessage) => void) => void) | null;
+  const channel = (): CheckoutChannel => {
+    const fake: CheckoutChannel = {
+      onmessage: null,
+      postMessage: message => opener?.(message, answer => fake.onmessage?.({ data: answer } as MessageEvent<CheckoutMessage>)),
+      close: () => undefined,
+    };
+    return fake;
+  };
 
   const root = () => harness.routeNativeElement as HTMLElement;
   const view = () => root().querySelector('[data-view]')?.getAttribute('data-view');
@@ -33,6 +44,8 @@ describe('OrderResultPage', () => {
 
   beforeEach(async () => {
     refreshUser.mockClear();
+    closeWindow.mockClear();
+    opener = null;
     sessionStorage.clear();
     TestBed.configureTestingModule({
       providers: [
@@ -40,7 +53,9 @@ describe('OrderResultPage', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: AuthService, useValue: { refreshUser } },
-        { provide: RESULT_TIMINGS, useValue: { pollMs: 20, maxPolls: 3 } },
+        { provide: RESULT_TIMINGS, useValue: { pollMs: 20, maxPolls: 3, handoffMs: 30 } },
+        { provide: CHECKOUT_CHANNEL, useValue: channel },
+        { provide: CLOSE_WINDOW, useValue: closeWindow },
       ],
     });
     harness = await RouterTestingHarness.create();
@@ -149,5 +164,28 @@ describe('OrderResultPage', () => {
     await answer(http, `${API}/orders/PED-ABCD2345/state`, state({ status: 'EXPIRED' }));
     await ui();
     expect(view()).toBe('expired');
+  });
+
+  it('should hand the Mercado Pago result to the tab that opened the payment window and close itself', async () => {
+    const received: CheckoutMessage[] = [];
+    opener = (message, reply) => {
+      received.push(message);
+      reply({ type: 'mp-ack', reference: message.reference });
+    };
+    await harness.navigateByUrl('/pago/resultado?ref=PED-ABCD2345&collection_id=777&collection_status=approved&payment_id=777&preference_id=PREF-1');
+    await ui();
+
+    expect(received).toEqual([{ type: 'mp-return', reference: 'PED-ABCD2345', paymentId: '777' }]);
+    expect(view()).toBe('handed');
+    expect(closeWindow).toHaveBeenCalledTimes(1);
+  });
+
+  it('should treat a return without payment as a plain state check when no tab answers', async () => {
+    await harness.navigateByUrl('/pago/resultado?ref=PED-ABCD2345&collection_id=null&payment_id=null&status=null&preference_id=PREF-1');
+    await answer(http, `${API}/orders/PED-ABCD2345/state`, state({ method: 'MERCADOPAGO', status: 'EXPIRED' }));
+    await ui();
+
+    expect(view()).toBe('expired');
+    expect(closeWindow).not.toHaveBeenCalled();
   });
 });

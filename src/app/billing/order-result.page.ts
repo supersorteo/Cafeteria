@@ -4,12 +4,15 @@ import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../core/auth.service';
 import { BillingApi, OrderState, forgetCheckout, recalledCheckout } from '../core/billing.api';
 import { BillingShell } from './billing-shell';
+import { CHECKOUT_CHANNEL } from './sdk-loader';
 
 export const RESULT_TIMINGS = new InjectionToken('payment-result-timings', {
-  factory: () => ({ pollMs: 3000, maxPolls: 40 }),
+  factory: () => ({ pollMs: 3000, maxPolls: 40, handoffMs: 1500 }),
 });
 
-type View = 'checking' | 'pending' | 'creating' | 'login' | 'failed' | 'expired' | 'missing' | 'error';
+export const CLOSE_WINDOW = new InjectionToken<() => void>('close-window', { factory: () => () => window.close() });
+
+type View = 'handed' | 'checking' | 'pending' | 'creating' | 'login' | 'failed' | 'expired' | 'missing' | 'error';
 
 @Component({
   imports: [BillingShell, RouterLink],
@@ -18,6 +21,11 @@ type View = 'checking' | 'pending' | 'creating' | 'login' | 'failed' | 'expired'
     <app-billing-shell>
       <section class="card max-w-2xl p-6 md:p-8" [attr.data-view]="view()">
         @switch (view()) {
+          @case ('handed') {
+            <h1 class="font-display text-2xl font-black" data-handed>¡Listo! Ya puedes cerrar esta ventana</h1>
+            <p class="mt-2 font-medium text-muted">Seguimos con la confirmación de tu pago en la pestaña donde empezaste la compra.</p>
+            <button type="button" class="btn btn-primary mt-5" data-close (click)="closeWindow()">Cerrar esta ventana</button>
+          }
           @case ('checking') {
             <h1 class="font-display text-2xl font-black">Confirmando tu pago…</h1>
             <p class="mt-2 font-medium text-muted">Un momento, estamos verificando tu pago.</p>
@@ -70,6 +78,8 @@ export class OrderResultPage implements OnInit {
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly timings = inject(RESULT_TIMINGS);
+  private readonly openChannel = inject(CHECKOUT_CHANNEL);
+  protected readonly closeWindow = inject(CLOSE_WINDOW);
   private timer?: ReturnType<typeof setTimeout>;
   private polls = 0;
   private reference = '';
@@ -81,13 +91,40 @@ export class OrderResultPage implements OnInit {
   ngOnInit(): void {
     const params = this.route.snapshot.queryParamMap;
     this.reference = params.get('ref') ?? '';
-    this.paymentId = params.get('payment_id') ?? params.get('collection_id');
+    const payment = params.get('payment_id') ?? params.get('collection_id');
+    this.paymentId = payment && payment !== 'null' ? payment : null;
     this.destroyRef.onDestroy(() => clearTimeout(this.timer));
     if (!this.reference) {
       this.view.set('missing');
       return;
     }
-    void this.check();
+    const fromMercadoPago = !!this.paymentId || params.has('preference_id') || params.has('collection_status');
+    void (fromMercadoPago ? this.handOff() : this.check());
+  }
+
+  private async handOff(): Promise<void> {
+    const channel = this.openChannel();
+    if (!channel) {
+      await this.check();
+      return;
+    }
+    const handed = await new Promise<boolean>(resolve => {
+      const timer = setTimeout(() => resolve(false), this.timings.handoffMs);
+      channel.onmessage = event => {
+        if (event.data?.type === 'mp-ack' && event.data.reference === this.reference) {
+          clearTimeout(timer);
+          resolve(true);
+        }
+      };
+      channel.postMessage({ type: 'mp-return', reference: this.reference, paymentId: this.paymentId });
+    });
+    channel.close();
+    if (!handed) {
+      await this.check();
+      return;
+    }
+    this.view.set('handed');
+    this.closeWindow();
   }
 
   protected restart(): void {
