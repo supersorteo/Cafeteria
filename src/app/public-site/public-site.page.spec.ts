@@ -59,6 +59,34 @@ describe('PublicSitePage', () => {
     expect(text()).not.toContain('No pudimos cargar');
   });
 
+  it('should show a neutral pause notice when the plan of the business lapsed, and the way back to its owner', async () => {
+    await harness.navigateByUrl('/pausado');
+    http.expectOne(api('pausado')).flush({ code: 'site_paused' }, { status: 410, statusText: 'Gone' });
+    harness.detectChanges();
+    expect(text()).toContain('Volvemos pronto');
+    expect(text()).toContain('actualizando su carta');
+    expect(text()).not.toContain('No encontramos');
+
+    authState.set({ status: 'authenticated' });
+    await harness.navigateByUrl('/otro-pausado?ref=panel');
+    http.expectOne(api('otro-pausado')).flush({ code: 'site_paused' }, { status: 410, statusText: 'Gone' });
+    harness.detectChanges();
+    expect(text()).toContain('Tu sitio está en pausa');
+    expect((harness.routeNativeElement as HTMLElement).querySelector('[data-paused-renew]')?.getAttribute('href')).toBe('/admin/plan');
+  });
+
+  it('should welcome the customer with the table number from the table QR and add it to the reservation', async () => {
+    await harness.navigateByUrl('/cafe-demo?mesa=7&src=qr');
+    http.expectOne(api('cafe-demo')).flush(makeSite());
+    harness.detectChanges();
+    expect((harness.routeNativeElement as HTMLElement).querySelector('[data-table-pill]')?.textContent).toContain('Mesa 7');
+
+    await harness.navigateByUrl('/cafe-dos?mesa=abc');
+    http.expectOne(api('cafe-dos')).flush(makeSite());
+    harness.detectChanges();
+    expect((harness.routeNativeElement as HTMLElement).querySelector('[data-table-pill]')).toBeNull();
+  });
+
   it('should show a recoverable error for a server failure, never a fake 404 or demo content', async () => {
     await harness.navigateByUrl('/cafe-demo');
     http.expectOne(api('cafe-demo')).flush('boom', { status: 500, statusText: 'Server Error' });

@@ -1,11 +1,11 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { AuthService } from './auth.service';
+import { AuthService, PlanStatus } from './auth.service';
 
 export interface PlanInfo {
   expiresAt: string | null;
-  status: 'ACTIVE' | 'EXPIRED';
+  status: PlanStatus;
 }
 
 export const PLAN_WARNING_DAYS = 7;

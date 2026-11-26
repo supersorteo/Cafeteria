@@ -59,7 +59,7 @@ export interface CheckoutBody {
 
 export interface Checkout {
   reference: string;
-  claimToken: string;
+  claimToken: string | null;
   method: string;
   providerRef: string;
   initPoint: string | null;
@@ -71,6 +71,7 @@ export interface OrderState {
   status: OrderStatus;
   method: string;
   ready: boolean;
+  renewal?: boolean;
   failure: string | null;
 }
 
@@ -161,6 +162,10 @@ export class BillingApi {
 
   verifyEmailCode(email: string, code: string): Observable<{ proof: string }> {
     return this.http.post<{ proof: string }>(`${API}/email/verify`, { email, code });
+  }
+
+  renewCheckout(body: { planCode: string; region: string; method: string }): Observable<Checkout> {
+    return this.http.post<Checkout>('/api/v1/admin/plan/checkout', body);
   }
 
   startSession(reference: string, claimToken: string): Observable<{ status: string }> {

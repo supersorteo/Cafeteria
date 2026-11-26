@@ -1,6 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { isConnectionProblem, toProblem } from '../core/api-error';
 import { AuthService } from '../core/auth.service';
 import { NoticeService } from '../core/notice.service';
@@ -8,7 +9,7 @@ import { PLAN_WARNING_DAYS, PlanService, daysLeft, formatActivationCode } from '
 import { Modal } from '../shared/ui/modal';
 
 @Component({
-  imports: [DatePipe, FormsModule, Modal],
+  imports: [DatePipe, FormsModule, Modal, RouterLink],
   selector: 'app-plan-banner',
   host: { class: 'block' },
   template: `
@@ -16,20 +17,32 @@ import { Modal } from '../shared/ui/modal';
       @if (auth.planExpired()) {
         <div class="plan-banner plan-banner-expired" role="alert" data-plan-expired>
           <div class="min-w-0">
-            <p class="font-bold">Tu plan venció el {{ user.plan.expiresAt | date: 'dd/MM/yyyy' }}</p>
-            <p class="text-sm font-medium opacity-90">Puedes seguir entrando y viendo tu información, pero no puedes hacer cambios y tu página no recibe reservas hasta que renueves con un código nuevo.</p>
+            <p class="font-bold">Tu plan venció el {{ user.plan.expiresAt | date: 'dd/MM/yyyy' }} y tu sitio está en pausa</p>
+            <p class="text-sm font-medium opacity-90">Quien escanea tu QR ve un aviso en lugar de tu carta, y no puedes hacer cambios. Tus datos están guardados: al renovar, todo vuelve al instante.</p>
           </div>
           @if (auth.isOwner()) {
-            <button type="button" class="btn btn-primary btn-sm shrink-0" data-renew (click)="plan.openRenewal()">Renovar con un código</button>
+            <a routerLink="/admin/plan" class="btn btn-primary btn-sm shrink-0" data-renew>Renovar ahora</a>
+          } @else {
+            <p class="text-sm font-bold shrink-0">Pide al propietario que renueve el plan.</p>
+          }
+        </div>
+      } @else if (auth.planGrace()) {
+        <div class="plan-banner plan-banner-expired" role="alert" data-plan-grace>
+          <div class="min-w-0">
+            <p class="font-bold">Tu plan venció el {{ user.plan.expiresAt | date: 'dd/MM/yyyy' }}</p>
+            <p class="text-sm font-medium opacity-90">Todo sigue funcionando hasta el {{ user.plan.graceEndsAt | date: 'dd/MM/yyyy' }}. Ese día tu sitio se pausa y tus clientes dejan de ver tu carta.</p>
+          </div>
+          @if (auth.isOwner()) {
+            <a routerLink="/admin/plan" class="btn btn-primary btn-sm shrink-0" data-renew>Renovar ahora</a>
           } @else {
             <p class="text-sm font-bold shrink-0">Pide al propietario que renueve el plan.</p>
           }
         </div>
       } @else if (soon() !== null) {
         <div class="plan-banner plan-banner-soon" data-plan-soon>
-          <p class="min-w-0 text-sm font-bold">Tu plan vence en {{ soon() }} {{ soon() === 1 ? 'día' : 'días' }} ({{ user.plan.expiresAt | date: 'dd/MM/yyyy' }}).</p>
+          <p class="min-w-0 text-sm font-bold">Tu plan vence en {{ soon() }} {{ soon() === 1 ? 'día' : 'días' }} ({{ user.plan.expiresAt | date: 'dd/MM/yyyy' }}). Si renuevas ahora, el tiempo se suma y no pierdes ningún día.</p>
           @if (auth.isOwner()) {
-            <button type="button" class="btn btn-secondary btn-sm shrink-0" data-renew (click)="plan.openRenewal()">Renovar</button>
+            <a routerLink="/admin/plan" class="btn btn-secondary btn-sm shrink-0" data-renew>Renovar</a>
           }
         </div>
       }

@@ -1,5 +1,6 @@
 import { Component, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import type { Options } from 'qr-code-styling';
 import { toProblem } from '../core/api-error';
@@ -10,7 +11,7 @@ import { DEFAULT_QR_STYLE, QrBackgroundMode, QrCornerType, QrDotType, QrStyle, Q
 import { QrCanvas } from '../shared/ui/qr-canvas';
 
 @Component({
-  imports: [FormsModule, QrCanvas],
+  imports: [FormsModule, QrCanvas, RouterLink],
   selector: 'app-qr-generator-page',
   template: `
     <section class="qr-page max-w-6xl mx-auto">
@@ -114,6 +115,43 @@ import { QrCanvas } from '../shared/ui/qr-canvas';
           }
         </aside>
       </div>
+
+      <section class="card mt-6 p-4 md:p-7" aria-labelledby="table-qr-title" data-table-qr>
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-wider text-muted">Plan Profesional</p>
+            <h2 id="table-qr-title" class="mt-1 font-display text-xl md:text-2xl font-black">QR por mesa</h2>
+            <p class="mt-2 max-w-2xl text-sm font-medium text-muted">Un código para cada mesa: al escanearlo, tu cliente ve tu carta con el número de su mesa. Imprime la hoja, recórtala y colócala en cada mesa.</p>
+          </div>
+        </div>
+        @if (!tableQr()) {
+          <div class="mt-4 rounded-2xl border border-line bg-surface-2 p-4" data-table-qr-locked>
+            <p class="text-sm font-bold">Tu plan {{ planName() }} no incluye QR por mesa.</p>
+            <p class="mt-1 text-sm font-medium text-muted">Con el plan Profesional generas hasta 30 códigos, uno por mesa.</p>
+            @if (isOwner()) { <a routerLink="/admin/plan" class="btn btn-primary btn-sm mt-3" data-table-qr-upgrade>Pasar a Profesional</a> }
+          </div>
+        } @else {
+          <div class="mt-5 flex flex-wrap items-end gap-3 no-print">
+            <label class="qr-field w-32"><span>Desde la mesa</span>
+              <input class="input" type="number" min="1" [max]="maxTables()" inputmode="numeric" data-table-from [ngModel]="tableFrom()" (ngModelChange)="setFrom($event)"></label>
+            <label class="qr-field w-32"><span>Cantidad</span>
+              <input class="input" type="number" min="1" [max]="maxTables()" inputmode="numeric" data-table-count [ngModel]="tableCount()" (ngModelChange)="setCount($event)"></label>
+            <button type="button" class="btn btn-primary" data-table-print (click)="printTables()">Imprimir hoja</button>
+            <p class="w-full text-xs font-medium text-muted">Tu plan incluye hasta {{ maxTables() }} mesas. Los códigos usan el diseño de arriba.</p>
+          </div>
+          <div class="table-qr-sheet mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5" data-table-sheet>
+            @for (table of tables(); track table) {
+              <figure class="table-qr-card rounded-2xl border border-line bg-white p-3 text-center text-[#1f1a17]" [attr.data-table]="table">
+                <app-qr-canvas [options]="tableQrOptions().get(table)!" [label]="'Código QR de la mesa ' + table" />
+                <figcaption class="mt-2">
+                  <span class="block font-display text-xl font-black">Mesa {{ table }}</span>
+                  <span class="block text-[11px] font-bold opacity-70">Escanea para ver la carta · {{ businessName() }}</span>
+                </figcaption>
+              </figure>
+            }
+          </div>
+        }
+      </section>
     </section>
   `,
 })
@@ -131,6 +169,18 @@ export class QrGeneratorPage implements OnInit {
   protected readonly backgroundMode = signal<QrBackgroundMode>(DEFAULT_QR_STYLE.backgroundMode);
   protected readonly useLogo = signal(DEFAULT_QR_STYLE.useLogo);
   protected readonly saving = signal(false);
+  protected readonly tableFrom = signal(1);
+  protected readonly tableCount = signal(10);
+  protected readonly tableQr = computed(() => this.auth.limits()?.tableQr ?? false);
+  protected readonly maxTables = computed(() => Math.max(1, this.auth.limits()?.maxTableQr ?? 0));
+  protected readonly planName = computed(() => this.auth.limits()?.name ?? '');
+  protected readonly isOwner = computed(() => this.auth.isOwner());
+  protected readonly businessName = computed(() => this.auth.user()?.tenant.name ?? '');
+  protected readonly tables = computed(() => {
+    const from = this.tableFrom();
+    const last = Math.min(this.maxTables(), from + this.tableCount() - 1);
+    return Array.from({ length: Math.max(0, last - from + 1) }, (_, i) => from + i);
+  });
 
   protected readonly canSave = computed(() => this.auth.canEditSite());
   protected readonly logoUrl = computed(() => this.auth.user()?.tenant.logoUrl ?? null);
@@ -179,6 +229,29 @@ export class QrGeneratorPage implements OnInit {
     } finally {
       this.saving.set(false);
     }
+  }
+
+  protected readonly tableQrOptions = computed(() => {
+    const style: QrStyle = { dotType: this.dotType(), cornerType: this.cornerType(), dotColor: this.dotColor(), backgroundMode: 'solid', backgroundColor: '#ffffff', useLogo: this.useLogo() };
+    const base = `${location.origin}/${this.auth.user()?.tenant.slug ?? ''}`;
+    return new Map(this.tables().map(table => [table, buildQrOptions(style, `${base}?mesa=${table}&src=qr`, this.logoUrl(), 220, 8)]));
+  });
+
+  protected setFrom(value: number | string): void {
+    this.tableFrom.set(this.clamp(value, this.maxTables()));
+  }
+
+  protected setCount(value: number | string): void {
+    this.tableCount.set(this.clamp(value, this.maxTables()));
+  }
+
+  private clamp(value: number | string, max: number): number {
+    const number = Math.trunc(Number(value));
+    return Number.isFinite(number) ? Math.min(max, Math.max(1, number)) : 1;
+  }
+
+  protected printTables(): void {
+    window.print();
   }
 
   protected async download(extension: 'png' | 'svg'): Promise<void> {

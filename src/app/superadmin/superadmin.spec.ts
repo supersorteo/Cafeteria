@@ -1,6 +1,7 @@
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { vi } from 'vitest';
 import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { routes } from '../app.routes';
@@ -280,7 +281,7 @@ describe('superadmin', () => {
       ]);
 
       const plans = Array.from(root().querySelectorAll('table [data-plan]')).map(p => p.textContent?.replace(/\s+/g, ' ').trim());
-      expect(plans).toEqual(['Vence 10/03/2027', 'Venció 05/10/2026', 'Sin vencimiento']);
+      expect(plans).toEqual(['Vence 10/03/2027', 'Venció 05/10/2026 · en pausa', 'Sin vencimiento']);
       expect(root().querySelector('table [data-slug="bar-b"] [data-plan] .text-danger')).not.toBeNull();
     });
 
@@ -318,6 +319,32 @@ describe('superadmin', () => {
       await answerMatching(http, r => r.url === `${API}/tenants` && r.params.get('status') === 'suspended', 'filter', page([]));
       await ui();
       expect(text()).toContain('Sin resultados');
+    });
+
+    it('should list the businesses in grace and remind them by WhatsApp with a ready message', async () => {
+      await openPanel();
+      click('[data-filter="grace"]');
+      await answerMatching(http, r => r.url === `${API}/tenants` && r.params.get('status') === 'grace', 'grace', page([
+        tenant({ name: 'Café Ana', planExpiresAt: '2026-11-25T12:00:00Z', planStatus: 'GRACE', whatsappNumber: '+54 9 11 0000-0009' }),
+        tenant({ id: 't2', slug: 'sin-numero', planExpiresAt: '2026-11-25T12:00:00Z', planStatus: 'GRACE', whatsappNumber: null }),
+      ]));
+      await ui();
+
+      expect(root().querySelector('table [data-slug="negocio-a"] [data-stage="GRACE"]')?.textContent).toContain('Venció 25/11/2026 · en gracia');
+      expect(root().querySelector('table [data-slug="sin-numero"] [data-remind]')).toBeNull();
+
+      const opened: string[] = [];
+      const anchor = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+        opened.push(this.href);
+      });
+      (root().querySelector('table [data-slug="negocio-a"] [data-remind]') as HTMLElement).click();
+      anchor.mockRestore();
+
+      expect(opened[0].startsWith('whatsapp://send?phone=5491100000009&text=')).toBe(true);
+      const message = decodeURIComponent(opened[0].split('text=')[1]);
+      expect(message).toContain('*Café Ana* venció el 25/11/2026');
+      expect(message).toContain('hasta el 28/11/2026');
+      expect(message).toContain(`${location.origin}/admin/plan`);
     });
 
     it('should paginate through the server pages', async () => {

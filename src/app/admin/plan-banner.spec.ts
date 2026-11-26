@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { vi } from 'vitest';
 import { Me } from '../core/auth.service';
 import { AuthService } from '../core/auth.service';
@@ -59,6 +60,7 @@ describe('PlanBanner', () => {
     refresh = vi.fn().mockResolvedValue(undefined);
     TestBed.configureTestingModule({
       providers: [
+        provideRouter([]),
         provideHttpClient(),
         provideHttpClientTesting(),
         {
@@ -69,6 +71,7 @@ describe('PlanBanner', () => {
             usage: () => user()?.plan?.usage ?? null,
             isOwner: () => user()?.role === 'OWNER',
             planExpired: () => user()?.plan.status === 'EXPIRED',
+            planGrace: () => user()?.plan.status === 'GRACE',
             ensureCsrf: () => fetch('/api/v1/auth/csrf').catch(() => undefined),
             refreshUser: refresh,
           },
@@ -113,6 +116,16 @@ describe('PlanBanner', () => {
     expect(el(fixture).querySelector('[data-renew]')).not.toBeNull();
   });
 
+  it('should keep everything working during the grace days and say when the site pauses', async () => {
+    const fixture = await render(makeMe({ plan: { expiresAt: '2026-10-20T12:00:00Z', graceEndsAt: '2026-10-23T12:00:00Z', status: 'GRACE' } }));
+
+    const banner = el(fixture).querySelector('[data-plan-grace]')!;
+    expect(banner.textContent).toContain('Tu plan venció el 20/10/2026');
+    expect(banner.textContent).toContain('Todo sigue funcionando hasta el 23/10/2026');
+    expect(el(fixture).querySelector('[data-plan-expired]')).toBeNull();
+    expect(el(fixture).querySelector('[data-renew]')?.getAttribute('href')).toBe('/admin/plan');
+  });
+
   it('should tell an editor to ask the owner instead of offering the renewal', async () => {
     const fixture = await render(expired('EDITOR'));
 
@@ -122,7 +135,7 @@ describe('PlanBanner', () => {
 
   it('should renew with a formatted code, refresh the session and close the dialog', async () => {
     const fixture = await render(expired());
-    (el(fixture).querySelector('[data-renew]') as HTMLButtonElement).click();
+    plan.openRenewal();
     await ui(fixture);
 
     const input = dialog()!.querySelector('[data-renew-code]') as HTMLInputElement;

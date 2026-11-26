@@ -40,6 +40,9 @@ import { QrThumbnail } from '../shared/ui/qr-thumbnail';
                 <a routerLink="/admin/coupons" routerLinkActive="active" class="nav-link" [attr.title]="collapsed() ? 'Cupones' : null">
                   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7a3 3 0 0 0 0 6 3 3 0 0 0 0 6h16v-5a3 3 0 0 1 0-6V3H4a3 3 0 0 0 0 4z"/><path d="M8 7h.01M8 12h.01M8 17h.01"/></svg>
                   <span class="side-text">Cupones</span></a>
+                <a routerLink="/admin/plan" routerLinkActive="active" class="nav-link" [attr.title]="collapsed() ? 'Mi plan' : null" data-nav-plan>
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg>
+                  <span class="side-text">Mi plan</span></a>
                 <a routerLink="/admin/site" routerLinkActive="active" class="nav-link" [attr.title]="collapsed() ? 'Configuración' : null">
                   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
                   <span class="side-text">Configuración</span></a>
@@ -106,6 +109,7 @@ import { QrThumbnail } from '../shared/ui/qr-thumbnail';
                 <span class="badge mt-2">{{ user.role === 'OWNER' ? 'Propietario' : 'Editor' }}</span>
                 <app-qr-thumbnail class="on-light block mt-5" [url]="businessUrl(user.tenant.slug)" />
                 <a [routerLink]="['/', user.tenant.slug]" [queryParams]="{ ref: 'panel' }" class="btn btn-secondary w-full mt-5" (click)="accountOpen.set(false)">Ver mi sitio</a>
+                <a routerLink="/admin/plan" class="btn btn-secondary w-full mt-2" data-account-plan (click)="accountOpen.set(false)">Mi plan</a>
                 <div modal-footer>
                   <button type="button" class="btn btn-danger w-full" (click)="logout()" [disabled]="loggingOut()">{{ loggingOut() ? 'Saliendo…' : 'Cerrar sesión' }}</button>
                 </div>

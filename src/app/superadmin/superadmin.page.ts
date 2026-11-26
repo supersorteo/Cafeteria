@@ -1,11 +1,12 @@
-import { DatePipe, NgTemplateOutlet } from '@angular/common';
+import { DatePipe, NgTemplateOutlet, formatDate } from '@angular/common';
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { isConnectionProblem, toProblem } from '../core/api-error';
 import { NoticeService } from '../core/notice.service';
-import { SuperAdminAudit, SuperAdminApi, SuperAdminTenantPage, SuperAdminStats, SuperAdminTenant, TenantStatusFilter } from '../core/superadmin.api';
+import { openWhatsApp } from '../core/billing.api';
+import { SuperAdminAudit, SuperAdminApi, SuperAdminTenantPage, SuperAdminStats, SuperAdminTenant, TenantStatusFilter, planReminder, planStageText } from '../core/superadmin.api';
 import { SuperAdminAuth } from '../core/superadmin-auth.service';
 import { ConfirmDialog } from '../shared/confirm-dialog';
 import { EmptyState } from '../shared/ui/empty-state';
@@ -122,7 +123,7 @@ const ACTION_LABELS: Record<string, string> = {
                           </td>
                           <td class="px-4 py-3 align-top"><ng-container *ngTemplateOutlet="badges; context: { $implicit: tenant }" /></td>
                           <td class="px-4 py-3 align-top whitespace-nowrap" data-plan>
-                            @if (tenant.planExpiresAt) { <span [class.text-danger]="tenant.planStatus === 'EXPIRED'" class="font-medium">{{ tenant.planStatus === 'EXPIRED' ? 'Venció' : 'Vence' }} {{ tenant.planExpiresAt | date: 'dd/MM/yyyy' }}</span> } @else { <span class="text-muted">Sin vencimiento</span> }
+                            <span class="font-medium" [class.text-danger]="lapsed(tenant)" [class.text-warning]="tenant.planStatus === 'SOON'" [class.text-muted]="!tenant.planExpiresAt" [attr.data-stage]="tenant.planStatus">{{ planText(tenant) }}</span>
                           </td>
                           <td class="px-4 py-3 align-top whitespace-nowrap text-muted">{{ tenant.createdAt | date: 'dd/MM/yyyy' }}</td>
                           <td class="px-4 py-3 align-top"><div class="flex justify-end gap-2"><ng-container *ngTemplateOutlet="actions; context: { $implicit: tenant }" /></div></td>
@@ -143,7 +144,7 @@ const ACTION_LABELS: Record<string, string> = {
                         <ng-container *ngTemplateOutlet="badges; context: { $implicit: tenant }" />
                       </div>
                       <p class="mt-2 text-sm break-all">{{ tenant.ownerEmail ?? '—' }}</p>
-                      <p class="text-xs font-medium" data-plan [class.text-danger]="tenant.planStatus === 'EXPIRED'">{{ tenant.planExpiresAt ? (tenant.planStatus === 'EXPIRED' ? 'Plan vencido el ' : 'Plan hasta el ') + (tenant.planExpiresAt | date: 'dd/MM/yyyy') : 'Sin vencimiento' }}</p>
+                      <p class="text-xs font-medium" data-plan [class.text-danger]="lapsed(tenant)" [class.text-warning]="tenant.planStatus === 'SOON'" [attr.data-stage]="tenant.planStatus">{{ planText(tenant) }}</p>
                       <p class="text-xs text-muted">Alta {{ tenant.createdAt | date: 'dd/MM/yyyy' }}@if (tenant.editors > 0) { · + {{ tenant.editors }} editor{{ tenant.editors === 1 ? '' : 'es' }} }</p>
                       <div class="mt-3 flex flex-wrap gap-2"><ng-container *ngTemplateOutlet="actions; context: { $implicit: tenant }" /></div>
                     </li>
@@ -209,6 +210,9 @@ const ACTION_LABELS: Record<string, string> = {
       } @else {
         <button type="button" class="btn btn-secondary btn-sm" data-suspend (click)="ask('suspend', tenant)">Suspender</button>
         <button type="button" class="btn btn-secondary btn-sm opacity-50" disabled data-delete-locked title="Suspende el negocio antes de eliminarlo">Eliminar</button>
+      }
+      @if (canRemind(tenant)) {
+        <button type="button" class="btn btn-secondary btn-sm" data-remind (click)="remind(tenant)">Recordar por WhatsApp</button>
       }
     </ng-template>
 
@@ -294,7 +298,29 @@ export class SuperAdminPage implements OnInit, OnDestroy {
     { id: 'all', label: 'Todos' },
     { id: 'active', label: 'Activos' },
     { id: 'suspended', label: 'Suspendidos' },
+    { id: 'soon', label: 'Vencen esta semana' },
+    { id: 'grace', label: 'En gracia' },
+    { id: 'paused', label: 'En pausa' },
+    { id: 'archived', label: 'Archivados' },
   ];
+
+  private readonly day = (iso: string) => formatDate(iso, 'dd/MM/yyyy', 'en-US');
+
+  protected planText(tenant: SuperAdminTenant): string {
+    return planStageText(tenant.planStatus, tenant.planExpiresAt, this.day);
+  }
+
+  protected lapsed(tenant: SuperAdminTenant): boolean {
+    return tenant.planStatus === 'GRACE' || tenant.planStatus === 'EXPIRED' || tenant.planStatus === 'ARCHIVED';
+  }
+
+  protected canRemind(tenant: SuperAdminTenant): boolean {
+    return !tenant.suspended && !!tenant.whatsappNumber?.replace(/\D/g, '') && tenant.planStatus !== 'ACTIVE' && !!tenant.planExpiresAt;
+  }
+
+  protected remind(tenant: SuperAdminTenant): void {
+    openWhatsApp(tenant.whatsappNumber!.replace(/\D/g, ''), planReminder(tenant, location.origin, this.day));
+  }
 
   protected readonly scopeItems = [{ id: 'mine', label: 'Mi cuenta' }, { id: 'others', label: 'Otro administrador' }];
   protected readonly tab = signal<'tenants' | 'codes' | 'orders' | 'plans' | 'activity'>('tenants');

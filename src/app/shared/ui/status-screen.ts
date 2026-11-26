@@ -24,6 +24,14 @@ import { Component, input } from '@angular/core';
                 <path d="M60 60v12M60 80v.01" stroke-width="4"/>
               </g>
             }
+            @case ('paused') {
+              <g class="status-float">
+                <path d="M28 52h52v18a22 22 0 0 1-22 22h-8a22 22 0 0 1-22-22V52z"/>
+                <path d="M80 58h6a10 10 0 0 1 0 20h-7"/>
+                <path d="M48 62v14M60 62v14" stroke-width="4"/>
+              </g>
+              <path d="M44 22c0 8-4 8-4 16M56 20c0 8-4 8-4 16M68 22c0 7-3 7-3 14" stroke-width="2.5" opacity=".5" class="status-steam"/>
+            }
             @default {
               <circle cx="60" cy="60" r="40" opacity=".2"/>
               <path class="status-spin" d="M60 20a40 40 0 0 1 40 40"/>
@@ -48,7 +56,7 @@ import { Component, input } from '@angular/core';
   `,
 })
 export class StatusScreen {
-  readonly kind = input<'notfound' | 'error' | 'loading'>('loading');
+  readonly kind = input<'notfound' | 'error' | 'loading' | 'paused'>('loading');
   readonly title = input.required<string>();
   readonly accent = input('');
   readonly eyebrow = input('');

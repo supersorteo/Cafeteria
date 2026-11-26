@@ -133,7 +133,7 @@ const STATUS_LABELS: Record<string, string> = { AVAILABLE: 'Disponible', REDEEME
                     </div>
                     <p class="truncate" data-code-email [title]="code.redeemedByEmail ?? ''">{{ code.redeemedByEmail ?? '—' }}</p>
                     <p class="text-xs text-muted" data-code-registered>Registro {{ code.redeemedAt | date: 'dd/MM/yyyy HH:mm' }}</p>
-                    <p class="text-xs font-medium" data-code-expires [class.text-danger]="code.planStatus === 'EXPIRED'">{{ code.planExpiresAt ? (code.planStatus === 'EXPIRED' ? 'Venció el ' : 'Vence el ') + (code.planExpiresAt | date: 'dd/MM/yyyy') : 'Sin vencimiento' }}</p>
+                    <p class="text-xs font-medium" data-code-expires [class.text-danger]="(code.planStatus === 'EXPIRED' || code.planStatus === 'GRACE' || code.planStatus === 'ARCHIVED')">{{ code.planExpiresAt ? ((code.planStatus === 'EXPIRED' || code.planStatus === 'GRACE' || code.planStatus === 'ARCHIVED') ? 'Venció el ' : 'Vence el ') + (code.planExpiresAt | date: 'dd/MM/yyyy') : 'Sin vencimiento' }}</p>
                   } @else {
                     <p class="text-xs text-muted">Sin usar</p>
                   }

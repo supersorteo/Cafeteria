@@ -1,4 +1,8 @@
 <div class="antialiased public-site-root">
+@if (table(); as number) {
+  <p class="table-pill fixed left-1/2 top-20 z-30 -translate-x-1/2 rounded-full px-4 py-1.5 text-sm font-black shadow-lg"
+     style="background:rgb(var(--primary));color:rgb(var(--primary-fg))" role="status" data-table-pill>Mesa {{ number }} · ¡Bienvenido!</p>
+}
 <!-- ============ NAV ============ -->
 <nav class="site-nav fixed top-0 inset-x-0 z-40 backdrop-blur-md bg-[#FFF6EC]/85 border-b-2 border-[#FF5C39]/15" [class.scrolled]="scrolled()">
   <div class="site-nav-bar max-w-7xl mx-auto px-5 h-16 flex items-center justify-between">

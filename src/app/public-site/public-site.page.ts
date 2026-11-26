@@ -17,6 +17,7 @@ import { PublicSite } from './public-site';
 type State =
   | { kind: 'loading' }
   | { kind: 'not-found' }
+  | { kind: 'paused' }
   | { kind: 'error' }
   | { kind: 'ready'; site: SiteData };
 
@@ -26,7 +27,7 @@ type State =
   template: `
     @switch (status()) {
       @case ('ready') {
-        <app-public-site [site]="site()!" />
+        <app-public-site [site]="site()!" [table]="table()" />
       }
       @case ('not-found') {
         @if (barMode() === 'panel') {
@@ -36,6 +37,17 @@ type State =
           </app-status-screen>
         } @else {
           <app-not-found />
+        }
+      }
+      @case ('paused') {
+        @if (barMode() === 'panel') {
+          <app-status-screen kind="paused" eyebrow="Sitio en pausa" title="Tu sitio está " accent="en pausa"
+                             message="Tu plan venció y tus clientes ven este aviso en lugar de tu carta. Tus datos están guardados: renueva y todo vuelve al instante.">
+            <a routerLink="/admin/plan" class="btn btn-primary btn-lg" data-paused-renew>Renovar ahora</a>
+          </app-status-screen>
+        } @else {
+          <app-status-screen kind="paused" title="Volvemos " accent="pronto"
+                             message="Este local está actualizando su carta digital. Mientras tanto, consulta el menú directamente en el lugar." />
         }
       }
       @case ('error') {
@@ -75,12 +87,22 @@ export class PublicSitePage {
         this.api.get(slug).pipe(
           map((site): State => ({ kind: 'ready', site })),
           catchError((error: HttpErrorResponse) =>
-            of<State>(error.status === 404 ? { kind: 'not-found' } : { kind: 'error' })),
+            of<State>(error.status === 404 ? { kind: 'not-found' } : error.status === 410 ? { kind: 'paused' } : { kind: 'error' })),
           startWith<State>({ kind: 'loading' }),
         ),
       ),
     ),
     { initialValue: { kind: 'loading' } as State },
+  );
+
+  protected readonly table = toSignal(
+    this.route.queryParamMap.pipe(
+      map(params => {
+        const value = Number(params.get('mesa'));
+        return Number.isInteger(value) && value >= 1 && value <= 500 ? value : null;
+      }),
+    ),
+    { initialValue: null },
   );
 
   protected readonly ref = toSignal(

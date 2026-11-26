@@ -52,6 +52,7 @@ const NO_PREFERENCE = 'Sin preferencia';
 export class PublicSite implements AfterViewInit {
   readonly site = input.required<SiteData>();
   readonly preview = input(false);
+  readonly table = input<number | null>(null);
 
   protected readonly selectedCategoryId = signal<string | null>(null);
   protected readonly formError = signal<string | null>(null);
@@ -245,6 +246,7 @@ export class PublicSite implements AfterViewInit {
       `Hora: ${this.reservation.time}`,
       `Personas: ${this.reservation.people}`,
       ...(showArea ? [`Zona: ${this.reservation.area}`] : []),
+      ...(this.table() ? [`Mesa: ${this.table()}`] : []),
       ...optionalDetails,
       '',
       'Quedo pendiente de su confirmación. ¡Gracias!',

@@ -15,7 +15,42 @@ export interface SuperAdminTenant {
   editors: number;
   createdAt: string;
   planExpiresAt: string | null;
-  planStatus: 'ACTIVE' | 'EXPIRED';
+  planStatus: PlanStage;
+  whatsappNumber?: string | null;
+}
+
+export type PlanStage = 'ACTIVE' | 'SOON' | 'GRACE' | 'EXPIRED' | 'ARCHIVED';
+
+export function planStageText(stage: PlanStage | null, expiresAt: string | null, format: (iso: string) => string): string {
+  if (!expiresAt) {
+    return 'Sin vencimiento';
+  }
+  const date = format(expiresAt);
+  switch (stage) {
+    case 'SOON': return `Vence pronto: ${date}`;
+    case 'GRACE': return `Venció ${date} · en gracia`;
+    case 'EXPIRED': return `Venció ${date} · en pausa`;
+    case 'ARCHIVED': return `Venció ${date} · archivado`;
+    default: return `Vence ${date}`;
+  }
+}
+
+export function planReminder(tenant: Pick<SuperAdminTenant, 'name' | 'planStatus' | 'planExpiresAt'>, origin: string, format: (iso: string) => string): string {
+  const renew = `${origin}/admin/plan`;
+  const expires = tenant.planExpiresAt ? format(tenant.planExpiresAt) : '';
+  const pauses = tenant.planExpiresAt ? format(new Date(new Date(tenant.planExpiresAt).getTime() + 3 * 86_400_000).toISOString()) : '';
+  switch (tenant.planStatus) {
+    case 'GRACE':
+      return `Hola, te escribimos de Deliora. El plan de *${tenant.name}* venció el ${expires}. Todo sigue funcionando hasta el ${pauses}; `
+        + `después el sitio se pausa y tus clientes dejan de ver la carta.\nRenuévalo en un minuto aquí: ${renew}`;
+    case 'EXPIRED':
+    case 'ARCHIVED':
+      return `Hola, te escribimos de Deliora. El sitio de *${tenant.name}* está en pausa porque el plan venció el ${expires}. `
+        + `Tu carta y tus datos están guardados: al renovar, todo vuelve al instante.\nRenuévalo aquí: ${renew}`;
+    default:
+      return `Hola, te escribimos de Deliora. El plan de *${tenant.name}* vence el ${expires}. `
+        + `Si lo renuevas antes, el tiempo se suma y no pierdes ningún día.\nRenuévalo aquí: ${renew}`;
+  }
 }
 
 export interface SuperAdminTenantPage {
@@ -44,7 +79,7 @@ export interface SuperAdminAudit {
   detail: string | null;
 }
 
-export type TenantStatusFilter = 'all' | 'active' | 'suspended';
+export type TenantStatusFilter = 'all' | 'active' | 'suspended' | 'soon' | 'grace' | 'paused' | 'archived';
 
 export type CodeStatus = 'AVAILABLE' | 'REDEEMED' | 'DISABLED';
 export type CodeStatusFilter = 'all' | CodeStatus;
@@ -77,7 +112,7 @@ export interface ActivationCode {
   tenantName: string | null;
   tenantCreatedAt: string | null;
   planExpiresAt: string | null;
-  planStatus: 'ACTIVE' | 'EXPIRED' | null;
+  planStatus: PlanStage | null;
   planCode?: string | null;
 }
 

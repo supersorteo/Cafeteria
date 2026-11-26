@@ -145,6 +145,11 @@ export class OrderResultPage implements OnInit {
   }
 
   private async apply(state: OrderState): Promise<void> {
+    if (state.status === 'PAID' && state.ready && state.renewal) {
+      await this.auth.refreshUser().catch(() => undefined);
+      await this.router.navigate(['/admin/plan'], { queryParams: { renovado: 1 }, replaceUrl: true });
+      return;
+    }
     if (state.status === 'PAID' && state.ready) {
       await this.enter();
       return;

@@ -1,4 +1,4 @@
-import { Component, ElementRef, InjectionToken, OnDestroy, OnInit, computed, effect, inject, input, signal, viewChild } from '@angular/core';
+import { Component, ElementRef, InjectionToken, OnDestroy, OnInit, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -39,10 +39,11 @@ interface PayPalSdk {
   template: `
     <form class="space-y-5" data-online-checkout novalidate (submit)="$event.preventDefault()">
       <div>
-        <h2 class="font-display text-xl font-black">Crea tu negocio y paga</h2>
+        <h2 class="font-display text-xl font-black">{{ renewal() ? 'Pagar la renovación' : 'Crea tu negocio y paga' }}</h2>
         <p class="mt-1 text-sm font-medium text-muted" data-total>{{ total() }}</p>
       </div>
 
+      @if (!renewal()) {
       <div class="grid gap-4 sm:grid-cols-2">
         <div class="sm:col-span-2">
           <label for="co-business" class="text-xs font-bold uppercase tracking-wider text-muted">Nombre del negocio</label>
@@ -147,6 +148,7 @@ interface PayPalSdk {
           @if (errors().password) { <p class="field-error" data-field-error="password">{{ errors().password }}</p> }
         </div>
       </div>
+      }
 
       @if (error()) { <p role="alert" class="rounded-xl bg-danger/10 px-4 py-3 text-sm font-bold text-danger" data-online-error>{{ error() }}</p> }
       @if (notice()) { <p role="status" class="rounded-xl bg-surface-2 px-4 py-3 text-sm font-bold" data-online-notice>{{ notice() }}</p> }
@@ -199,6 +201,9 @@ export class OnlineCheckout implements OnInit, OnDestroy {
   readonly region = input.required<RegionOption>();
   readonly method = input.required<string>();
   readonly config = input.required<CheckoutConfig>();
+  readonly mode = input<'signup' | 'renewal'>('signup');
+  readonly renewed = output<OrderState>();
+  protected readonly renewal = computed(() => this.mode() === 'renewal');
 
   private readonly api = inject(BillingApi);
   private readonly auth = inject(AuthService);
@@ -331,6 +336,9 @@ export class OnlineCheckout implements OnInit, OnDestroy {
   }
 
   private restoreDraft(): void {
+    if (this.renewal()) {
+      return;
+    }
     const draft = loadDraft();
     if (!draft || draft.plan !== this.plan().code || draft.region !== this.region().code || draft.method !== this.method()) {
       return;
@@ -548,6 +556,11 @@ export class OnlineCheckout implements OnInit, OnDestroy {
   }
 
   private attempt(): boolean {
+    if (this.renewal()) {
+      this.notice.set(null);
+      this.error.set(null);
+      return true;
+    }
     this.attempted.set(true);
     this.notice.set(null);
     const errors = { ...this.localErrors(), ...this.serverErrors() };
@@ -572,18 +585,22 @@ export class OnlineCheckout implements OnInit, OnDestroy {
   private async startCheckout(method: string): Promise<Checkout> {
     this.busy.set(true);
     try {
-      const checkout = await firstValueFrom(this.api.checkout({
-        planCode: this.plan().code,
-        region: this.region().code,
-        method,
-        email: this.email().trim(),
-        businessName: this.businessName().trim(),
-        slug: this.slug().trim(),
-        password: this.password(),
-        emailProof: this.proof,
-      }));
+      const checkout = await firstValueFrom(this.renewal()
+        ? this.api.renewCheckout({ planCode: this.plan().code, region: this.region().code, method })
+        : this.api.checkout({
+          planCode: this.plan().code,
+          region: this.region().code,
+          method,
+          email: this.email().trim(),
+          businessName: this.businessName().trim(),
+          slug: this.slug().trim(),
+          password: this.password(),
+          emailProof: this.proof,
+        }));
       this.checkout = checkout;
-      rememberCheckout(checkout.reference, checkout.claimToken);
+      if (checkout.claimToken) {
+        rememberCheckout(checkout.reference, checkout.claimToken);
+      }
       this.locked.set(true);
       return checkout;
     } catch (error) {
@@ -819,7 +836,14 @@ export class OnlineCheckout implements OnInit, OnDestroy {
     if (this.popup && !this.popup.closed) {
       this.popup.close();
     }
-    if (state.ready) {
+    if (state.ready && this.renewal()) {
+      this.stopWaiting();
+      this.releaseCheckout();
+      await this.auth.refreshUser();
+      this.renewed.emit(state);
+      return;
+    }
+    if (state.ready && checkout.claimToken) {
       try {
         await firstValueFrom(this.api.startSession(checkout.reference, checkout.claimToken));
         await this.auth.refreshUser();

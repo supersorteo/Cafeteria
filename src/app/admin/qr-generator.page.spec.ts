@@ -3,7 +3,8 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { signal } from '@angular/core';
 import { vi } from 'vitest';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { AuthService } from '../core/auth.service';
+import { provideRouter } from '@angular/router';
+import { AuthService, PlanLimits } from '../core/auth.service';
 import { NoticeService } from '../core/notice.service';
 import { answer, settle } from '../testing/http';
 import { makeMe } from '../testing/http';
@@ -16,6 +17,8 @@ describe('QrGeneratorPage', () => {
   let fixture: ComponentFixture<QrGeneratorPage>;
   let notices: NoticeService;
   const canEdit = signal(true);
+  const limits = signal<PlanLimits | null>(null);
+  const owner = signal(true);
   const refreshUser = vi.fn().mockResolvedValue(undefined);
   const user = signal(makeMe({ tenant: { id: 't1', slug: 'negocio-a', name: 'Negocio A', published: true, logoUrl: '/media/logo' } }));
 
@@ -36,12 +39,15 @@ describe('QrGeneratorPage', () => {
 
   beforeEach(() => {
     canEdit.set(true);
+    limits.set(null);
+    owner.set(true);
     refreshUser.mockClear();
     TestBed.configureTestingModule({
       providers: [
+        provideRouter([]),
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: AuthService, useValue: { user, canEditSite: canEdit, refreshUser } },
+        { provide: AuthService, useValue: { user, canEditSite: canEdit, refreshUser, limits, isOwner: owner } },
       ],
     });
     http = TestBed.inject(HttpTestingController);
@@ -107,5 +113,47 @@ describe('QrGeneratorPage', () => {
 
     expect((root().querySelector('[data-qr-logo]') as HTMLInputElement).disabled).toBe(true);
     user.update(me => ({ ...me, tenant: { ...me.tenant, logoUrl: '/media/logo' } }));
+  });
+
+  describe('QR por mesa', () => {
+    const plan = (overrides: Partial<PlanLimits>): PlanLimits => ({
+      code: 'PROFESIONAL', name: 'Profesional', maxMenuItems: 100, maxActiveCoupons: 35, maxGallery: 15, maxTableQr: 30,
+      fullBranding: true, advancedCoupons: true, tableQr: true, prioritySupport: true, stats: false, ...overrides,
+    });
+    const set = async (selector: string, value: string) => {
+      const input = root().querySelector(selector) as HTMLInputElement;
+      input.value = value;
+      input.dispatchEvent(new Event('input'));
+      await ui();
+    };
+    const tables = () => [...root().querySelectorAll('[data-table]')].map(card => card.getAttribute('data-table'));
+
+    it('should invite to upgrade when the plan does not include table codes', async () => {
+      limits.set(plan({ code: 'EMPRENDEDOR', name: 'Emprendedor', tableQr: false, maxTableQr: 0 }));
+      await open();
+
+      expect(root().querySelector('[data-table-qr-locked]')?.textContent).toContain('Tu plan Emprendedor no incluye QR por mesa');
+      expect(root().querySelector('[data-table-qr-upgrade]')?.getAttribute('href')).toBe('/admin/plan');
+      expect(root().querySelector('[data-table-sheet]')).toBeNull();
+    });
+
+    it('should prepare one labelled code per table within the plan limit and print the sheet', async () => {
+      limits.set(plan({ maxTableQr: 12 }));
+      await open();
+
+      expect(tables()).toEqual(['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']);
+      expect(root().querySelector('[data-table="3"]')?.textContent).toContain('Mesa 3');
+      const options = (fixture.componentInstance as unknown as { tableQrOptions(): Map<number, { data?: string }> }).tableQrOptions();
+      expect(options.get(3)?.data).toBe(`${location.origin}/negocio-a?mesa=3&src=qr`);
+
+      await set('[data-table-from]', '8');
+      await set('[data-table-count]', '20');
+      expect(tables()).toEqual(['8', '9', '10', '11', '12']);
+
+      const print = vi.spyOn(window, 'print').mockImplementation(() => undefined);
+      (root().querySelector('[data-table-print]') as HTMLElement).click();
+      expect(print).toHaveBeenCalled();
+      print.mockRestore();
+    });
   });
 });

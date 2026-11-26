@@ -410,3 +410,11 @@ app-dashboard-page, app-menu-page, app-site-page, app-setup-page{ display:block;
   .qr-actions{ grid-column:2; grid-row:2; margin:0 !important; }
   .qr-color-input{ height:2.5rem; }
 }
+
+.table-qr-card canvas,.table-qr-card svg{ width:100% !important; height:auto !important; }
+@media print{
+  body *{ visibility:hidden !important; }
+  .table-qr-sheet,.table-qr-sheet *{ visibility:visible !important; }
+  .table-qr-sheet{ position:absolute; inset:0 auto auto 0; width:100%; margin:0 !important; display:grid !important; grid-template-columns:repeat(3, 1fr) !important; gap:10mm !important; }
+  .table-qr-card{ break-inside:avoid; border:1px dashed #999 !important; }
+}

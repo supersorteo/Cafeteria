@@ -5,6 +5,8 @@ import { toProblem } from './api-error';
 
 export type Role = 'OWNER' | 'EDITOR';
 
+export type PlanStatus = 'ACTIVE' | 'GRACE' | 'EXPIRED' | 'ARCHIVED';
+
 export interface PlanLimits {
   code: string;
   name: string;
@@ -31,7 +33,8 @@ export interface Me {
   tenant: { id: string; slug: string; name: string; published: boolean; logoUrl: string | null };
   plan: {
     expiresAt: string | null;
-    status: 'ACTIVE' | 'EXPIRED';
+    status: PlanStatus;
+    graceEndsAt?: string | null;
     months?: number | null;
     qrCustomization?: boolean;
     planCode?: string;
@@ -64,7 +67,8 @@ export class AuthService {
     return state.status === 'authenticated' ? state.user : null;
   });
   readonly isOwner = computed(() => this.user()?.role === 'OWNER');
-  readonly planExpired = computed(() => this.user()?.plan?.status === 'EXPIRED');
+  readonly planExpired = computed(() => this.user()?.plan?.status === 'EXPIRED' || this.user()?.plan?.status === 'ARCHIVED');
+  readonly planGrace = computed(() => this.user()?.plan?.status === 'GRACE');
   readonly canEditSite = computed(() => this.isOwner() && !this.planExpired());
   readonly limits = computed(() => this.user()?.plan?.limits ?? null);
   readonly usage = computed(() => this.user()?.plan?.usage ?? null);

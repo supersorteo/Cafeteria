@@ -41,6 +41,7 @@ export const routes: Routes = [
       { path: 'menu', loadComponent: () => import('./admin/menu/menu.page').then(m => m.MenuPage) },
       { path: 'qr', loadComponent: () => import('./admin/qr-generator.page').then(m => m.QrGeneratorPage) },
       { path: 'coupons', loadComponent: () => import('./admin/coupons/coupons.page').then(m => m.CouponsPage) },
+      { path: 'plan', loadComponent: () => import('./admin/plan/my-plan.page').then(m => m.MyPlanPage) },
       {
         path: 'setup',
         canDeactivate: [unsavedChangesGuard],

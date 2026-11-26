@@ -49,7 +49,7 @@ describe('OrderResultPage', () => {
     sessionStorage.clear();
     TestBed.configureTestingModule({
       providers: [
-        provideRouter([{ path: 'pago/resultado', component: OrderResultPage }, { path: 'admin', component: AdminStub }]),
+        provideRouter([{ path: 'pago/resultado', component: OrderResultPage }, { path: 'admin', component: AdminStub }, { path: 'admin/plan', component: AdminStub }]),
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: AuthService, useValue: { refreshUser } },
@@ -164,6 +164,16 @@ describe('OrderResultPage', () => {
     await answer(http, `${API}/orders/PED-ABCD2345/state`, state({ status: 'EXPIRED' }));
     await ui();
     expect(view()).toBe('expired');
+  });
+
+  it('should take a renewal back to the plan page once it is applied, without any claim', async () => {
+    await harness.navigateByUrl('/pago/resultado?ref=PED-ABCD2345');
+    await answer(http, `${API}/orders/PED-ABCD2345/state`, state({ status: 'PAID', ready: true, renewal: true }));
+    await ui();
+
+    expect(refreshUser).toHaveBeenCalled();
+    expect(router.url).toBe('/admin/plan?renovado=1');
+    http.expectNone(`${API}/orders/PED-ABCD2345/session`);
   });
 
   it('should hand the Mercado Pago result to the tab that opened the payment window and close itself', async () => {
